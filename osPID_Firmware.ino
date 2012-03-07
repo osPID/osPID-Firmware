@@ -199,7 +199,7 @@ void loop()
       if(inputType == 0) input = thermocouple.readCelsius();
       else if(inputType == 1 || inputType == 2) input = readThermistorTemp(analogRead(thermistorPin));
     }
-    modelTime += 100; 
+    modelTime += 250; 
 
     unsigned long wind = (now - windowStartTime);
     if(wind>WindowSize)
