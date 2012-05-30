@@ -175,6 +175,7 @@ void loop()
     ioTime+=250;
 #ifdef USE_SIMULATION
     DoModel();
+    pidInput = input;
 #else
     input =  ReadInputFromCard();
     if(!isnan(input))pidInput = input;
@@ -801,9 +802,14 @@ void ProfileRunTime()
 
     if((now-helperTime)>curTime)gotonext=true;
   }
-  else if(curType==0 && (now<helperTime))
+  else if(curType==127) //buzz
   {
-    digitalWrite(buzzerPin,HIGH);
+    if(now<helperTime)digitalWrite(buzzerPin,HIGH);
+    else 
+    {
+       digitalWrite(buzzerPin,LOW);
+       gotonext=true;
+    }
   }
   else
   { //unrecognized type, kill the profile
@@ -851,6 +857,10 @@ void calcNextProf()
   {
     setpoint = curVal;
     helperTime = now;
+  }
+  else if(curType==127) //buzzer
+  {
+    helperTime = now + curTime;    
   }
   else
   {
