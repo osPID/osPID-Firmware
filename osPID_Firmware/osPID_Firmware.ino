@@ -116,7 +116,7 @@ void setup()
   lcd.setCursor(0,0);
   lcd.print(F(" osPID   "));
   lcd.setCursor(0,1);
-  lcd.print(F(" v1.50   "));
+  lcd.print(F(" v1.60   "));
   delay(1000);
 
   initializeEEPROM();

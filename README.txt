@@ -1,10 +1,18 @@
 /********************************************************
- * osPID Firmware,  Version 1.5
+ * osPID Firmware,  Version 1.6
  * by Brett Beauregard & Rocket Scream
  * License: GPLv3 & BSD License (For autotune)
- * April 2012
+ * August 2012
  ********************************************************/
 
+ NOTE:  THIS FIRMWARE IS CONFIGURED FOR DIGITAL OUTPUT CARD 
+		V1.5 & TEMPERATURE INPUT CARD V1.2.  IF YOU ARE USING 
+		A DIFFERENT I/O CONFIGURATION BE SURE TO UN-COMMENT THE 
+		APPROPRIATE	#DEFINE STATEMENTS IN IO.H.
+ 
+Updates for version 1.6
+-added support for v1.5 of the Temperature Input card (MAX31855 Thermocouple chip)
+ 
 Updates for version 1.5
 -restructured code to allow for different IO cards
 -added reflow profile support

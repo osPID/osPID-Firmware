@@ -1,32 +1,69 @@
-#define TEMP_INPUT_V100
+/*******************************************************************************
+* The osPID Kit comes with swappable IO cards which are supported by different
+* device drivers & libraries. For the osPID firmware to correctly communicate with
+* your configuration, you must uncomment the appropriate "define" statements below.
+* Please take note that only 1 input card and 1 output card can be used at a time. 
+* List of available IO cards:
+*
+* Input Cards
+* ===========
+* 1. TEMP_INPUT_V110:
+*    Temperature Basic V1.10 with 1 thermistor & 1 type-K thermocouple (MAX6675)
+*    interface.
+* 2. TEMP_INPUT_V120:
+*    Temperature Basic V1.20 with 1 thermistor & 1 type-K thermocouple 
+*    (MAX31855KASA) interface.
+* 3. PROTOTYPE_INPUT:
+*    Generic prototype card with input specified by user. Please add necessary
+*    input processing in the section below.
+*
+* Output Cards
+* ============
+* 1. DIGITAL_OUTPUT_V120: 
+*    Output card with 1 SSR & 2 relay output.
+* 2. DIGITAL_OUTPUT_V150: 
+*    Output card with 1 SSR & 2 relay output. Similar to V1.20 except LED mount
+*    orientation.
+* 3. PROTOTYPE_OUTPUT:
+*    Generic prototype card with output specified by user. Please add necessary
+*    output processing in the section below.
+*
+* This file is licensed under Creative Commons Attribution-ShareAlike 3.0 
+* Unported License.
+*
+*******************************************************************************/
+
+// ***** INPUT CARD *****
+//#define TEMP_INPUT_V110
+#define TEMP_INPUT_V120
 //#define PROTOTYPE_INPUT
-#define DIGITAL_OUTPUT_V100
+
+// ***** OUTPUT CARD *****
+//#define DIGITAL_OUTPUT_V120
+#define DIGITAL_OUTPUT_V150
 //#define PROTOTYPE_OUTPUT
 
 union {                // This Data structure lets
   byte asBytes[32];    // us take the byte array
   float asFloat[8];    // sent from processing and
 }                      // easily convert it to a
-serialXfer;                   // float array
+serialXfer;            // float array
 byte b1,b2;
 
-
-
-#ifdef TEMP_INPUT_V100
+#ifdef TEMP_INPUT_V110
 #include "max6675_local.h"
 const byte thermistorPin = A6;
 const byte thermocoupleCS = 10;
 const byte thermocoupleSO = 12;
 const byte thermocoupleCLK = 13;
-byte inputType=0;
+byte inputType = 0;
 double THERMISTORNOMINAL = 10;
 double BCOEFFICIENT = 1;
 double TEMPERATURENOMINAL = 293.15;
-double REFERENCE_RESISTANCE=10;
+double REFERENCE_RESISTANCE = 10;
 MAX6675 thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO);
 
-//eeprom backup / restore
-
+// EEPROM backup
 void EEPROMBackupInputParams(int offset)
 {
   EEPROM.write(offset, inputType);
@@ -36,6 +73,7 @@ void EEPROMBackupInputParams(int offset)
   EEPROM_writeAnything(offset+14,REFERENCE_RESISTANCE);
 }
 
+// EEPROM restore
 void EEPROMRestoreInputParams(int offset)
 {
   inputType = EEPROM.read(offset);
@@ -45,18 +83,13 @@ void EEPROMRestoreInputParams(int offset)
   EEPROM_readAnything(offset+14,REFERENCE_RESISTANCE);
 }
 
-
 void InitializeInputCard()
 {
-
-
 }
 
 void InputSerialReceiveStart()
 {
-
 }
-
 
 void InputSerialReceiveDuring(byte val, byte index)
 {
@@ -94,7 +127,6 @@ void InputSerialID()
 
 double readThermistorTemp(int voltage)
 {
-
   float R = REFERENCE_RESISTANCE / (1024.0/(float)voltage - 1);
   float steinhart;
   steinhart = R / THERMISTORNOMINAL;     // (R/Ro)
@@ -112,14 +144,111 @@ double ReadInputFromCard()
   if(inputType == 0) return thermocouple.readCelsius();
   else if(inputType == 1) return readThermistorTemp(analogRead(thermistorPin));
 }
+#endif /*TEMP_INPUT_V110*/
 
+#ifdef TEMP_INPUT_V120
+#include "MAX31855_local.h"
+const byte thermistorPin = A6;
+const byte thermocoupleCS = 10;
+const byte thermocoupleSO = 12;
+const byte thermocoupleCLK = 13;
+byte inputType = 0;
+double THERMISTORNOMINAL = 10;
+double BCOEFFICIENT = 1;
+double TEMPERATURENOMINAL = 293.15;
+double REFERENCE_RESISTANCE = 10;
+MAX31855 thermocouple(thermocoupleSO, thermocoupleCS, thermocoupleCLK);
 
+// EEPROM backup
+void EEPROMBackupInputParams(int offset)
+{
+  EEPROM.write(offset, inputType);
+  EEPROM_writeAnything(offset+2,THERMISTORNOMINAL);
+  EEPROM_writeAnything(offset+6,BCOEFFICIENT);
+  EEPROM_writeAnything(offset+10,TEMPERATURENOMINAL);
+  EEPROM_writeAnything(offset+14,REFERENCE_RESISTANCE);
+}
 
+// EEPROM restore
+void EEPROMRestoreInputParams(int offset)
+{
+  inputType = EEPROM.read(offset);
+  EEPROM_readAnything(offset+2,THERMISTORNOMINAL);
+  EEPROM_readAnything(offset+6,BCOEFFICIENT);
+  EEPROM_readAnything(offset+10,TEMPERATURENOMINAL);
+  EEPROM_readAnything(offset+14,REFERENCE_RESISTANCE);
+}
 
-#endif /*TEMP_INPUT_V100*/
+void InitializeInputCard()
+{
+}
+
+void InputSerialReceiveStart()
+{
+}
+
+void InputSerialReceiveDuring(byte val, byte index)
+{
+  if(index==1) b1 = val;
+  else if(index<18) serialXfer.asBytes[index-2] = val; 
+}
+
+void InputSerialReceiveAfter(int eepromOffset)
+{
+  inputType = b1;
+  THERMISTORNOMINAL = serialXfer.asFloat[0];
+  BCOEFFICIENT = serialXfer.asFloat[1];
+  TEMPERATURENOMINAL = serialXfer.asFloat[2];
+  REFERENCE_RESISTANCE = serialXfer.asFloat[3];
+  EEPROMBackupInputParams(eepromOffset);
+}
+
+void InputSerialSend()
+{
+  Serial.print((int)inputType); 
+  Serial.print(" "); 
+  Serial.print(THERMISTORNOMINAL); 
+  Serial.print(" ");  
+  Serial.print(BCOEFFICIENT); 
+  Serial.print(" ");  
+  Serial.print(TEMPERATURENOMINAL);   
+  Serial.print(" ");  
+  Serial.println(REFERENCE_RESISTANCE);   
+}
+
+void InputSerialID()
+{
+  Serial.print(" IID2"); 
+}
+
+double readThermistorTemp(int voltage)
+{
+  float R = REFERENCE_RESISTANCE / (1024.0/(float)voltage - 1);
+  float steinhart;
+  steinhart = R / THERMISTORNOMINAL;     // (R/Ro)
+  steinhart = log(steinhart);                  // ln(R/Ro)
+  steinhart /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
+  steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
+  steinhart = 1.0 / steinhart;                 // Invert
+  steinhart -= 273.15;                         // convert to C
+
+  return steinhart;
+}
+
+double ReadInputFromCard()
+{
+  if(inputType == 0)
+ {
+   double val = thermocouple.readThermocouple(CELSIUS);
+   if (val==FAULT_OPEN|| val==FAULT_SHORT_GND|| val==FAULT_SHORT_VCC)val = NAN;
+   return val;
+ }
+  else if(inputType == 1) return readThermistorTemp(analogRead(thermistorPin));
+}
+#endif /*TEMP_INPUT_V120*/
 
 #ifdef PROTOTYPE_INPUT
- /*Include any  Libraries and/or global variables here*/
+ /*Include any libraries and/or global variables here*/
 
 float flt1_i=0, flt2_i=0, flt3_i=0, flt4_i=0;
 byte bt1_i=0, bt2_i=0, bt3_i=0, bt4_i=0;
@@ -148,18 +277,13 @@ void EEPROMRestoreInputParams(int offset)
   EEPROM_readAnything(offset+16,flt4_i);
 }
 
-
 void InitializeInputCard()
 {
-
-
 }
 
 void InputSerialReceiveStart()
 {
-
 }
-
 
 void InputSerialReceiveDuring(byte val, byte index)
 {
@@ -211,10 +335,8 @@ double ReadInputFromCard()
 }
 #endif /*PROTOTYPE_INPUT*/
 
-
-
-#ifdef DIGITAL_OUTPUT_V100
-byte outputType=1;
+#if defined(DIGITAL_OUTPUT_V120) || defined(DIGITAL_OUTPUT_V150)
+byte outputType = 1;
 const byte RelayPin = 5;
 const byte SSRPin = 6;
 //unsigned long windowStartTime;
@@ -251,9 +373,7 @@ void InitializeOutputCard()
 
 void OutputSerialReceiveStart()
 {
-
 }
-
 
 void OutputSerialReceiveDuring(byte val, byte index)
 {
@@ -272,15 +392,12 @@ void OutputSerialReceiveAfter(int eepromOffset)
   outWindowSec =  serialXfer.asFloat[0];
   setOutputWindow(outWindowSec);
   EEPROMBackupOutputParams(eepromOffset);
-
 }
 
 void OutputSerialID()
 {
   Serial.print(" OID1"); 
 }
-
-
 
 void WriteToOutputCard(double value)
 {
@@ -293,26 +410,18 @@ void WriteToOutputCard(double value)
   unsigned long oVal = (unsigned long)(value*(double)WindowSize/ 100.0);
   if(outputType == 0) digitalWrite(RelayPin ,(oVal>wind) ? HIGH : LOW);
   else if(outputType == 1) digitalWrite(SSRPin ,(oVal>wind) ? HIGH : LOW);
-
 }
 
-//serial send / receive
+// Serial send & receive
 void OutputSerialSend()
 {
   Serial.print((int)outputType); 
   Serial.print(" ");  
   Serial.println(outWindowSec); 
 }
-
-
-
-
-#endif /*DIGITAL_OUTPUT_V100*/
+#endif /*DIGITAL_OUTPUT_V120 & DIGITAL_OUTPUT_V150*/
 
 #ifdef PROTOTYPE_OUTPUT
-
-
-
 float flt1_o=0, flt2_o=0, flt3_o=0, flt4_o=0;
 byte bt1_o=0, bt2_o=0, bt3_o=0, bt4_o=0;
 
@@ -346,9 +455,7 @@ void InitializeOutputCard()
 
 void OutputSerialReceiveStart()
 {
-
 }
-
 
 void OutputSerialReceiveDuring(byte val, byte index)
 {
@@ -374,15 +481,11 @@ void OutputSerialID()
   Serial.print(" OID0"); 
 }
 
-
-
 void WriteToOutputCard(double value)
 {
-
-
 }
 
-//serial send / receive
+// Serial send & receive
 void OutputSerialSend()
 {
   Serial.print(int(bt1_o)); 
@@ -401,6 +504,4 @@ void OutputSerialSend()
   Serial.print(" ");  
   Serial.println(flt4_o);  
 }
-
 #endif /*PROTOTYPE_OUTPUT*/
-
