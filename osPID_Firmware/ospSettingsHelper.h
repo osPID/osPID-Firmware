@@ -2,6 +2,7 @@
 #ifndef OSPSETTINGSHELPER_H
 #define OSPSETTINGSHELPER_H
 
+#include <Arduino.h>
 #include <avr/eeprom.h>
 #include <util/crc16.h>
 
@@ -51,6 +52,25 @@ public:
 
   int crcValue() const { return crc16; }
 };
+
+// temporarily here until they can be deleted
+template <class T> int EEPROM_writeAnything(int ee, const T& value)
+{
+    const byte* p = (const byte*)(const void*)&value;
+    unsigned int i;
+    for (i = 0; i < sizeof(value); i++)
+          eeprom_write_byte((byte *)ee++, *p++);
+    return i;
+}
+
+template <class T> int EEPROM_readAnything(int ee, T& value)
+{
+    byte* p = (byte*)(void*)&value;
+    unsigned int i;
+    for (i = 0; i < sizeof(value); i++)
+          *p++ = eeprom_read_byte((byte *)ee++);
+    return i;
+}
 
 #endif
 

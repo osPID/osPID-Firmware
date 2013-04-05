@@ -1,18 +1,12 @@
 #include <LiquidCrystal.h>
-#include <EEPROM.h>
-#include <avr/eeprom.h>
-#include <util/crc16.h>
+#include <Arduino.h>
 #include "AnalogButton_local.h"
 #include "PID_v1_local.h"
-#include "EEPROMAnything.h"
 #include "PID_AutoTune_v0_local.h"
 #include "ospSettingsHelper.h"
 #include "ospCardSimulator.h"
 #include "ospTemperatureInputCard.h"
 #include "ospDigitalOutputCard.h"
-
-// the start value for doing CRC-16 cyclic redundancy checks
-#define CRC16_INIT 0xffff
 
 /*******************************************************************************
 * The osPID Kit comes with swappable IO cards which are supported by different
@@ -60,12 +54,8 @@ ospCardSimulator theInputCard
 #define theOutputCard theInputCard
 #endif
 
-// ***** PIN ASSIGNMENTS *****
-
-const byte buzzerPin = 3;
-const byte systemLEDPin = A2;
-
-const byte EEPROM_ID = 2; //used to automatically trigger and eeprom reset after firmware update (if necessary)
+// Pin assignments on the controller card (_not_ the I/O cards)
+enum { buzzerPin = 3, systemLEDPin = A2 };
 
 const byte TYPE_NAV=0;
 const byte TYPE_VAL=1;
@@ -893,121 +883,6 @@ void calcNextProf()
 
 }
 
-
-
-
-
-const int eepromTuningOffset = 1; //13 bytes
-const int eepromDashOffset = 14; //9 bytes
-const int eepromATuneOffset = 23; //12 bytes
-const int eepromProfileOffset = 35; //136 bytes
-const int eepromInputOffset = 172; //? bytes (depends on the card)
-const int eepromOutputOffset = 300; //? bytes (depends on the card)
-
-
-void initializeEEPROM()
-{
-  //read in eeprom values
-  byte firstTime = EEPROM.read(0);
-  if(firstTime!=EEPROM_ID)
-  {//the only time this won't be 1 is the first time the program is run after a reset or firmware update
-    //clear the EEPROM and initialize with default values
-    for(int i=1;i<1024;i++) EEPROM.write(i,0);
-    EEPROMBackupTunings();
-    EEPROMBackupDash();
-    EEPROMBackupATune();
-
-    ospSettingsHelper settingsHelper(CRC16_INIT, eepromInputOffset);
-    theInputCard.saveSettings(settingsHelper);
-    settingsHelper.fillUpTo(eepromOutputOffset);
-    theOutputCard.saveSettings(settingsHelper);
-
-    EEPROMBackupProfile();
-    EEPROM.write(0,EEPROM_ID); //so that first time will never be true again (future firmware updates notwithstanding)
-  }
-  else
-  {
-    EEPROMRestoreTunings();
-    EEPROMRestoreDash();
-    EEPROMRestoreATune();
-
-    ospSettingsHelper settingsHelper(CRC16_INIT, eepromInputOffset);
-    theInputCard.restoreSettings(settingsHelper);
-    settingsHelper.fillUpTo(eepromOutputOffset);
-    theOutputCard.restoreSettings(settingsHelper);
-
-    EEPROMRestoreProfile();    
-  }
-}  
-
-
-
-void EEPROMreset()
-{
-  EEPROM.write(0,0);
-}
-
-
-void EEPROMBackupTunings()
-{
-  EEPROM.write(eepromTuningOffset,ctrlDirection);
-  EEPROM_writeAnything(eepromTuningOffset+1,kp);
-  EEPROM_writeAnything(eepromTuningOffset+5,ki);
-  EEPROM_writeAnything(eepromTuningOffset+9,kd);
-}
-
-void EEPROMRestoreTunings()
-{
-  ctrlDirection = EEPROM.read(eepromTuningOffset);
-  EEPROM_readAnything(eepromTuningOffset+1,kp);
-  EEPROM_readAnything(eepromTuningOffset+5,ki);
-  EEPROM_readAnything(eepromTuningOffset+9,kd);
-}
-
-void EEPROMBackupDash()
-{
-  EEPROM.write(eepromDashOffset, (byte)myPID.GetMode());
-  EEPROM_writeAnything(eepromDashOffset+1,setpoint);
-  EEPROM_writeAnything(eepromDashOffset+5,output);
-}
-
-void EEPROMRestoreDash()
-{
-  modeIndex = EEPROM.read(eepromDashOffset);
-  EEPROM_readAnything(eepromDashOffset+1,setpoint);
-  EEPROM_readAnything(eepromDashOffset+5,output);
-}
-
-void EEPROMBackupATune()
-{
-  EEPROM_writeAnything(eepromATuneOffset,aTuneStep);
-  EEPROM_writeAnything(eepromATuneOffset+4,aTuneNoise);
-  EEPROM_writeAnything(eepromATuneOffset+8,aTuneLookBack);
-}
-
-void EEPROMRestoreATune()
-{
-  EEPROM_readAnything(eepromATuneOffset,aTuneStep);
-  EEPROM_readAnything(eepromATuneOffset+4,aTuneNoise);
-  EEPROM_readAnything(eepromATuneOffset+8,aTuneLookBack);
-}
-
-void EEPROMBackupProfile()
-{
-  EEPROM_writeAnything(eepromProfileOffset, profname);
-  EEPROM_writeAnything(eepromProfileOffset + 8, proftypes);
-  EEPROM_writeAnything(eepromProfileOffset + 24, profvals);
-  EEPROM_writeAnything(eepromProfileOffset + 85, proftimes); //there might be a slight issue here (/1000?)
-}
-
-void EEPROMRestoreProfile()
-{
-  EEPROM_readAnything(eepromProfileOffset, profname);
-  EEPROM_readAnything(eepromProfileOffset + 8, proftypes);
-  EEPROM_readAnything(eepromProfileOffset + 24, profvals);
-  EEPROM_readAnything(eepromProfileOffset + 85, proftimes); //there might be a slight issue here (/1000?)
-}
-
 /********************************************
  * Serial Communication functions / helpers
  ********************************************/
@@ -1162,7 +1037,7 @@ void SerialReceive()
     }
     break;
   case 4: //EEPROM reset
-    if(index==2 && b1<2) EEPROM.write(0,0); //eeprom will re-write on next restart
+    if(index==2 && b1<2) clearEEPROM();
     break;
   case 5: /*//input configuration
     InputSerialReceiveAfter(eepromInputOffset);
