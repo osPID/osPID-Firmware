@@ -31,13 +31,8 @@ public:
   }
 
   template<typename T> void restore(T& value) {
-    byte *p = (byte *)&value;
-    
-    for (byte n = sizeof(T); n; n--) {
-      *p = eeprom_read_byte((byte *)address);
-      p++;
-      address++;
-    }
+    eepromRead(address, value);
+    address += sizeof(T);
   }
 
   void fillUpTo(int endAddress) {
@@ -50,27 +45,33 @@ public:
     }
   }
 
+  void skipTo(int newAddress) {
+    address = newAddress;
+  }
+
   int crcValue() const { return crc16; }
+
+  template<typename T> static void eepromRead(int address, T& value) {
+    byte *p = (byte *)&value;
+
+    for (byte n = sizeof(T); n; n--) {
+      *p = eeprom_read_byte((byte *)address);
+      p++;
+      address++;
+    }
+  }
+
+  template<typename T> static void eepromWrite(int address, const T& value) {
+    const byte *p = (const byte *)&value;
+
+    for (byte n = sizeof(T); n; n--) {
+      if (eeprom_read_byte((byte *)address) != *p)
+        eeprom_write_byte((byte *)address, *p);
+      p++;
+      address++;
+    }
+  }
 };
-
-// temporarily here until they can be deleted
-template <class T> int EEPROM_writeAnything(int ee, const T& value)
-{
-    const byte* p = (const byte*)(const void*)&value;
-    unsigned int i;
-    for (i = 0; i < sizeof(value); i++)
-          eeprom_write_byte((byte *)ee++, *p++);
-    return i;
-}
-
-template <class T> int EEPROM_readAnything(int ee, T& value)
-{
-    byte* p = (byte*)(void*)&value;
-    unsigned int i;
-    for (i = 0; i < sizeof(value); i++)
-          *p++ = eeprom_read_byte((byte *)ee++);
-    return i;
-}
 
 #endif
 

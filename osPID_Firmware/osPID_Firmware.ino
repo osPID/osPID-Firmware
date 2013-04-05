@@ -3,7 +3,7 @@
 #include "AnalogButton_local.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
-#include "ospSettingsHelper.h"
+#include "ospProfile.h"
 #include "ospCardSimulator.h"
 #include "ospTemperatureInputCard.h"
 #include "ospDigitalOutputCard.h"
@@ -54,6 +54,37 @@ ospCardSimulator theInputCard
 #define theOutputCard theInputCard
 #endif
 
+// an in-memory buffer that we use when receiving a profile over USB
+ospProfile profileBuffer;
+
+// the 0-based index of the active profile while a profile is executing
+byte activeProfileIndex;
+boolean runningProfile = false;
+
+// the name of this controller unit (can be queried and set over USB)
+char controllerName[17] = { 'o', 's', 'P', 'I', 'D', ' ',
+       'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
+
+// the gain coefficients of the PID controller
+double kp = 2, ki = 0.5, kd = 2;
+
+// the 4 setpoints we can easily switch between
+float setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
+
+// the index of the selected setpoint
+byte setpointIndex = 0;
+
+// what to do on power-on
+enum {
+    POWERON_GOTO_MANUAL,
+    POWERON_GOTO_SETPOINT,
+    POWERON_RESUME_PROFILE
+};
+
+byte powerOnBehavior;
+
+// 
+
 // Pin assignments on the controller card (_not_ the I/O cards)
 enum { buzzerPin = 3, systemLEDPin = A2 };
 
@@ -83,7 +114,6 @@ bool tuning = false;
 
 double setpoint=250,input=250,output=50, pidInput=250;
 
-double kp = 2, ki = 0.5, kd = 2;
 byte ctrlDirection = 0;
 byte modeIndex = 0;
 byte highlightedIndex=0;
@@ -95,7 +125,6 @@ unsigned int aTuneLookBack = 10;
 byte ATuneModeRemember = 0;
 PID_ATune aTune(&pidInput, &output);
 
-
 byte curProfStep=0;
 byte curType=0;
 float curVal=0;
@@ -103,7 +132,6 @@ float helperVal=0;
 unsigned long helperTime=0;
 boolean helperflag=false;
 unsigned long curTime=0;
-
 
 /*Profile declarations*/
 const unsigned long profReceiveTimeout = 10000;
@@ -115,7 +143,6 @@ char profname[] = {
 byte proftypes[nProfSteps];
 unsigned long proftimes[nProfSteps];
 float profvals[nProfSteps];
-boolean runningProfile = false;
 
 void setup()
 {
@@ -133,10 +160,12 @@ void setup()
   lcd.print(F(" v1.60   "));
   delay(1000);
 
-  initializeEEPROM();
-
   theInputCard.initialize();
   theOutputCard.initialize();
+
+  setupEEPROM();
+
+  // show the controller name?
 
   myPID.SetSampleTime(1000);
   myPID.SetOutputLimits(0, 100);
@@ -184,7 +213,6 @@ void loop()
     input = theInputCard.readInput();
     if (!isnan(input))pidInput = input;
   }
-  
 
   if(tuning)
   {
@@ -203,7 +231,7 @@ void loop()
       kd = aTune.GetKd();
       myPID.SetTunings(kp, ki, kd);
       AutoTuneHelper(false);
-      EEPROMBackupTunings();
+      saveEEPROMSettings();
     }
   }
   else
@@ -212,10 +240,6 @@ void loop()
     //allow the pid to compute if necessary
     myPID.Compute();
   }
-
-
-
-
 
   if(doIO)
   {
@@ -235,7 +259,6 @@ void loop()
     serialTime += 500;
   }
 }
-
 
 void drawLCD()
 {
@@ -324,16 +347,16 @@ void drawItem(byte row, boolean highlight, byte index)
     }
     lcd.print(edit? '[' : (highlight ? (canEdit ? '>':'|') : 
     ' '));
-    
+
     if(isnan(val))
     { //display an error
       lcd.print(icon);
       lcd.print( now % 2000<1000 ? F(" Error"):F("      ")); 
       return;
     }
-    
+
     for(int i=0;i<dec;i++) val*=10;
-    
+
     num = (int)round(val);
     buffer[0] = icon;
     isNeg = num<0;
@@ -476,17 +499,16 @@ void back()
   else
   { //if not editing return to previous menu. currently this is always main
 
-
     //depending on which menu we're coming back from, we may need to write to the eeprom
     if(changeflag)
     {
       if(curMenu==1)
       { 
-        EEPROMBackupDash();
+        saveEEPROMSettings();
       }
       else if(curMenu==2) //tunings may have changed
       {
-        EEPROMBackupTunings();
+        saveEEPROMSettings();
         myPID.SetTunings(kp,ki,kd);
         myPID.SetControllerDirection(ctrlDirection);
       }
@@ -502,8 +524,6 @@ void back()
     }
   }
 }
-
-
 
 double getValMin(byte index)
 {
@@ -521,7 +541,6 @@ double getValMin(byte index)
     return 0;
   }
 }
-
 
 double getValMax(byte index)
 {
@@ -578,7 +597,7 @@ void updown(bool up)
         val=&kd; 
         break;
       }
-      
+
       minimum = getValMin(highlightedIndex);
       maximum = getValMax(highlightedIndex);
       (*val)+=adder;
@@ -625,10 +644,6 @@ void updown(bool up)
     highlightedIndex = mMenu[curMenu][mIndex];
   }
 }
-
-
-
-
 
 void ok()
 {
@@ -727,11 +742,6 @@ void AutoTuneHelper(boolean start)
   } 
 }
 
-
-
-
-
-
 void StartProfile()
 {
   if(!runningProfile)
@@ -751,12 +761,9 @@ void StopProfile()
   } 
 }
 
-
 void ProfileRunTime()
 {
   if(tuning || !runningProfile) return;
-  
-
 
   boolean gotonext = false;
 
@@ -810,10 +817,6 @@ void ProfileRunTime()
     gotonext=true;
   }
 
-
-
-
-
   if(gotonext)
   {
     curProfStep++;
@@ -859,8 +862,6 @@ void calcNextProf()
   {
     curType=0;
   }
-
-
 
   if(curType==0) //end
   { //we're done 
@@ -1002,7 +1003,7 @@ void SerialReceive()
 
       if(b1==0) myPID.SetMode(MANUAL);// * set the controller mode
       else myPID.SetMode(AUTOMATIC);             //
-      EEPROMBackupDash();
+      saveEEPROMSettings();
       ackDash=true;
     }
     break;
@@ -1017,7 +1018,7 @@ void SerialReceive()
       myPID.SetTunings(kp, ki, kd);            //    
       if(b1==0) myPID.SetControllerDirection(DIRECT);// * set the controller Direction
       else myPID.SetControllerDirection(REVERSE);          //
-      EEPROMBackupTunings();
+      saveEEPROMSettings();
       ackTune = true;
     }
     break;
@@ -1032,7 +1033,7 @@ void SerialReceive()
       { //toggle autotune state
         changeAutoTune();
       }
-      EEPROMBackupATune();
+      saveEEPROMSettings();
       ackTune = true;   
     }
     break;
@@ -1055,7 +1056,7 @@ void SerialReceive()
       { //there was a timeout issue.  reset this transfer
         receivingProfile=false;
         Serial.println("ProfError");
-        EEPROMRestoreProfile();
+//        EEPROMRestoreProfile();
       }
       else if(receivingProfile || b1==0)
       {
@@ -1063,7 +1064,7 @@ void SerialReceive()
         { //stop the current profile execution
           StopProfile();
         }
-          
+
         if(b1==0)
         {
           receivingProfile = true;
@@ -1075,7 +1076,7 @@ void SerialReceive()
           receivingProfile=false; //last profile step
           Serial.print("ProfDone ");
           Serial.println(profname);
-          EEPROMBackupProfile();
+          saveEEPROMProfile(0);
           Serial.println("Archived");
         }
         else
@@ -1106,7 +1107,6 @@ void SerialReceive()
     break;
   }
 }
-
 
 // unlike our tiny microprocessor, the processing ap
 // has no problem converting strings into floats, so
@@ -1184,7 +1184,7 @@ switch(curType)
 {
   case 1: //ramp
     Serial.println((helperTime-now)); //time remaining
-     
+
   break;
   case 2: //wait
     Serial.print(abs(input-setpoint));
@@ -1196,11 +1196,11 @@ switch(curType)
   break;
   default: 
   break;
-  
+
 }
 
   }
-  
+
 }
 
 
