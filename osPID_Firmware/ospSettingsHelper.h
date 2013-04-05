@@ -10,6 +10,14 @@ class ospSettingsHelper {
 private:
   int crc16;
   int address;
+
+  // using private size-templated methods lets there be only 3 instantiations
+  // for every method, regardless of how many types are used in the type-templated
+  // public methods
+  template<size_t size> void saveSize(const byte *p);
+  template<size_t size> static void eepromReadSize(unsigned int address, byte *p);
+  template<size_t size> static void eepromWriteSize(unsigned int address, const byte *p);
+  template<size_t size> static void eepromClearBitsSize(unsigned int address, const byte *p);
   
 public:
   ospSettingsHelper(int crcInit, int baseAddress) :
@@ -21,13 +29,7 @@ public:
   template<typename T> void save(const T& value) {
     const byte *p = (const byte *)&value;
     
-    for (byte n = sizeof(T); n; n--) {
-      if (eeprom_read_byte((byte *)address) != *p)
-        eeprom_write_byte((byte *)address, *p);
-      crc16 = _crc16_update(crc16, *p);
-      p++;
-      address++;
-    }
+    saveSize<sizeof(T)>(p);
   }
 
   template<typename T> void restore(T& value) {
@@ -36,12 +38,9 @@ public:
   }
 
   void fillUpTo(int endAddress) {
+    byte ff = 0xFF;
     while (address < endAddress) {
-      if (eeprom_read_byte((byte *)address) != 0xFF) {
-        eeprom_write_byte((byte *)address, 0xFF);
-      }
-      crc16 = _crc16_update(crc16, 0xFF);
-      address++;
+      save(ff);
     }
   }
 
@@ -54,22 +53,13 @@ public:
   template<typename T> static void eepromRead(unsigned int address, T& value) {
     byte *p = (byte *)&value;
 
-    for (byte n = sizeof(T); n; n--) {
-      *p = eeprom_read_byte((byte *)address);
-      p++;
-      address++;
-    }
+    eepromReadSize<sizeof(T)>(address, p);
   }
 
   template<typename T> static void eepromWrite(unsigned int address, const T& value) {
     const byte *p = (const byte *)&value;
 
-    for (byte n = sizeof(T); n; n--) {
-      if (eeprom_read_byte((byte *)address) != *p)
-        eeprom_write_byte((byte *)address, *p);
-      p++;
-      address++;
-    }
+    eepromWriteSize<sizeof(T)>(address, p);
   }
 
   // this function uses inline assembler because there is no function in avr-libc
@@ -80,35 +70,9 @@ public:
   template<typename T> static void eepromClearBits(unsigned int address, const T& value) {
     const byte *p = (const byte *)&value;
 
-    for (byte n = sizeof(T); n; n--) {
-      __asm__ __volatile__ (
-        "1: sbic %0, %1\n" // wait for EEPROM write to complete
-        "   rjmp 1b\n"
-        "   out %0, __zero_reg__\n" // clear EECR
-        "   out %2, %3\n" // set EEPROM address
-        "   out %4, %5\n"
-        "   out %6, %7\n" // set EEPROM data
-        "   sbi %0, %8\n" // set program-only mode
-        "   in __tmp_reg__, %9\n" // save flags
-        "   cli\n"                // block interrupts
-        "   sbi %0, %10\n" // set EEPROM Master Write Enable
-        "   sbi %0, %11\n" // trigger write by setting EEPROM Write Enable
-        "   out %9, __temp_reg__\n" // restore flags (re-enable interrupts)
-        : // no register writes
-        : "I" (_SFR_IO_ADDR(EECR)), "I" (EEWE),
-          "I" (_SFR_IO_ADDR(EEARH)), "r" (address >> 8),
-          "I" (_SFR_IO_ADDR(EEARL)), "r" (address & 0xFF),
-          "I" (_SFR_IO_ADDR(EEDR)), "r" (*p),
-          "I" (EEPM1),
-          "I" (SREG),
-          "I" (EEMWE),
-          "I" (EEWE)
-        : // no clobbers
-      );
-      p++;
-      address++;
-    }
+    eepromClearBitsSize<sizeof(T)>(address, p);
   }
+
 };
 
 #endif
