@@ -16,7 +16,7 @@ public:
     address(baseAddress)
   {
   }
-  
+
   template<typename T> void save(const T& value) {
     const byte *p = (const byte *)&value;
     
@@ -28,9 +28,9 @@ public:
       address++;
     }
   }
-  
+
   template<typename T> void restore(T& value) {
-    const byte *p = (const byte *)&value;
+    byte *p = (byte *)&value;
     
     for (byte n = sizeof(T); n; n--) {
       *p = eeprom_read_byte((byte *)address);
@@ -38,6 +38,17 @@ public:
       address++;
     }
   }
+
+  void fillUpTo(int endAddress) {
+    while (address < endAddress) {
+      if (eeprom_read_byte((byte *)address) != 0xFF) {
+        eeprom_write_byte((byte *)address, 0xFF);
+      }
+      crc16 = _crc16_update(crc16, 0xFF);
+    }
+  }
+
+  int crcValue() const { return crc16; }
 };
 
 #endif
