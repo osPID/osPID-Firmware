@@ -112,7 +112,7 @@ public:
       REFERENCE_RESISTANCE = val;
       return true;
     default:
-      return -1.0f;
+      return false;
     }
   }
 

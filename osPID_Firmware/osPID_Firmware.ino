@@ -1,12 +1,64 @@
-//#define USE_SIMULATION
-
 #include <LiquidCrystal.h>
 #include <EEPROM.h>
+#include <avr/eeprom.h>
+#include <util/crc16.h>
 #include "AnalogButton_local.h"
 #include "PID_v1_local.h"
 #include "EEPROMAnything.h"
 #include "PID_AutoTune_v0_local.h"
-#include "io.h"
+#include "ospSettingsHelper.h"
+#include "ospCardSimulator.h"
+#include "ospTemperatureInputCard.h"
+#include "ospDigitalOutputCard.h"
+
+// the start value for doing CRC-16 cyclic redundancy checks
+#define CRC16_INIT 0xffff
+
+/*******************************************************************************
+* The osPID Kit comes with swappable IO cards which are supported by different
+* device drivers & libraries. For the osPID firmware to correctly communicate with
+* your configuration, you must specify the type of |theInputCard| and |theOutputCard|
+* below.
+*
+* Please note that only 1 input card and 1 output card can be used at a time. 
+* List of available IO cards:
+*
+* Input Cards
+* ===========
+* 1. ospTemperatureInputCardV1_10:
+*    Temperature Basic V1.10 with 1 thermistor & 1 type-K thermocouple (MAX6675)
+*    interface.
+* 2. ospTemperatureInputCardV1_20:
+*    Temperature Basic V1.20 with 1 thermistor & 1 type-K thermocouple 
+*    (MAX31855KASA) interface.
+* 3. (your subclass of ospBaseInputCard here):
+*    Generic prototype card with input specified by user. Please add necessary
+*    input processing in the section below.
+*
+* Output Cards
+* ============
+* 1. ospDigitalOutputCardV1_20: 
+*    Output card with 1 SSR & 2 relay output.
+* 2. ospDigitalOutputCardV1_50: 
+*    Output card with 1 SSR & 2 relay output. Similar to V1.20 except LED mount
+*    orientation.
+* 3. (your subclass of ospBaseOutputCard here):
+*    Generic prototype card with output specified by user. Please add necessary
+*    output processing in the section below.
+*
+* For firmware development, there is also the ospCardSimulator which acts as both
+* the input and output cards and simulates the controller being attached to a
+* simple system.
+*******************************************************************************/
+
+#undef USE_SIMULATOR
+#ifndef USE_SIMULATOR
+ospTemperatureInputCardV1_20 theInputCard;
+ospDigitalOutputCardV1_50 theOutputCard;
+#else
+ospCardSimulator theInputCard
+#define theOutputCard theInputCard
+#endif
 
 // ***** PIN ASSIGNMENTS *****
 
@@ -75,34 +127,6 @@ unsigned long proftimes[nProfSteps];
 float profvals[nProfSteps];
 boolean runningProfile = false;
 
-
-//for devlopment and demo purposes, it's useful to have a
-//simulation that can run on the osPID.  the problem is
-//that is uses memory.  rather than have it hogging resources
-//when not in use, it's activated using a compile flag.
-// this way, it doesn't get compiled during normal  circumstances
-
-#ifdef USE_SIMULATION
-double kpmodel = 5, taup = 50, theta[30];
-const double outputStart = 50;
-const double inputStart=250;
-
-void DoModel()
-{
-  // Cycle the dead time
-  for(byte i=0;i<30;i++)
-  {
-    theta[i] = theta[i+1];
-  }
-  // Compute the input
-  input = (kpmodel / taup) *(theta[0]-outputStart) + (input-inputStart)*(1-1/taup)+inputStart + ((float)random(-10,10))/100;
-}
-#else
-
-#endif /*USE_SIMULATION*/
-
-
-
 void setup()
 {
   Serial.begin(9600);
@@ -121,15 +145,9 @@ void setup()
 
   initializeEEPROM();
 
+  theInputCard.initialize();
+  theOutputCard.initialize();
 
-
-#ifdef USE_SIMULATION
-  input = inputStart;
-  for(int i=0;i<30;i++)theta[i] = outputStart;
-#else
-  InitializeInputCard();
-  InitializeOutputCard();
-#endif
   myPID.SetSampleTime(1000);
   myPID.SetOutputLimits(0, 100);
   myPID.SetTunings(kp, ki, kd);
@@ -173,14 +191,8 @@ void loop()
   if(doIO)
   { 
     ioTime+=250;
-#ifdef USE_SIMULATION
-    DoModel();
-    pidInput = input;
-#else
-    input =  ReadInputFromCard();
-    if(!isnan(input))pidInput = input;
-
-#endif /*USE_SIMULATION*/
+    input = theInputCard.readInput();
+    if (!isnan(input))pidInput = input;
   }
   
 
@@ -217,16 +229,7 @@ void loop()
 
   if(doIO)
   {
-    //send the output
-#ifdef USE_SIMULATION
-    theta[29] = output;
-#else
-    //send to output card
-    WriteToOutputCard(output);
-#endif /*USE_SIMULATION*/  
-
-
-
+    theOutputCard.setOutputPercent(output);
   }
 
   if(now>lcdTime)
@@ -913,8 +916,12 @@ void initializeEEPROM()
     EEPROMBackupTunings();
     EEPROMBackupDash();
     EEPROMBackupATune();
-    EEPROMBackupInputParams(eepromInputOffset);
-    EEPROMBackupOutputParams(eepromOutputOffset);
+
+    ospSettingsHelper settingsHelper(CRC16_INIT, eepromInputOffset);
+    theInputCard.saveSettings(settingsHelper);
+    settingsHelper.fillUpTo(eepromOutputOffset);
+    theOutputCard.saveSettings(settingsHelper);
+
     EEPROMBackupProfile();
     EEPROM.write(0,EEPROM_ID); //so that first time will never be true again (future firmware updates notwithstanding)
   }
@@ -923,8 +930,12 @@ void initializeEEPROM()
     EEPROMRestoreTunings();
     EEPROMRestoreDash();
     EEPROMRestoreATune();
-    EEPROMRestoreInputParams(eepromInputOffset);
-    EEPROMRestoreOutputParams(eepromOutputOffset);
+
+    ospSettingsHelper settingsHelper(CRC16_INIT, eepromInputOffset);
+    theInputCard.restoreSettings(settingsHelper);
+    settingsHelper.fillUpTo(eepromOutputOffset);
+    theOutputCard.restoreSettings(settingsHelper);
+
     EEPROMRestoreProfile();    
   }
 }  
@@ -1050,14 +1061,14 @@ void SerialReceive()
       case 4: //EEPROM reset
         if(index==1) b1 = val; 
         break;
-      case 5: //input configuration
+      case 5: /*//input configuration
         if (index==1)InputSerialReceiveStart();
         InputSerialReceiveDuring(val, index);
         break;
       case 6: //output configuration
         if (index==1)OutputSerialReceiveStart();
         OutputSerialReceiveDuring(val, index);
-        break;
+        break;*/
       case 7:  //receiving profile
         if(index==1) b1=val;
         else if(b1>=nProfSteps) profname[index-2] = char(val); 
@@ -1153,14 +1164,14 @@ void SerialReceive()
   case 4: //EEPROM reset
     if(index==2 && b1<2) EEPROM.write(0,0); //eeprom will re-write on next restart
     break;
-  case 5: //input configuration
+  case 5: /*//input configuration
     InputSerialReceiveAfter(eepromInputOffset);
     sendInputConfig=true;
     break;
   case 6: //ouput configuration
     OutputSerialReceiveAfter(eepromOutputOffset);
     sendOutputConfig=true;
-    break;
+    break;*/
   case 7: //receiving profile
 
     if((index==11 || (b1>=nProfSteps && index==9) ))
@@ -1231,8 +1242,10 @@ void SerialSend()
   if(sendInfo)
   {//just send out the stock identifier
     Serial.print("\nosPID v1.50");
-    InputSerialID();
-    OutputSerialID();
+    Serial.print(' ');
+    Serial.print(theInputCard.cardIdentifier());
+    Serial.print(' ');
+    Serial.print(theOutputCard.cardIdentifier());
     Serial.println("");
     sendInfo = false; //only need to send this info once per request
   }
@@ -1272,7 +1285,7 @@ void SerialSend()
     Serial.print(" ");
     Serial.println(ackTune?1:0);
     if(ackTune)ackTune=false;
-  }
+  }/*
   if(sendInputConfig)
   {
     Serial.print("IPT ");
@@ -1284,7 +1297,7 @@ void SerialSend()
     Serial.print("OPT ");
     OutputSerialSend();
     sendOutputConfig=false;
-  }
+  }*/
   if(runningProfile)
   {
     Serial.print("PROF ");

@@ -45,6 +45,7 @@ public:
         eeprom_write_byte((byte *)address, 0xFF);
       }
       crc16 = _crc16_update(crc16, 0xFF);
+      address++;
     }
   }
 
