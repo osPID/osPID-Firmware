@@ -43,7 +43,7 @@ double MAX6675::readCelsius(void) {
 }
 
 double MAX6675::readFarenheit(void) {
-  return readCelsius() * 9.0/5.0 + 32;
+  return readCelsius() * 1.8 + 32;
 }
 
 byte MAX6675::spiread(void) { 

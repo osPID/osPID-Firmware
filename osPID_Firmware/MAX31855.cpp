@@ -118,7 +118,7 @@ double	MAX31855::readThermocouple(unit_t	unit)
 		if (unit == FAHRENHEIT)
 		{
 			// Convert Degree Celsius to Fahrenheit
-			temperature = (temperature * 9.0/5.0)+ 32; 
+			temperature = (temperature * 1.8) + 32;
 		}
 	}
 	return (temperature);
@@ -175,7 +175,7 @@ double	MAX31855::readJunction(unit_t	unit)
 	if (unit == FAHRENHEIT)
 	{
 		// Convert Degree Celsius to Fahrenheit
-		temperature = (temperature * 9.0/5.0)+ 32; 	
+		temperature = (temperature * 1.8) + 32;
 	}
 	
 	// Return the temperature
