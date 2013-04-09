@@ -121,6 +121,7 @@ void setupEEPROM()
     if (!checkEEPROMProfile(i)) {
       // bad CRC: clear this profile by writing it using our hardcoded
       // "empty profile" defaults
+      profileBuffer.name[6] = '1' + i;
       saveEEPROMProfile(i);
     }
   }

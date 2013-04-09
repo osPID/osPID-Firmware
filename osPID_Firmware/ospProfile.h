@@ -31,7 +31,7 @@ public:
 
   void clear() {
     for (byte i = 0; i < NAME_LENGTH; i++)
-      name[i] = "No Name "[i];
+      name[i] = "Profil1"[i];
     for (byte i = 0; i < NR_STEPS; i++) {
       stepTypes[i] = STEP_INVALID;
       stepDurations[i] = 0;
