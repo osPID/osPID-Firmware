@@ -1,3 +1,5 @@
+/* This file contains all of the nonvolatile state management for the controller */
+
 #include <Arduino.h>
 #include <avr/eeprom.h>
 #include <util/crc16.h>

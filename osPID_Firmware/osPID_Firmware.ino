@@ -1,3 +1,5 @@
+/* This file contains the setup() and loop() logic for the controller. */
+
 #include <LiquidCrystal.h>
 #include <Arduino.h>
 #include "AnalogButton_local.h"
