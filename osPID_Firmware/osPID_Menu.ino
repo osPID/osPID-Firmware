@@ -22,15 +22,15 @@ struct FloatItem {
   double *pmemFPtr;
 
   byte decimalPlaces() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLAG_1_DECIMAL_PLACE ? 1 : 2);
+    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_1_DECIMAL_PLACE ? 1 : 2);
   }
 
   double minimumValue() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLAG_RANGE_0_99 ? 0 : -999.9);
+    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_RANGE_0_99 ? 0 : -999.9);
   }
 
   double maximumValue() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLAG_RANGE_0_99 ? 99.99 : 999.9);
+    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_RANGE_0_99 ? 99.99 : 999.9);
   }
 
   double currentValue() const {
@@ -105,9 +105,9 @@ enum {
   ITEM_COUNT,
   MENU_COUNT = FIRST_FLOAT_ITEM,
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
-}
+};
 
-PROGMEM byte mainMenuItems[] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_CMD };
+PROGMEM byte mainMenuItems[] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_MENU };
 PROGMEM byte dashMenuItems[] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
 PROGMEM byte configMenuItems[] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
 PROGMEM byte profileMenuItems[] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3, ITEM_PROFILE4 };
@@ -115,11 +115,11 @@ PROGMEM byte setpointMenuItems[] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOI
 
 PROGMEM MenuItem menuData[MENU_COUNT] =
 {
-  { 4, 0, &mainMenuItems },
-  { 4, 0, &dashMenuItems },
-  { 4, 0, &configMenuItems },
-  { 4, 0, &profileMenuItems },
-  { 4, MENU_FLAG_4x4_FORMAT, &setpointMenuItems }
+  { 4, 0, mainMenuItems },
+  { 4, 0, dashMenuItems },
+  { 4, 0, configMenuItems },
+  { 4, 0, profileMenuItems },
+  { 4, MENU_FLAG_4x4_FORMAT, setpointMenuItems }
 };
 
 PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
@@ -168,7 +168,7 @@ void drawLCD()
 // draw a floating-point item's value at the current position
 void drawFloat(byte item)
 {
-  byte buffer[7];
+  char buffer[8];
   byte itemIndex = item - FIRST_FLOAT_ITEM;
   char icon = floatItemData[itemIndex].icon();
   double val = floatItemData[itemIndex].currentValue();
@@ -194,7 +194,7 @@ void drawFloat(byte item)
     num = -num;
 
   bool didneg = false;
-  byte decimalPointPosition = 6-dec;
+  byte decimalPointPosition = 6-decimals;
 
   for(byte i = 6; i >= 1; i--)
   {
@@ -220,6 +220,7 @@ void drawFloat(byte item)
     }
   }
 
+  buffer[7] = '\0';
   theLCD.print(buffer);
 }
 
@@ -299,7 +300,7 @@ void drawFullLineItem(byte row, bool selected, byte item)
 }
 
 // flash a status indicator if appropriate
-void drawStatusFlash()
+void drawStatusFlash(byte row)
 {
   if(tuning)
   {

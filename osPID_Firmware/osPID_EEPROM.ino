@@ -305,7 +305,7 @@ retry:
 char getProfileNameCharAt(byte profileIndex, byte i)
 {
   const int address = PROFILE_BLOCK_START_OFFSET
-                        + index * PROFILE_BLOCK_LENGTH
+                        + profileIndex * PROFILE_BLOCK_LENGTH
                         + PROFILE_NAME_OFFSET
                         + i;
   char ch;
