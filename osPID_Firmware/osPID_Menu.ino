@@ -50,8 +50,11 @@ struct FloatItem {
   }
 };
 
+enum { MENU_FLAG_4x4_FORMAT = 0x01 };
+
 struct MenuItem {
   byte pmemItemCount;
+  byte pmemFlags;
   byte *pmemItemPtr;
 
   byte itemCount() const {
@@ -61,6 +64,10 @@ struct MenuItem {
   byte item(byte index) const {
     return pgm_read_byte_near(&pmemItemPtr[index]);
   }
+
+  bool is4x4() const {
+    return (pgm_read_byte_near(&pmemFlags) & MENU_FLAG_4x4_FORMAT);
+  }
 };
 
 // all of the items which might be displayed on the screen
@@ -69,6 +76,8 @@ enum {
   ITEM_MAIN_MENU,
   ITEM_DASHBOARD_MENU,
   ITEM_CONFIG_MENU,
+  ITEM_PROFILE_MENU,
+  ITEM_SETPOINT_MENU,
   
   // then double items
   FIRST_FLOAT_ITEM,
@@ -82,7 +91,14 @@ enum {
   // then generic/specialized items
   FIRST_ACTION_ITEM,
   ITEM_AUTOTUNE_CMD = FIRST_ACTION_ITEM,
-  ITEM_PROFILE_CMD,
+  ITEM_PROFILE1,
+  ITEM_PROFILE2,
+  ITEM_PROFILE3,
+  ITEM_PROFILE4,
+  ITEM_SETPOINT1,
+  ITEM_SETPOINT2,
+  ITEM_SETPOINT3,
+  ITEM_SETPOINT4,
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
   
@@ -94,12 +110,16 @@ enum {
 PROGMEM byte mainMenuItems[] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_CMD };
 PROGMEM byte dashMenuItems[] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
 PROGMEM byte configMenuItems[] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
+PROGMEM byte profileMenuItems[] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3, ITEM_PROFILE4 };
+PROGMEM byte setpointMenuItems[] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 
 PROGMEM MenuItem menuData[MENU_COUNT] =
 {
-  { 4, &mainMenuItems },
-  { 4, &dashMenuItems },
-  { 4, &configMenuItems }
+  { 4, 0, &mainMenuItems },
+  { 4, 0, &dashMenuItems },
+  { 4, 0, &configMenuItems },
+  { 4, 0, &profileMenuItems },
+  { 4, MENU_FLAG_4x4_FORMAT, &setpointMenuItems }
 };
 
 PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
@@ -114,9 +134,8 @@ PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 
 struct MenuStateData {
   byte currentMenu;
-  byte menuIndex;
-  byte drawIndex;
-  byte highlightedIndex;
+  byte firstItemMenuIndex;
+  byte highlightedItemMenuIndex;
   byte editDepth;
   bool editing;
 };
@@ -144,6 +163,193 @@ void drawLCD()
   drawItem(0,highlightFirst, mMenu[curMenu][mDrawIndex]);
   drawItem(1,!highlightFirst, mMenu[curMenu][mDrawIndex+1]);  
   if(editing) theLCD.setCursor(editDepth, highlightFirst?0:1);
+}
+
+// draw a floating-point item's value at the current position
+void drawFloat(byte item)
+{
+  byte buffer[7];
+  byte itemIndex = item - FIRST_FLOAT_ITEM;
+  char icon = floatItemData[itemIndex].icon();
+  double val = floatItemData[itemIndex].currentValue();
+  byte decimals = floatItemData[itemIndex].decimalPlaces();
+
+  if (isnan(val))
+  {
+    // display an error
+    theLCD.print(icon);
+    theLCD.print(now % 2048 < 1024 ? F(" Error"):F("      "));
+    return;
+  }
+
+  for (int i = 0; i < decimals; i++)
+    val *= 10;
+
+  int num = (int)round(val);
+
+  buffer[0] = icon;
+
+  bool isNeg = num < 0;
+  if (isNeg)
+    num = -num;
+
+  bool didneg = false;
+  byte decimalPointPosition = 6-dec;
+
+  for(byte i = 6; i >= 1; i--)
+  {
+    if (i == decimalPointPosition)
+      buffer[i] = '.';
+    else {
+      if (num == 0)
+      {
+        if (i >= decimalPointPosition - 1) // one zero before the decimal point
+          buffer[i]='0';
+        else if (isNeg && !didneg) // minus sign comes before zeros
+        {
+          buffer[i] = '-';
+          didneg = true;
+        }
+        else
+          buffer[i] = ' '; // skip leading zeros
+      }
+      else {
+        buffer[i] = num % 10 + '0';
+        num /= 10;
+      }
+    }
+  }
+
+  theLCD.print(buffer);
+}
+
+// draw the selector character at the current position
+void drawSelector(byte item, bool selected)
+{
+  bool canEdit = !tuning;
+
+  if (item < FIRST_FLOAT_ITEM)
+    canEdit = true; // menus always get a '>' selector
+  else if (item < FIRST_ACTION_ITEM)
+    canEdit = canEdit && floatItemData[item - FIRST_FLOAT_ITEM].canEdit();
+
+  if (!selected)
+    theLCD.print(' ');
+  else if (menuState.editing)
+    theLCD.print(canEdit ? '[' : '|');
+  else
+    theLCD.print(canEdit ? '>' : '}');
+}
+
+// draw a profile name at the current position
+void drawProfileName(byte profileIndex)
+{
+  for (byte i = 0; i < 8; i++)
+    theLCD.print(getProfileNameCharAt(profileIndex, i));
+}
+
+// draw an item occupying a full 8x1 display line
+void drawFullLineItem(byte row, bool selected, byte item)
+{
+  theLCD.setCursor(0,row);
+
+  // first draw the selector
+  drawSelector(item, selected);
+
+  // then draw the item
+  if (item >= FIRST_FLOAT_ITEM && item < FIRST_ACTION_ITEM)
+    drawFloat(item);
+  else switch (item)
+  {
+  case ITEM_DASHBOARD_MENU:
+    theLCD.print(F("DashBrd"));
+    break;
+  case ITEM_CONFIG_MENU:
+    theLCD.print(F("Config "));
+    break;
+  case ITEM_PROFILE_MENU:
+    if (runningProfile)
+      theLCD.print(F("Cancel "));
+    else
+      drawProfileName(activeProfileIndex);
+    break;
+  // case ITEM_SETPOINT_MENU: should not happen
+  case ITEM_AUTOTUNE_CMD:
+      theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
+      break;
+  case ITEM_PROFILE1:
+  case ITEM_PROFILE2:
+  case ITEM_PROFILE3:
+  case ITEM_PROFILE4:
+    drawProfileName(item - ITEM_PROFILE1);
+    break;
+  //case ITEM_SETPOINT1:
+  //case ITEM_SETPOINT2:
+  //case ITEM_SETPOINT3:
+  //case ITEM_SETPOINT4: should not happen
+  case ITEM_PID_MODE:
+      theLCD.print(modeIndex==0 ? F("Mod Man") : F("Mod PID"));
+      break;
+  case ITEM_PID_DIRECTION:
+      theLCD.print(ctrlDirection==0 ? F("Act Dir") : F("Act Rev"));
+      break;
+  default:
+    BUGCHECK();
+  }
+}
+
+// flash a status indicator if appropriate
+void drawStatusFlash()
+{
+  if(tuning)
+  {
+    if (now % 2048 < 700)
+    {
+      theLCD.setCursor(0,row);
+      theLCD.print('T');
+    }
+  }
+  else if (runningProfile)
+  {
+    if (now % 2048 < 700)
+    {
+      theLCD.setCursor(0,row);
+      theLCD.print('P');
+    }
+    else if (now % 2048 < 1400)
+    {
+      theLCD.setCursor(0,row);
+      char c;
+      if (curProfStep < 10)
+        c = curProfStep + '0';
+      else c = curProfStep + 'A';
+      theLCD.print(c);
+    }
+  }
+}
+
+void drawHalfRowItem(byte row, byte col, bool selected, byte item)
+{
+  theLCD.setCursor(col, row);
+
+  drawSelector(item, selected);
+
+  switch (item) {
+  case ITEM_SETPOINT1:
+    theLCD.print(F("SP1"));
+    break;
+  case ITEM_SETPOINT2:
+    theLCD.print(F("SP2"));
+    break;
+  case ITEM_SETPOINT3:
+    theLCD.print(F("SP3"));
+    break;
+  case ITEM_SETPOINT4:
+    theLCD.print(F("SP4"));
+    break;
+  default:
+    BUGCHECK();
+  }
 }
 
 void drawItem(byte row, boolean highlight, byte index)
