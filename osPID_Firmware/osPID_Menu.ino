@@ -7,6 +7,121 @@
 
 enum { TYPE_NAV = 0, TYPE_VAL = 1, TYPE_OPT = 2 };
 
+enum {
+  FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
+  FLOAT_FLAG_2_DECIMAL_PLACES = 0,
+  FLOAT_FLAG_RANGE_0_99 = 0x20,
+  FLOAT_FLAG_RANGE_M999_P999 = 0,
+  FLOAT_FLAG_NO_EDIT = 0x40,
+  FLOAT_FLAG_EDIT_MANUAL_ONLY = 0x80
+};
+
+struct FloatItem {
+  char pmemIcon;
+  byte pmemFlags;
+  double *pmemFPtr;
+
+  byte decimalPlaces() const {
+    return (pgm_read_byte_near(&pmemFlags) & FLAG_1_DECIMAL_PLACE ? 1 : 2);
+  }
+
+  double minimumValue() const {
+    return (pgm_read_byte_near(&pmemFlags) & FLAG_RANGE_0_99 ? 0 : -999.9);
+  }
+
+  double maximumValue() const {
+    return (pgm_read_byte_near(&pmemFlags) & FLAG_RANGE_0_99 ? 99.99 : 999.9);
+  }
+
+  double currentValue() const {
+    double *fp = (double *)pgm_read_word_near(&pmemFPtr);
+    return *fp;
+  }
+
+  char icon() const {
+    return pgm_read_byte_near(&pmemIcon);
+  }
+
+  bool canEdit() const {
+    byte flags = pgm_read_byte_near(&pmemFlags);
+
+    return !(flags & FLOAT_FLAG_NO_EDIT) && 
+        !((flags & FLOAT_FLAG_EDIT_MANUAL_ONLY) && (modeIndex == 1));
+  }
+};
+
+struct MenuItem {
+  byte pmemItemCount;
+  byte *pmemItemPtr;
+
+  byte itemCount() const {
+    return pgm_read_byte_near(&pmemItemCount);
+  }
+
+  byte item(byte index) const {
+    return pgm_read_byte_near(&pmemItemPtr[index]);
+  }
+};
+
+// all of the items which might be displayed on the screen
+enum {
+  // all menus must be first
+  ITEM_MAIN_MENU,
+  ITEM_DASHBOARD_MENU,
+  ITEM_CONFIG_MENU,
+  
+  // then double items
+  FIRST_FLOAT_ITEM,
+  ITEM_SETPOINT = FIRST_FLOAT_ITEM,
+  ITEM_INPUT,
+  ITEM_OUTPUT,
+  ITEM_KP,
+  ITEM_KI,
+  ITEM_KD,
+
+  // then generic/specialized items
+  FIRST_ACTION_ITEM,
+  ITEM_AUTOTUNE_CMD = FIRST_ACTION_ITEM,
+  ITEM_PROFILE_CMD,
+  ITEM_PID_MODE,
+  ITEM_PID_DIRECTION,
+  
+  ITEM_COUNT,
+  MENU_COUNT = FIRST_FLOAT_ITEM,
+  FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
+}
+
+PROGMEM byte mainMenuItems[] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_CMD };
+PROGMEM byte dashMenuItems[] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
+PROGMEM byte configMenuItems[] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
+
+PROGMEM MenuItem menuData[MENU_COUNT] =
+{
+  { 4, &mainMenuItems },
+  { 4, &dashMenuItems },
+  { 4, &configMenuItems }
+};
+
+PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
+{
+  { 'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint },
+  { 'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input },
+  { 'O', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output },
+  { 'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp },
+  { 'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki },
+  { 'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd },
+};
+
+struct MenuStateData {
+  byte currentMenu;
+  byte menuIndex;
+  byte drawIndex;
+  byte highlightedIndex;
+  byte editDepth;
+  bool editing;
+};
+
+struct MenuStateData menuState;
 
 byte mMain[] = {
   0,1,2,3};
@@ -469,15 +584,5 @@ void ok()
       theLCD.cursor();
     }
   }
-}
-
-const char * autotuneGuiCmd(GuiItem::CommandFnAction req)
-{
-  return "";
-}
-
-const char * profileGuiCmd(GuiItem::CommandFnAction req)
-{
-  return "";
 }
 

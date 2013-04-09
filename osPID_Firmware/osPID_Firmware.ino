@@ -88,7 +88,7 @@ byte ctrlDirection = 0;
 byte modeIndex = 0;
 
 // the 4 setpoints we can easily switch between
-float setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
+double setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
@@ -124,8 +124,8 @@ PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
 
 byte curProfStep=0;
 byte curType=0;
-float curVal=0;
-float helperVal=0;
+double curVal=0;
+double helperVal=0;
 unsigned long helperTime=0;
 boolean helperflag=false;
 unsigned long curTime=0;
@@ -139,7 +139,7 @@ char profname[] = {
   'N','o',' ','P','r','o','f'};
 byte proftypes[nProfSteps];
 unsigned long proftimes[nProfSteps];
-float profvals[nProfSteps];
+double profvals[nProfSteps];
 
 void setup()
 {
@@ -333,12 +333,12 @@ void ProfileRunTime()
     }
     else
     {
-      setpoint = (curVal-helperVal)*(1-(float)(helperTime-now)/(float)(curTime))+helperVal; 
+      setpoint = (curVal-helperVal)*(1-(double)(helperTime-now)/(double)(curTime))+helperVal; 
     }
   }
   else if (curType==2) //wait
   {
-    float err = input-setpoint;
+    double err = input-setpoint;
     if(helperflag) //we're just looking for a cross
     {
 
@@ -446,14 +446,14 @@ void calcNextProf()
 boolean ackDash = false, ackTune = false;
 union {                // This Data structure lets
   byte asBytes[32];    // us take the byte array
-  float asFloat[8];    // sent from processing and
+  double asFloat[8];    // sent from processing and
 }                      // easily convert it to a
-foo;                   // float array
+foo;                   // double array
 
-// getting float values from processing into the arduino
+// getting double values from processing into the arduino
 // was no small task.  the way this program does it is
 // as follows:
-//  * a float takes up 4 bytes.  in processing, convert
+//  * a double takes up 4 bytes.  in processing, convert
 //    the array of floats we want to send, into an array
 //    of bytes.
 //  * send the bytes to the arduino
@@ -744,7 +744,7 @@ switch(curType)
   case 2: //wait
     Serial.print(abs(input-setpoint));
     Serial.print(" ");
-    Serial.println(curVal==0? -1 : float(now-helperTime));
+    Serial.println(curVal==0? -1 : double(now-helperTime));
   break;  
   case 3: //step
     Serial.println(curTime-(now-helperTime));
