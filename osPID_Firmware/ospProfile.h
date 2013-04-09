@@ -14,6 +14,7 @@ public:
     STEP_HOLD = 1,
     STEP_JUMP = 2,
     STEP_BUZZ = 3,
+    STEP_WAIT_TO_CROSS = 4,
     STEP_INVALID = 0x7F
   };
 
