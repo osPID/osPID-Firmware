@@ -39,6 +39,10 @@ struct FloatItem {
     return *fp;
   }
 
+  double *valuePtr() const {
+    return (double *)pgm_read_word_near(&pmemFPtr);
+  }
+
   char icon() const {
     return pgm_read_byte_near(&pmemIcon);
   }
@@ -56,7 +60,7 @@ enum { MENU_FLAG_2x2_FORMAT = 0x01 };
 struct MenuItem {
   byte pmemItemCount;
   byte pmemFlags;
-  byte *pmemItemPtr;
+  const byte *pmemItemPtr;
 
   byte itemCount() const {
     return pgm_read_byte_near(&pmemItemCount);
@@ -108,13 +112,13 @@ enum {
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
 };
 
-PROGMEM byte mainMenuItems[] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_MENU };
-PROGMEM byte dashMenuItems[] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM byte configMenuItems[] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
-PROGMEM byte profileMenuItems[] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3, ITEM_PROFILE4 };
-PROGMEM byte setpointMenuItems[] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
+PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_MENU };
+PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
+PROGMEM const byte configMenuItems[4] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
+PROGMEM const byte profileMenuItems[4] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3, ITEM_PROFILE4 };
+PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 
-PROGMEM MenuItem menuData[MENU_COUNT] =
+PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { 4, 0, mainMenuItems },
   { 4, 0, dashMenuItems },
@@ -123,7 +127,7 @@ PROGMEM MenuItem menuData[MENU_COUNT] =
   { 4, MENU_FLAG_2x2_FORMAT, setpointMenuItems }
 };
 
-PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
+PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint },
   { 'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input },
@@ -138,25 +142,11 @@ struct MenuStateData {
   byte firstItemMenuIndex;
   byte highlightedItemMenuIndex;
   byte editDepth;
+  unsigned long editStartMillis;
   bool editing;
 };
 
 struct MenuStateData menuState;
-
-byte mMain[] = {
-  0,1,2,3};
-byte mDash[] = {
-  4,5,6,7};
-byte mConfig[] = {
-  8,9,10,11};
-byte *mMenu[] = {
-  mMain, mDash, mConfig};
-
-byte curMenu=0, mIndex=0, mDrawIndex=0;
-
-bool editing=false;
-byte editDepth=0;
-byte highlightedIndex=0;
 
 void drawMenu()
 {
@@ -248,8 +238,8 @@ void drawFloat(byte item)
   theLCD.print(buffer);
 }
 
-// draw the selector character at the current position
-void drawSelector(byte item, bool selected)
+// can a given item be edited
+bool canEditItem(byte item)
 {
   bool canEdit = !tuning;
 
@@ -257,6 +247,20 @@ void drawSelector(byte item, bool selected)
     canEdit = true; // menus always get a '>' selector
   else if (item < FIRST_ACTION_ITEM)
     canEdit = canEdit && floatItemData[item - FIRST_FLOAT_ITEM].canEdit();
+
+  return canEdit;
+}
+
+// draw the selector character at the current position
+void drawSelector(byte item, bool selected)
+{
+  bool canEdit = canEditItem(item);
+
+  if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
+  {
+    // cancel the disallowed edit
+    menuState.editing = false;
+  }
 
   if (!selected)
     theLCD.print(' ');
@@ -379,275 +383,237 @@ void drawHalfRowItem(byte row, byte col, bool selected, byte item)
   }
 }
 
-byte getValDec(byte index)
-{       
-  switch(index)
+void startEditing()
+{
+  menuState.editing = true;
+  menuState.editDepth = 3;
+  menuState.editStartMillis = millis();
+  theLCD.cursor();
+}
+
+void stopEditing()
+{
+  menuState.editing = false;
+  theLCD.noCursor();
+}
+
+void backKeyPress()
+{
+  if (menuState.editing)
   {
-  case 4: 
-  case 5: 
-  case 6: 
-  //case 11: 
-    return 1;
-  case 8: 
-  case 9: 
-  case 10: 
+    // step the cursor one place to the left and stop editing if required
+    menuState.editDepth--;
+    byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
+    if (item < FIRST_ACTION_ITEM)
+    {
+      // floating-point items have a decimal point, which we want to jump over
+      if (menuState.editDepth == 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+        menuState.editDepth--;
+    }
+
+    if (menuState.editDepth < 3)
+      stopEditing();
+
+    return;
+  }
+
+  // go up a level in the menu hierarchy
+  switch (menuState.currentMenu) {
+  case ITEM_MAIN_MENU:
+    break;
+  case ITEM_DASHBOARD_MENU:
+  case ITEM_CONFIG_MENU:
+  case ITEM_PROFILE_MENU:
+    menuState.currentMenu = ITEM_MAIN_MENU;
+    menuState.highlightedItemMenuIndex = 0;
+    menuState.firstItemMenuIndex = 0;
+    break;
+  case ITEM_SETPOINT_MENU:
+    menuState.currentMenu = ITEM_DASHBOARD_MENU;
+    menuState.highlightedItemMenuIndex = 0;
+    menuState.firstItemMenuIndex = 0;
+    break;
   default:
-    return 2;
+    BUGCHECK();
   }
 }
-byte getMenuType(byte index)
+
+void updownKeyPress(bool up)
 {
-  switch(index)
+  if (!menuState.editing)
   {
-  case 0:
-  case 1:
-  case 2:
-  case 3:
-    return TYPE_NAV;
-  case 4: 
-  case 5: 
-  case 6: 
-  case 8: 
-  case 9: 
-  case 10: 
-  //case 11:
-    return TYPE_VAL;
-  case 7:
-  case 11: //12:
-    return TYPE_OPT;
-  default: 
-    return 255;
-  }
-}
-
-boolean changeflag=false;
-
-void back()
-{
-  if(editing)
-  { //decrease the depth and stop editing if required
-
-    editDepth--;
-    if(getMenuType(highlightedIndex)==TYPE_VAL)
+    // menu navigation
+    if (up)
     {
-      if(editDepth==7-getValDec(highlightedIndex))editDepth--; //skip the decimal  
+      if (menuState.highlightedItemMenuIndex == 0)
+        return;
+
+      if (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex)
+        menuState.firstItemMenuIndex--;
+
+      menuState.highlightedItemMenuIndex = menuState.firstItemMenuIndex;
+      return;
     }
-    if(editDepth<3)
-    {
-      editDepth=0;
-      editing= false;
-      theLCD.noCursor();
-    }
+
+    // down
+    byte menuItemCount = menuData[menuState.currentMenu].itemCount();
+
+    if (menuState.highlightedItemMenuIndex == menuItemCount - 1)
+      return;
+
+    if (menuState.highlightedItemMenuIndex != menuState.firstItemMenuIndex)
+      menuState.firstItemMenuIndex++;
+
+    menuState.highlightedItemMenuIndex = menuState.firstItemMenuIndex;
+    return;
   }
-  else
-  { //if not editing return to previous menu. currently this is always main
 
-    //depending on which menu we're coming back from, we may need to write to the eeprom
-    if(changeflag)
-    {
-      if(curMenu==1)
-      { 
-        saveEEPROMSettings();
-      }
-      else if(curMenu==2) //tunings may have changed
-      {
-        saveEEPROMSettings();
-        myPID.SetTunings(kp,ki,kd);
-        myPID.SetControllerDirection(ctrlDirection);
-      }
-      changeflag=false;
-    }
-    if(curMenu!=0)
-    { 
-      highlightedIndex = curMenu-1; //make sure the arrow is on the menu they were in
-      mIndex=curMenu-1;
-      curMenu=0;
-      mDrawIndex=0;
+  // editing a number or a setting
+  byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
-    }
-  }
-}
+  if (!canEditItem(item))
+    return;
 
-double getValMin(byte index)
-{
-  switch(index)
+  if (item >= FIRST_ACTION_ITEM)
   {
-  case 4: 
-  case 5: 
-  case 6: 
-//  case 11: 
-    return -999.9;
-  case 8: 
-  case 9: 
-  case 10: 
-  default:
-    return 0;
-  }
-}
-
-double getValMax(byte index)
-{
-  switch(index)
-  {
-  case 4: 
-  case 5: 
-  case 6: 
-  //case 11: 
-    return 999.9;
-  case 8: 
-  case 9: 
-  case 10: 
-  default:
-    return 99.99;
-  } 
-
-}
-
-void updown(bool up)
-{
-
-  if(editing)
-  {
-    changeflag = true;
-    byte decdepth;
-    double adder;
-    switch(getMenuType(highlightedIndex))
-    {
-    case TYPE_VAL:
-      decdepth = 7 - getValDec(highlightedIndex);
-      adder=1;
-      if(editDepth<decdepth-1)for(int i=editDepth;i<decdepth-1;i++)adder*=10;
-      else if(editDepth>decdepth)for(int i=decdepth;i<editDepth;i++)adder/=10;
-
-      if(!up)adder = 0-adder;
-
-      double *val, minimum, maximum;
-      switch(highlightedIndex)
-      {
-      case 4: 
-        val=&setpoint; 
-        break;
-      case 6:  
-        val=&output; 
-        break;
-      case 8:  
-        val=&kp; 
-        break;
-      case 9:  
-        val=&ki; 
-        break;
-      case 10:  
-        val=&kd; 
-        break;
-      }
-
-      minimum = getValMin(highlightedIndex);
-      maximum = getValMax(highlightedIndex);
-      (*val)+=adder;
-      if((*val)>maximum)(*val)=maximum;
-      else if((*val)<minimum)(*val)=minimum;
-      break; 
-    case TYPE_OPT:
-      switch(highlightedIndex)
-      {
-      case 7:
-        modeIndex= (modeIndex==0?1:0);
-        /*mode change code*/
-        myPID.SetMode(modeIndex);
-        break;
-      case 11://12:
-        ctrlDirection = (ctrlDirection==0?1:0); 
+    switch (item) {
+    case ITEM_PID_MODE:
+      modeIndex = (modeIndex == 0 ? 1 : 0);
+      myPID.SetMode(modeIndex);
+      break;
+    case ITEM_PID_DIRECTION:
+        ctrlDirection = (ctrlDirection == 0 ? 1 : 0);
+        // FIXME
         Serial.println(ctrlDirection);
         break;
-      }
-
-      break;
+    default:
+      BUGCHECK();
     }
-
+    // FIXME: mark settings dirty
+    return;
   }
-  else
-  {
-    if(up)
-    {
-      if(mIndex>0)
-      {
-        mIndex--;
-        mDrawIndex=mIndex;
-      }
-    }
-    else
-    {
-      byte limit = 3;// (curMenu==2 ? 4 : 3); 
-      if(mIndex<limit)
-      {
-        mDrawIndex =mIndex;
-        mIndex++;
-      }
-    }
-    highlightedIndex = mMenu[curMenu][mIndex];
-  }
+
+  // not a setting: must be a number
+
+  // determine how much to increment or decrement
+  byte decimalPointPosition = 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces();
+  double increment = 1.0;
+
+  byte pow10 = menuState.editDepth - decimalPointPosition;
+  while (pow10-- > 0)
+    increment *= 10.0;
+  while (pow10++ < 0)
+    increment /= 10.0;
+
+  if (!up)
+    increment = -increment;
+
+  // do the in/decrement and clamp it
+  double val = floatItemData[item - FIRST_FLOAT_ITEM].currentValue();
+  val += increment;
+
+  double min = floatItemData[item - FIRST_FLOAT_ITEM].minimumValue();
+  if (val < min)
+    val = min;
+
+  double max = floatItemData[item - FIRST_FLOAT_ITEM].maximumValue();
+  if (val > max)
+    val = max;
+
+  double *valPtr = floatItemData[item - FIRST_FLOAT_ITEM].valuePtr();
+  *valPtr = val;
+
+  // FIXME: mark settings dirty
 }
 
-void ok()
+void okKeyPress()
 {
-  if(editing)
+  byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
+
+  if (menuState.editing)
   {
-    byte dec = getValDec(highlightedIndex);
-    if(getMenuType(highlightedIndex) == TYPE_VAL &&(editDepth<6 || (editDepth==6 && dec!=1)))
+    // step the cursor one digit to the right, or stop editing
+    // if it has advanced off the screen
+    menuState.editDepth++;
+    if (item < FIRST_ACTION_ITEM)
     {
-      editDepth++;
-      if(editDepth==7-dec)editDepth++; //skip the decimal
+      // floating-point items have a decimal point, which we want to jump over
+      if (menuState.editDepth == 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+        menuState.editDepth++;
     }
+
+    if (menuState.editDepth > 7 || item >= FIRST_ACTION_ITEM)
+      stopEditing();
+
+    return;
   }
-  else
+
+  if (item < FIRST_FLOAT_ITEM)
   {
-
-    switch(highlightedIndex)
+    // the profile menu is special: a short-press on it triggers the
+    // profile or cancels one that's in progress
+    if (item == ITEM_PROFILE_MENU)
     {
-    case 0: 
-      curMenu=1;
-      mDrawIndex=0;
-      mIndex=0; 
-      highlightedIndex = 4; //setpoint
-      changeflag = false;
-      break;
-    case 1: 
-      curMenu=2;
-      mDrawIndex=0;
-      mIndex=0; 
-      highlightedIndex = 8; //kp
-      changeflag = false;
-      break;
-    case 2: 
-      changeAutoTune();/*autotune code*/
-      break;
-    case 3: 
-      if(runningProfile)StopProfile();
-      else StartProfile();
+      if (runningProfile)
+        StopProfile();
+      else
+        StartProfile();
+      return;
+    }
 
-      break;
-    case 5: /*nothing for input*/
-      break;
-    case 6: 
-      if(modeIndex==0 && !tuning) editing=true; 
-      break; //output
-    case 4: //setpoint
-    case 8: //kp
-    case 9: //ki
-    case 10: //kd
-//    case 11: //windowsize
-    case 11: //12: //direction
-      editing=true;
-      break; //verify this is correct
-    case 7: 
-      if(!tuning) editing=true; 
-      break; //mode
-    }
-    if(editing)
-    {
-      editDepth=3;
-      theLCD.cursor();
-    }
+    // it's a menu: open that menu
+    menuState.currentMenu = item;
+    menuState.highlightedItemMenuIndex = 0;
+    menuState.firstItemMenuIndex = 0;
+    return;
+  }
+
+  if (item < FIRST_ACTION_ITEM)
+  {
+    // it's a numeric value: mark that the user wants to edit it
+    // (the cursor will change if they can't)
+    startEditing();
+    return;
+  }
+
+  // it's an action item: some of them can be edited; others trigger
+  // an action
+  switch (item) {
+  case ITEM_AUTOTUNE_CMD:
+    changeAutoTune();
+    break;
+
+  case ITEM_PROFILE1:
+  case ITEM_PROFILE2:
+  case ITEM_PROFILE3:
+  case ITEM_PROFILE4:
+    activeProfileIndex = item - ITEM_PROFILE1;
+    StartProfile();
+
+    // return to the prior menu
+    backKeyPress();
+    // FIXME: mark settings dirty
+    break;
+
+  case ITEM_SETPOINT1:
+  case ITEM_SETPOINT2:
+  case ITEM_SETPOINT3:
+  case ITEM_SETPOINT4:
+    setpointIndex = item - ITEM_SETPOINT1;
+    setpoint = setPoints[setpointIndex];
+
+    // return to the prior menu
+    backKeyPress();
+    // FIXME: mark settings dirty
+    break;
+
+  case ITEM_PID_MODE:
+  case ITEM_PID_DIRECTION:
+    startEditing();
+    break;
+
+  default:
+    BUGCHECK();
   }
 }
 

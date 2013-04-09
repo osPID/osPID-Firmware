@@ -183,19 +183,19 @@ void loop()
       break;
 
     case BUTTON_RETURN:
-      back();
+      backKeyPress();
       break;
 
     case BUTTON_UP:      
-      updown(true);
+      updownKeyPress(true);
       break;
 
     case BUTTON_DOWN:
-      updown(false);
+      updownKeyPress(false);
       break;
 
     case BUTTON_OK:
-      ok();
+      okKeyPress();
       break;
     }
     buttonTime += 50;
