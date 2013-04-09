@@ -10,6 +10,9 @@
 #include "ospTemperatureInputCard.h"
 #include "ospDigitalOutputCard.h"
 
+#undef BUGCHECK
+#define BUGCHECK() ospBugCheck(PSTR("MAIN"), __LINE__);
+
 /*******************************************************************************
 * The osPID Kit comes with swappable IO cards which are supported by different
 * device drivers & libraries. For the osPID firmware to correctly communicate with

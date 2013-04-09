@@ -7,6 +7,9 @@
 #include "ospCards.h"
 #include "ospSettingsHelper.h"
 
+#undef BUGCHECK
+#define BUGCHECK() ospBugCheck(PSTR("EEPR"), __LINE__);
+
 /*******************************************************************************
 * The controller stores all of its settings in the on-chip EEPROM, which is rated
 * for 100K erase/program cycles. Settings are saved in several distinct blocks,
