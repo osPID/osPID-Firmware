@@ -27,38 +27,24 @@ void ospBugCheck(const char *block, int line)
     }
 }
 
-void changeAutoTune()
+void startAutoTune()
 {
-  if(!tuning)
-  {
-    //initiate autotune
-    AutoTuneHelper(true);
-    aTune.SetNoiseBand(aTuneNoise);
-    aTune.SetOutputStep(aTuneStep);
-    aTune.SetLookbackSec((int)aTuneLookBack);
-    tuning = true;
-  }
-  else
-  { //cancel autotune
-    aTune.Cancel();
-    tuning = false;
-    AutoTuneHelper(false);
-  }
+  ATuneModeRemember = myPID.GetMode();
+  myPID.SetMode(MANUAL);
+
+  aTune.SetNoiseBand(aTuneNoise);
+  aTune.SetOutputStep(aTuneStep);
+  aTune.SetLookbackSec((int)aTuneLookBack);
+  tuning = true;
 }
 
-void AutoTuneHelper(boolean start)
+void stopAutoTune()
 {
+  aTune.Cancel();
+  tuning = false;
 
-  if(start)
-  {
-    ATuneModeRemember = myPID.GetMode();
-    myPID.SetMode(MANUAL);
-  }
-  else
-  {
-    modeIndex = ATuneModeRemember;
-    myPID.SetMode(modeIndex);
-  } 
+  modeIndex = ATuneModeRemember;
+  myPID.SetMode(modeIndex);
 }
 
 void StartProfile()

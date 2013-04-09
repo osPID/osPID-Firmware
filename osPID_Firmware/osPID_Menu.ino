@@ -586,7 +586,10 @@ void okKeyPress()
   switch (item)
   {
   case ITEM_AUTOTUNE_CMD:
-    changeAutoTune();
+    if (!tuning)
+      startAutoTune();
+    else
+      stopAutoTune();
     break;
 
   case ITEM_PROFILE1:

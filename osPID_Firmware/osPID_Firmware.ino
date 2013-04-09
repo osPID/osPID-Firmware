@@ -264,13 +264,14 @@ void loop()
     }
 
     if(!tuning)
-    { 
+    {
+      // FIXME: convert gain sign to PID action direction
       // We're done, set the tuning parameters
       kp = aTune.GetKp();
       ki = aTune.GetKi();
       kd = aTune.GetKd();
       myPID.SetTunings(kp, ki, kd);
-      AutoTuneHelper(false);
+      stopAutoTune();
       saveEEPROMSettings();
     }
   }
@@ -447,7 +448,10 @@ void SerialReceive()
       aTuneLookBack = (unsigned int)foo.asFloat[2];
       if((!tuning && b1==1)||(tuning && b1==0))
       { //toggle autotune state
-        changeAutoTune();
+        if (b1)
+          startAutoTune();
+        else
+          stopAutoTune();
       }
       saveEEPROMSettings();
       ackTune = true;   
