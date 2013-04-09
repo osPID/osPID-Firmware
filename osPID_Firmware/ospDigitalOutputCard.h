@@ -9,7 +9,7 @@ private:
   enum { OUTPUT_RELAY = 0, OUTPUT_SSR = 1 };
 
   byte outputType;
-  float outputWindowSeconds;
+  double outputWindowSeconds;
   unsigned long outputWindowMilliseconds;
 
 public:
@@ -32,7 +32,7 @@ public:
   byte integerSettingsCount() { return 1; }
 
   // read settings from the card
-  float readFloatSetting(byte index) {
+  double readFloatSetting(byte index) {
     if (index == 0)
       return outputWindowSeconds;
     return -1.0f;
@@ -45,7 +45,7 @@ public:
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, float val) {
+  bool writeFloatSetting(byte index, double val) {
     if (index == 0) {
       outputWindowSeconds = val;
       outputWindowMilliseconds = round(outputWindowSeconds * 1000.0f);
@@ -73,9 +73,9 @@ public:
     settings.restore(outputType);
   }
 
-  void setOutputPercent(float percent) {
+  void setOutputPercent(double percent) {
     unsigned long wind = millis() % outputWindowMilliseconds;
-    unsigned long oVal = (unsigned long)(percent * (float)outputWindowMilliseconds / 100.0);
+    unsigned long oVal = (unsigned long)(percent * (double)outputWindowMilliseconds / 100.0);
 
     if (outputType == OUTPUT_RELAY)
       digitalWrite(RelayPin, (oVal>wind) ? HIGH : LOW);

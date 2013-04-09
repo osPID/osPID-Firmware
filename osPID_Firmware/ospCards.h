@@ -19,11 +19,11 @@ public:
   byte integerSettingsCount() { return 0; }
 
   // read settings from the card
-  float readFloatSetting(byte index) { return -1.0f; }
+  double readFloatSetting(byte index) { return -1.0f; }
   int readIntegerSetting(byte index) { return -1; }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, float val) { return false; }
+  bool writeFloatSetting(byte index, double val) { return false; }
   bool writeIntegerSetting(byte index, int val) { return false; }
 
   // save and restore settings to/from EEPROM using the settings helper
@@ -35,14 +35,14 @@ class ospBaseInputCard : public ospBaseCard {
 public:
   ospBaseInputCard() { ospBaseCard(); }
 
-  float readInput() { return -1.0f; }
+  double readInput() { return -1.0f; }
 };
 
 class ospBaseOutputCard : public ospBaseCard {
 public:
   ospBaseOutputCard() { ospBaseCard(); }
 
-  void setOutputPercent(float percentage) { }
+  void setOutputPercent(double percentage) { }
 };
 
 #endif

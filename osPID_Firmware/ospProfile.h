@@ -23,7 +23,7 @@ public:
   char name[NAME_LENGTH];
   byte stepTypes[NR_STEPS];
   unsigned long stepDurations[NR_STEPS];
-  float stepEndpoints[NR_STEPS];
+  double stepEndpoints[NR_STEPS];
 
   ospProfile() {
     clear();

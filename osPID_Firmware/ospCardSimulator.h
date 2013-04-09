@@ -8,11 +8,11 @@
 // term, a thermal loss rate, and some measurement noise
 class ospCardSimulator : public ospBaseInputCard, public ospBaseOutputCard {
 private:
-  float kpmodel, taup, theta[30];
-  float input;
+  double kpmodel, taup, theta[30];
+  double input;
 
-  static const float outputStart = 50.0f;
-  static const float inputStart = 250.0f;
+  static const double outputStart = 50.0f;
+  static const double inputStart = 250.0f;
 
 public:
   ospCardSimulator()
@@ -37,7 +37,7 @@ public:
   byte integerSettingsCount() { return 0; }
 
   // read settings from the card
-  float readFloatSetting(byte index) {
+  double readFloatSetting(byte index) {
     switch (index) {
     case 0:
       return kpmodel;
@@ -53,7 +53,7 @@ public:
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, float val) {
+  bool writeFloatSetting(byte index, double val) {
     switch (index) {
     case 0:
       kpmodel = val;
@@ -82,13 +82,13 @@ public:
   }
 
   // pretend to read an input from the input card
-  float readInput() {
+  double readInput() {
     updateModel();
     return input;
   }
 
   // pretend to write a control signal to the output card
-  void setOutputPercent(float percent) {
+  void setOutputPercent(double percent) {
     theta[29] = percent;
   }
 
@@ -101,7 +101,7 @@ private:
       theta[i] = theta[i+1];
     }
     // Compute the input
-    input = (kpmodel / taup) *(theta[0]-outputStart) + (input-inputStart)*(1-1/taup)+inputStart + ((float)random(-10,10))/100;
+    input = (kpmodel / taup) *(theta[0]-outputStart) + (input-inputStart)*(1-1/taup)+inputStart + ((double)random(-10,10))/100;
   }
 };
 

@@ -16,10 +16,10 @@ private:
   enum { INPUT_THERMOCOUPLE = 0, INPUT_THERMISTOR = 1 };
 
   byte inputType;
-  float THERMISTORNOMINAL;
-  float BCOEFFICIENT;
-  float TEMPERATURENOMINAL;
-  float REFERENCE_RESISTANCE;
+  double THERMISTORNOMINAL;
+  double BCOEFFICIENT;
+  double TEMPERATURENOMINAL;
+  double REFERENCE_RESISTANCE;
 
   TCType thermocouple;
 
@@ -42,13 +42,13 @@ public:
 
 private:
   // actually read the thermocouple
-  float readThermocouple();
+  double readThermocouple();
 
   // convert the thermistor voltage to a temperature
-  float thermistorVoltageToTemperature(int voltage)
+  double thermistorVoltageToTemperature(int voltage)
   {
-    float R = REFERENCE_RESISTANCE / (1024.0/(float)voltage - 1);
-    float steinhart;
+    double R = REFERENCE_RESISTANCE / (1024.0/(double)voltage - 1);
+    double steinhart;
     steinhart = R / THERMISTORNOMINAL;     // (R/Ro)
     steinhart = log(steinhart);                  // ln(R/Ro)
     steinhart /= BCOEFFICIENT;                   // 1/B * ln(R/Ro)
@@ -61,7 +61,7 @@ private:
 
 public:
   // read the card
-  float readInput() {
+  double readInput() {
     if (inputType == INPUT_THERMISTOR) {
       int voltage = analogRead(thermistorPin);
       return thermistorVoltageToTemperature(voltage);
@@ -75,7 +75,7 @@ public:
   byte integerSettingsCount() { return 1; }
 
   // read settings from the card
-  float readFloatSetting(byte index) {
+  double readFloatSetting(byte index) {
     switch (index) {
     case 0:
       return THERMISTORNOMINAL;
@@ -97,7 +97,7 @@ public:
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, float val) {
+  bool writeFloatSetting(byte index, double val) {
     switch (index) {
     case 0:
       THERMISTORNOMINAL = val;
@@ -142,7 +142,7 @@ public:
   }
 };
 
-template<> float ospTemperatureInputCard<MAX6675>::readThermocouple() {
+template<> double ospTemperatureInputCard<MAX6675>::readThermocouple() {
   return thermocouple.readCelsius();
 }
 
@@ -150,8 +150,8 @@ template<> const char *ospTemperatureInputCard<MAX6675>::cardIdentifier() {
   return "IID1";
 }
 
-template<> float ospTemperatureInputCard<MAX31855>::readThermocouple() {
-   float val = thermocouple.readThermocouple(CELSIUS);
+template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() {
+   double val = thermocouple.readThermocouple(CELSIUS);
  
    if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
      val = NAN;
