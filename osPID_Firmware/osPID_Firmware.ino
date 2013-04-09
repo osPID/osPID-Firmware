@@ -305,6 +305,26 @@ void loop()
 void ospBugCheck(const char *block, int line)
 {
     // note that block is expected to be PROGMEM
+
+    theLCD.noCursor();
+
+    theLCD.setCursor(0, 0);
+    for (int i = 0; i < 4; i++)
+      theLCD.print(pgm_read_byte_near(&block[i]));
+    theLCD.print(F(" Err"));
+
+    theLCD.setCursor(0, 1);
+    theLCD.print(F("Lin "));
+    theLCD.print(line);
+
+    // just lock up, flashing the error message
+    while (true)
+    {
+      theLCD.display();
+      delay(500);
+      theLCD.noDisplay();
+      delay(500);
+    }
 }
 
 void changeAutoTune()
