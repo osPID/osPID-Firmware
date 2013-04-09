@@ -214,7 +214,8 @@ void drawFloat(byte item)
   {
     if (i == decimalPointPosition)
       buffer[i] = '.';
-    else {
+    else
+    {
       if (num == 0)
       {
         if (i >= decimalPointPosition - 1) // one zero before the decimal point
@@ -227,7 +228,8 @@ void drawFloat(byte item)
         else
           buffer[i] = ' '; // skip leading zeros
       }
-      else {
+      else
+      {
         buffer[i] = num % 10 + '0';
         num /= 10;
       }
@@ -365,7 +367,8 @@ void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 
   drawSelector(item, selected);
 
-  switch (item) {
+  switch (item)
+  {
   case ITEM_SETPOINT1:
     theLCD.print(F("SP1"));
     break;
@@ -418,7 +421,8 @@ void backKeyPress()
   }
 
   // go up a level in the menu hierarchy
-  switch (menuState.currentMenu) {
+  switch (menuState.currentMenu)
+  {
   case ITEM_MAIN_MENU:
     break;
   case ITEM_DASHBOARD_MENU:
@@ -476,7 +480,8 @@ void updownKeyPress(bool up)
 
   if (item >= FIRST_ACTION_ITEM)
   {
-    switch (item) {
+    switch (item)
+    {
     case ITEM_PID_MODE:
       modeIndex = (modeIndex == 0 ? 1 : 0);
       myPID.SetMode(modeIndex);
@@ -578,7 +583,8 @@ void okKeyPress()
 
   // it's an action item: some of them can be edited; others trigger
   // an action
-  switch (item) {
+  switch (item)
+  {
   case ITEM_AUTOTUNE_CMD:
     changeAutoTune();
     break;
@@ -615,5 +621,27 @@ void okKeyPress()
   default:
     BUGCHECK();
   }
+}
+
+void okKeyLongPress()
+{
+  byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
+
+  // only two items respond to long presses: the setpoint and the profile menu
+  switch (item)
+  {
+  case ITEM_SETPOINT:
+    // open the setpoint menu
+    menuState.currentMenu = ITEM_SETPOINT_MENU;
+    break;
+  case ITEM_PROFILE_MENU:
+    menuState.currentMenu = ITEM_PROFILE_MENU;
+    break;
+  default:
+    return;
+  }
+
+  menuState.highlightedItemMenuIndex = 0;
+  menuState.firstItemMenuIndex = 0;
 }
 

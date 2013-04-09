@@ -141,6 +141,8 @@ byte proftypes[nProfSteps];
 unsigned long proftimes[nProfSteps];
 double profvals[nProfSteps];
 
+// FIXME: configurable serial parameters?
+
 void setup()
 {
   Serial.begin(9600);
@@ -154,7 +156,7 @@ void setup()
   theLCD.setCursor(0,0);
   theLCD.print(F(" osPID   "));
   theLCD.setCursor(0,1);
-  theLCD.print(F(" v1.60   "));
+  theLCD.print(F(" v2.00bks"));
   delay(1000);
 
   theInputCard.initialize();
@@ -171,33 +173,75 @@ void setup()
   myPID.SetMode(modeIndex);
 }
 
+byte heldButton;
+unsigned long buttonPressTime;
+
+// test the buttons and look for button presses or long-presses
+void checkButtons()
+{
+  byte button = theButtonReader.get();
+  byte executeButton = BUTTON_NONE;
+
+  if (button != BUTTON_NONE)
+  {
+    if (heldButton == BUTTON_NONE)
+      buttonPressTime = now + 125; // auto-repeat delay
+    else if (heldButton == BUTTON_OK)
+      ; // OK does long-press/short-press, not auto-repeat
+    else if ((now - buttonPressTime) > 250)
+    {
+      // auto-repeat
+      executeButton = button;
+      buttonPressTime = now;
+    }
+    heldButton = button;
+  }
+  else if (heldButton != BUTTON_NONE)
+  {
+    if (now < buttonPressTime)
+    {
+      // the button hasn't triggered auto-repeat yet; execute it
+      // on release
+      executeButton = heldButton;
+    }
+    else if (heldButton == BUTTON_OK && (now - buttonPressTime) > 125)
+    {
+      // BUTTON_OK was held for at least 250 ms: execute a long-press
+      okKeyLongPress();
+    }
+    heldButton = BUTTON_NONE;
+  }
+
+  switch (executeButton)
+  {
+  case BUTTON_NONE:
+    break;
+
+  case BUTTON_RETURN:
+    backKeyPress();
+    break;
+
+  case BUTTON_UP:
+    updownKeyPress(true);
+    break;
+
+  case BUTTON_DOWN:
+    updownKeyPress(false);
+    break;
+
+  case BUTTON_OK:
+    okKeyPress();
+    break;
+  }
+}
+
 void loop()
 {
   now = millis();
 
-  if(now >= buttonTime)
+  if (now >= buttonTime)
   {
-    switch(theButtonReader.get())
-    {
-    case BUTTON_NONE:
-      break;
-
-    case BUTTON_RETURN:
-      backKeyPress();
-      break;
-
-    case BUTTON_UP:      
-      updownKeyPress(true);
-      break;
-
-    case BUTTON_DOWN:
-      updownKeyPress(false);
-      break;
-
-    case BUTTON_OK:
-      okKeyPress();
-      break;
-    }
+    checkButtons();
     buttonTime += 50;
   }
 
