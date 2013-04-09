@@ -244,7 +244,7 @@ void loop()
 
   if(now>lcdTime)
   {
-    drawLCD();
+    drawMenu();
     lcdTime+=250; 
   }
   if(millis() > serialTime)

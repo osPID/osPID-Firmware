@@ -1,6 +1,7 @@
 /* This file contains the implementation of the on-screen menu system of the controller */
 
 #include <avr/pgmspace.h>
+#include "ospAssert.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
@@ -50,7 +51,7 @@ struct FloatItem {
   }
 };
 
-enum { MENU_FLAG_4x4_FORMAT = 0x01 };
+enum { MENU_FLAG_2x2_FORMAT = 0x01 };
 
 struct MenuItem {
   byte pmemItemCount;
@@ -61,12 +62,12 @@ struct MenuItem {
     return pgm_read_byte_near(&pmemItemCount);
   }
 
-  byte item(byte index) const {
+  byte itemAt(byte index) const {
     return pgm_read_byte_near(&pmemItemPtr[index]);
   }
 
-  bool is4x4() const {
-    return (pgm_read_byte_near(&pmemFlags) & MENU_FLAG_4x4_FORMAT);
+  bool is2x2() const {
+    return (pgm_read_byte_near(&pmemFlags) & MENU_FLAG_2x2_FORMAT);
   }
 };
 
@@ -119,7 +120,7 @@ PROGMEM MenuItem menuData[MENU_COUNT] =
   { 4, 0, dashMenuItems },
   { 4, 0, configMenuItems },
   { 4, 0, profileMenuItems },
-  { 4, MENU_FLAG_4x4_FORMAT, setpointMenuItems }
+  { 4, MENU_FLAG_2x2_FORMAT, setpointMenuItems }
 };
 
 PROGMEM FloatItem floatItemData[FLOAT_ITEM_COUNT] =
@@ -157,12 +158,35 @@ bool editing=false;
 byte editDepth=0;
 byte highlightedIndex=0;
 
-void drawLCD()
+void drawMenu()
 {
-  boolean highlightFirst= (mDrawIndex==mIndex);
-  drawItem(0,highlightFirst, mMenu[curMenu][mDrawIndex]);
-  drawItem(1,!highlightFirst, mMenu[curMenu][mDrawIndex+1]);  
-  if(editing) theLCD.setCursor(editDepth, highlightFirst?0:1);
+  byte itemCount = menuData[menuState.currentMenu].itemCount();
+
+  if (menuData[menuState.currentMenu].is2x2())
+  {
+    // NOTE: right now the code only supports one screen (<= 4 items) in
+    // 2x2 menu mode
+    ospAssert(itemCount <= 4);
+
+    for (byte i = 0; i < itemCount; i++) {
+      bool highlight = (i == menuState.highlightedItemMenuIndex);
+      byte item = menuData[menuState.currentMenu].itemAt(i);
+
+      drawHalfRowItem(i / 2, i % 2, highlight, item);
+    }
+    
+    drawStatusFlash(menuState.highlightedItemMenuIndex / 2);
+  }
+  else
+  {
+    // 2x1 format; supports an arbitrary number of items in the menu
+    bool highlightFirst = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex);
+
+    drawFullRowItem(0, highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex));
+    drawFullRowItem(1, !highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex+1));
+
+    drawStatusFlash(highlightFirst ? 0 : 1);
+  }
 }
 
 // draw a floating-point item's value at the current position
@@ -250,7 +274,7 @@ void drawProfileName(byte profileIndex)
 }
 
 // draw an item occupying a full 8x1 display line
-void drawFullLineItem(byte row, bool selected, byte item)
+void drawFullRowItem(byte row, bool selected, byte item)
 {
   theLCD.setCursor(0,row);
 
@@ -329,6 +353,8 @@ void drawStatusFlash(byte row)
   }
 }
 
+// draw an item which takes up half a row (4 characters),
+// for 2x2 menu mode
 void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 {
   theLCD.setCursor(col, row);
@@ -350,174 +376,6 @@ void drawHalfRowItem(byte row, byte col, bool selected, byte item)
     break;
   default:
     BUGCHECK();
-  }
-}
-
-void drawItem(byte row, boolean highlight, byte index)
-{
-  char buffer[7];
-  theLCD.setCursor(0,row);
-  double val=0;
-  byte dec=0;
-  int num=0;
-  char icon=' ';
-  boolean isNeg = false;
-  boolean didneg = false;
-  byte decSpot = 0;
-  boolean edit = editing && highlightedIndex==index;
-  boolean canEdit=!tuning;
-  switch(getMenuType(index))
-  {
-  case TYPE_NAV:
-    theLCD.print(highlight? '>':' ');
-    switch(index)
-    {
-    case 0: 
-      theLCD.print(F("DashBrd")); 
-      break;
-    case 1: 
-      theLCD.print(F("Config ")); 
-      break;
-    case 2: 
-      theLCD.print(tuning ? F("Cancel ") : F("ATune  ")); 
-      break;
-    case 3:
-      if(runningProfile)theLCD.print(F("Cancel "));
-      else theLCD.print(profname);
-      break;
-    default: 
-      return;
-    }
-
-    break;
-  case TYPE_VAL:
-
-    switch(index)
-    {
-    case 4: 
-      val = setpoint; 
-      dec=1; 
-      icon='S'; 
-      break;
-    case 5: 
-      val = input; 
-      dec=1; 
-      icon='I'; 
-      canEdit=false;
-      break;
-    case 6: 
-      val = output; 
-      dec=1; 
-      icon='O'; 
-      canEdit = (modeIndex==0);
-      break;
-    case 8: 
-      val = kp; 
-      dec=2; 
-      icon='P'; 
-      break;
-    case 9: 
-      val = ki; 
-      dec=2; 
-      icon='I'; 
-      break ;
-    case 10: 
-      val = kd; 
-      dec=2; 
-      icon='D'; 
-      break ;
-
-    default: 
-      return;
-    }
-    theLCD.print(edit? '[' : (highlight ? (canEdit ? '>':'|') : 
-    ' '));
-
-    if(isnan(val))
-    { //display an error
-      theLCD.print(icon);
-      theLCD.print( now % 2000<1000 ? F(" Error"):F("      ")); 
-      return;
-    }
-
-    for(int i=0;i<dec;i++) val*=10;
-
-    num = (int)round(val);
-    buffer[0] = icon;
-    isNeg = num<0;
-    if(isNeg) num = 0 - num;
-    didneg = false;
-    decSpot = 6-dec;
-    if(decSpot==6)decSpot=7;
-    for(byte i=6; i>=1;i--)
-    {
-      if(i==decSpot)buffer[i] = '.';
-      else {
-        if(num==0)
-        {
-          if(i>=decSpot-1) buffer[i]='0';
-          else if (isNeg && !didneg)
-          {
-            buffer[i]='-';
-            didneg=true;
-          }
-          else buffer[i]=' ';
-        }
-        else {
-          buffer[i] = num%10+48;
-          num/=10;
-        }
-      }
-    }     
-    theLCD.print(buffer);
-    break;
-  case TYPE_OPT: 
-
-    theLCD.print(edit ? '[': (highlight? '>':' '));    
-    switch(index)
-    {
-    case 7:    
-      theLCD.print(modeIndex==0 ? F("M Man  "):F("M Auto ")); 
-      break;
-    case 11://12: 
-
-      theLCD.print(ctrlDirection==0 ? F("A Direc"):F("A Rever")); 
-      break;
-    }
-
-    break;
-  default: 
-    return;
-  }
-
-  //indication of altered state
-  if(highlight && (tuning || runningProfile))
-  {
-    //should we blip?
-    if(tuning)
-    { 
-      if(now % 1500 <500)
-      {
-        theLCD.setCursor(0,row);
-        theLCD.print('T'); 
-      }
-    }
-    else //running profile
-    {
-      if(now % 2000 < 500)
-      {
-        theLCD.setCursor(0,row);
-        theLCD.print('P');
-      }
-      else if(now%2000 < 1000)
-      {
-        theLCD.setCursor(0,row);
-        char c;
-        if(curProfStep<10) c = curProfStep + 48; //0-9
-        else c = curProfStep + 65; //A,B...
-        theLCD.print(c);      
-      }  
-    }
   }
 }
 
