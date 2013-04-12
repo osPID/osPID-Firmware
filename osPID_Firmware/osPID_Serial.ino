@@ -1,6 +1,7 @@
 /* This file contains the routines implementing serial-port (i.e. USB) communications
    between the controller and a command computer */
 
+#include <math.h>
 #include <avr/pgmspace.h>
 #include "ospAssert.h"
 
@@ -28,6 +29,85 @@ void setupSerial()
   Serial.end();
   int kbps = pgm_read_word_near(&serialSpeedTable[serialSpeed]);
   Serial.begin(kbps);
+}
+
+// parse an int out of a string; returns a pointer to the first non-numeric
+// character
+const char * parseInt(const char *str, int *out)
+{
+  int value = 0;
+  bool isNegative = false;
+
+  if (str[0] == '-')
+  {
+    isNegative = true;
+    str++;
+  }
+
+  while (true)
+  {
+    char c = *str;
+
+    if (c < '0' || c > '9')
+    {
+      if (isNegative)
+        value = -value;
+
+      *out = value;
+      return str;
+    }
+
+    str++;
+    value = value * 10 + (c - '0');
+  }
+}
+
+// parse a simple floating-point value out of a string; returns a pointer
+// to the first non-numeric character
+const char * parseFloat(const char *str, double *out)
+{
+  bool isNegative = false;
+  bool hasFraction = false;
+  double multiplier = 1.0;
+  long value;
+
+  *out = NAN;
+
+  if (str[0] == '-')
+  {
+    isNegative = true;
+    str++;
+  }
+
+  while (true)
+  {
+    char c = *str;
+
+    if (c == '.')
+    {
+      if (hasFraction)
+        goto end_of_number;
+      hasFraction = true;
+      str++;
+      continue;
+    }
+
+    if (c < '0' || c > '9')
+    {
+end_of_number:
+      if (isNegative)
+        value = -value;
+
+      *out = value * multiplier;
+      return str;
+    }
+
+    str++;
+    value = value * 10 + (c - '0');
+
+    if (hasFraction)
+      multiplier *= 0.1;
+  }
 }
 
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
