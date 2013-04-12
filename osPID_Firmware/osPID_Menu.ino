@@ -99,7 +99,6 @@ enum {
   ITEM_PROFILE1,
   ITEM_PROFILE2,
   ITEM_PROFILE3,
-  ITEM_PROFILE4,
   ITEM_SETPOINT1,
   ITEM_SETPOINT2,
   ITEM_SETPOINT3,
@@ -115,7 +114,7 @@ enum {
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_MENU };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
 PROGMEM const byte configMenuItems[4] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
-PROGMEM const byte profileMenuItems[4] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3, ITEM_PROFILE4 };
+PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 
 PROGMEM const MenuItem menuData[MENU_COUNT] =
@@ -123,7 +122,7 @@ PROGMEM const MenuItem menuData[MENU_COUNT] =
   { 4, 0, mainMenuItems },
   { 4, 0, dashMenuItems },
   { 4, 0, configMenuItems },
-  { 4, 0, profileMenuItems },
+  { 3, 0, profileMenuItems },
   { 4, MENU_FLAG_2x2_FORMAT, setpointMenuItems }
 };
 
@@ -311,7 +310,6 @@ void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_PROFILE1:
   case ITEM_PROFILE2:
   case ITEM_PROFILE3:
-  case ITEM_PROFILE4:
     drawProfileName(item - ITEM_PROFILE1);
     break;
   //case ITEM_SETPOINT1:
@@ -595,7 +593,6 @@ void okKeyPress()
   case ITEM_PROFILE1:
   case ITEM_PROFILE2:
   case ITEM_PROFILE3:
-  case ITEM_PROFILE4:
     activeProfileIndex = item - ITEM_PROFILE1;
     StartProfile();
 
