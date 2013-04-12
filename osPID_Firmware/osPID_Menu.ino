@@ -559,7 +559,7 @@ void okKeyPress()
     {
       if (runningProfile)
         StopProfile();
-      else
+      else if (!tuning)
         StartProfile();
       return;
     }
@@ -584,6 +584,8 @@ void okKeyPress()
   switch (item)
   {
   case ITEM_AUTOTUNE_CMD:
+    if (runningProfile)
+      break;
     if (!tuning)
       startAutoTune();
     else
@@ -594,7 +596,8 @@ void okKeyPress()
   case ITEM_PROFILE2:
   case ITEM_PROFILE3:
     activeProfileIndex = item - ITEM_PROFILE1;
-    StartProfile();
+    if (!tuning)
+      StartProfile();
 
     // return to the prior menu
     backKeyPress();
