@@ -10,12 +10,15 @@ public:
   // which can be freely toggled to make sure that we never get a CRC-16 of
   // 0x0000 when the profile is saved
   enum {
-    STEP_RAMP = 0,
-    STEP_HOLD = 1,
-    STEP_JUMP = 2,
-    STEP_BUZZ = 3,
-    STEP_WAIT_TO_CROSS = 4,
-    STEP_INVALID = 0x7F
+    STEP_RAMP_TO_SETPOINT = 0,
+    STEP_SOAK_AT_TEMPERATURE = 1,
+    STEP_JUMP_TO_SETPOINT = 2,
+    STEP_WAIT_TO_CROSS = 3,
+    STEP_FLAG_BUZZER = 0x40,
+    STEP_EEPROM_SWIZZLE = 0x80,
+    STEP_INVALID = 0x7F,
+    STEP_CONTENT_MASK = 0x7F,
+    STEP_TYPE_MASK = 0x3F
   };
 
   enum { NR_STEPS = 16, NAME_LENGTH = 8 };

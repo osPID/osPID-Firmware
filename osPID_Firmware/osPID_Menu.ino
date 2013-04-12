@@ -349,9 +349,9 @@ void drawStatusFlash(byte row)
     {
       theLCD.setCursor(0,row);
       char c;
-      if (curProfStep < 10)
-        c = curProfStep + '0';
-      else c = curProfStep + 'A';
+      if (currentProfileStep < 10)
+        c = currentProfileStep + '0';
+      else c = currentProfileStep + 'A';
       theLCD.print(c);
     }
   }
@@ -558,9 +558,9 @@ void okKeyPress()
     if (item == ITEM_PROFILE_MENU)
     {
       if (runningProfile)
-        StopProfile();
+        stopProfile();
       else if (!tuning)
-        StartProfile();
+        startProfile();
       return;
     }
 
@@ -597,7 +597,7 @@ void okKeyPress()
   case ITEM_PROFILE3:
     activeProfileIndex = item - ITEM_PROFILE1;
     if (!tuning)
-      StartProfile();
+      startProfile();
 
     // return to the prior menu
     backKeyPress();

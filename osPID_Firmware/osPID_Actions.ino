@@ -1,5 +1,14 @@
 /* This file contains implementations of various user-triggered actions */
 
+#include "ospProfile.h"
+#include "ospAssert.h"
+
+#undef BUGCHECK
+#define BUGCHECK() ospBugCheck(PSTR("PROF"), __LINE__);
+
+// Pin assignments on the main controller card (_not_ the I/O cards)
+enum { buzzerPin = 3, systemLEDPin = A2 };
+
 // a program invariant has been violated: suspend the controller and
 // just flash a debugging message until the unit is power cycled
 void ospBugCheck(const char *block, int line)
@@ -27,6 +36,8 @@ void ospBugCheck(const char *block, int line)
     }
 }
 
+byte ATuneModeRemember;
+
 void startAutoTune()
 {
   ATuneModeRemember = myPID.GetMode();
@@ -47,145 +58,122 @@ void stopAutoTune()
   myPID.SetMode(modeIndex);
 }
 
-void StartProfile()
+struct ProfileState {
+  unsigned long stepEndMillis;
+  unsigned long stepDuration;
+  union {
+    double targetSetpoint;
+    double maximumError;
+  };
+  double initialSetpoint;
+  byte stepType;
+  bool temperatureRising;
+};
+
+ProfileState profileState;
+
+bool startCurrentProfileStep()
 {
-  if(!runningProfile)
-  {
-    //initialize profle
-    curProfStep=0;
-    runningProfile = true;
-    calcNextProf();
-  }
-}
-void StopProfile()
-{
-  if(runningProfile)
-  {
-    curProfStep=nProfSteps;
-    calcNextProf(); //runningProfile will be set to false in here
-  } 
-}
+  byte stepType;
+  getProfileStepData(activeProfileIndex, currentProfileStep,
+    &stepType, &profileState.stepDuration, &profileState.targetSetpoint);
 
-void ProfileRunTime()
-{
-  if(tuning || !runningProfile) return;
+  if (stepType == ospProfile::STEP_INVALID)
+    return false;
 
-  boolean gotonext = false;
-
-  //what are we doing?
-  if(curType==1) //ramp
-  {
-    //determine the value of the setpoint
-    if(now>helperTime)
-    {
-      setpoint = curVal;
-      gotonext=true;
-    }
-    else
-    {
-      setpoint = (curVal-helperVal)*(1-(double)(helperTime-now)/(double)(curTime))+helperVal; 
-    }
-  }
-  else if (curType==2) //wait
-  {
-    double err = input-setpoint;
-    if(helperflag) //we're just looking for a cross
-    {
-
-      if(err==0 || (err>0 && helperVal<0) || (err<0 && helperVal>0)) gotonext=true;
-      else helperVal = err;
-    }
-    else //value needs to be within the band for the perscribed time
-    {
-      if (abs(err)>curVal) helperTime=now; //reset the clock
-      else if( (now-helperTime)>=curTime) gotonext=true; //we held for long enough
-    }
-
-  }
-  else if(curType==3) //step
-  {
-
-    if((now-helperTime)>curTime)gotonext=true;
-  }
-  else if(curType==127) //buzz
-  {
-    if(now<helperTime)digitalWrite(buzzerPin,HIGH);
-    else 
-    {
-       digitalWrite(buzzerPin,LOW);
-       gotonext=true;
-    }
-  }
+  if (stepType & ospProfile::STEP_FLAG_BUZZER)
+    digitalWrite(buzzerPin, HIGH);
   else
-  { //unrecognized type, kill the profile
-    curProfStep=nProfSteps;
-    gotonext=true;
+    digitalWrite(buzzerPin, LOW);
+
+  profileState.stepType = stepType & ospProfile::STEP_TYPE_MASK;
+  profileState.stepEndMillis = now + profileState.stepDuration;
+
+  switch (profileState.stepType)
+  {
+  case ospProfile::STEP_RAMP_TO_SETPOINT:
+    profileState.initialSetpoint = setpoint;
+    break;
+  case ospProfile::STEP_SOAK_AT_TEMPERATURE:
+    break;
+  case ospProfile::STEP_JUMP_TO_SETPOINT:
+    setpoint = profileState.targetSetpoint;
+    break;
+  case ospProfile::STEP_WAIT_TO_CROSS:
+    profileState.temperatureRising = (input < profileState.targetSetpoint);
+    break;
+  default:
+    return false;
   }
 
-  if(gotonext)
-  {
-    curProfStep++;
-    calcNextProf();
-  }
+  return true;
 }
 
-void calcNextProf()
+// this function gets called every iteration of loop() while a profile is
+// running
+void profileLoopIteration()
 {
-  if(curProfStep>=nProfSteps) 
-  {
-    curType=0;
-    helperTime =0;
-  }
-  else
-  { 
-    curType = proftypes[curProfStep];
-    curVal = profvals[curProfStep];
-    curTime = proftimes[curProfStep];
+  double delta;
+  ospAssert(!tuning);
+  ospAssert(runningProfile);
 
-  }
-  if(curType==1) //ramp
+  switch (profileState.stepType)
   {
-    helperTime = curTime + now; //at what time the ramp will end
-    helperVal = setpoint;
-  }   
-  else if(curType==2) //wait
-  {
-    helperflag = (curVal==0);
-    if(helperflag) helperVal= input-setpoint;
-    else helperTime=now; 
-  }
-  else if(curType==3) //step
-  {
-    setpoint = curVal;
-    helperTime = now;
-  }
-  else if(curType==127) //buzzer
-  {
-    helperTime = now + curTime;    
-  }
-  else
-  {
-    curType=0;
+  case ospProfile::STEP_RAMP_TO_SETPOINT:
+    if (now >= profileState.stepEndMillis)
+    {
+      setpoint = profileState.targetSetpoint;
+      break;
+    }
+    delta = profileState.targetSetpoint - setpoint;
+    setpoint += delta * (profileState.stepEndMillis - now) / (double)profileState.stepDuration;
+    return;
+  case ospProfile::STEP_SOAK_AT_TEMPERATURE:
+    delta = fabs(setpoint - input);
+    if (delta > profileState.maximumError)
+      profileState.stepEndMillis = now + profileState.stepDuration;
+    // fall through
+  case ospProfile::STEP_JUMP_TO_SETPOINT:
+    if (now < profileState.stepEndMillis)
+      return;
+    break;
+  case ospProfile::STEP_WAIT_TO_CROSS:
+    if ((input < profileState.targetSetpoint) && profileState.temperatureRising)
+      return; // not there yet
+    if ((input > profileState.targetSetpoint) && !profileState.temperatureRising)
+      return;
+    break;
   }
 
-  if(curType==0) //end
-  { //we're done 
-    runningProfile=false;
-    curProfStep=0;
-    Serial.println("P_DN");
-    digitalWrite(buzzerPin,LOW);
-  } 
-  else
-  {
-    Serial.print("P_STP ");
-    Serial.print(int(curProfStep));
-    Serial.print(" ");
-    Serial.print(int(curType));
-    Serial.print(" ");
-    Serial.print((curVal));
-    Serial.print(" ");
-    Serial.println((curTime));
+  // this step is done: load the next one if it exists
+  recordProfileStepCompletion(currentProfileStep);
+  if (currentProfileStep < ospProfile::NR_STEPS) {
+    currentProfileStep++;
+    if (startCurrentProfileStep()) // returns false if there are no more steps
+      return;
   }
 
+  // the profile is finished
+  stopProfile();
+}
+
+void startProfile()
+{
+  ospAssert(!runningProfile);
+
+  currentProfileStep = 0;
+  recordProfileStart();
+  runningProfile = true;
+
+  if (!startCurrentProfileStep())
+    stopProfile();
+}
+
+void stopProfile()
+{
+  ospAssert(runningProfile);
+
+  recordProfileCompletion();
+  runningProfile = false;
 }
 

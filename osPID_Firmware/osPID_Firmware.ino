@@ -71,6 +71,7 @@ ospProfile profileBuffer;
 
 // the 0-based index of the active profile while a profile is executing
 byte activeProfileIndex;
+byte currentProfileStep;
 boolean runningProfile = false;
 
 // the name of this controller unit (can be queried and set over USB)
@@ -108,27 +109,15 @@ byte powerOnBehavior = POWERON_GOTO_MANUAL;
 // the paremeters for the autotuner
 double aTuneStep = 20, aTuneNoise = 1;
 unsigned int aTuneLookBack = 10;
-byte ATuneModeRemember = 0;
 PID_ATune aTune(&pidInput, &output);
 
 // whether the autotuner is active
 bool tuning = false;
 
-// Pin assignments on the controller card (_not_ the I/O cards)
-enum { buzzerPin = 3, systemLEDPin = A2 };
-
 unsigned long now, lcdTime, buttonTime,ioTime, serialTime;
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
 
 PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
-
-byte curProfStep=0;
-byte curType=0;
-double curVal=0;
-double helperVal=0;
-unsigned long helperTime=0;
-boolean helperflag=false;
-unsigned long curTime=0;
 
 /*Profile declarations*/
 const unsigned long profReceiveTimeout = 10000;
@@ -247,14 +236,14 @@ void loop()
 
   bool doIO = now >= ioTime;
   //read in the input
-  if(doIO)
+  if (doIO)
   { 
     ioTime+=250;
     input = theInputCard.readInput();
     if (!isnan(input))pidInput = input;
   }
 
-  if(tuning)
+  if (tuning)
   {
     byte val = (aTune.Runtime());
 
@@ -263,7 +252,7 @@ void loop()
       tuning = false;
     }
 
-    if(!tuning)
+    if (!tuning)
     {
       // FIXME: convert gain sign to PID action direction
       // We're done, set the tuning parameters
@@ -277,22 +266,25 @@ void loop()
   }
   else
   {
-    if(runningProfile) ProfileRunTime();
-    //allow the pid to compute if necessary
+    // step the profile, if there is one running
+    if (runningProfile)
+      profileLoopIteration();
+
+    // allow the PID to compute if necessary
     myPID.Compute();
   }
 
-  if(doIO)
+  if (doIO)
   {
     theOutputCard.setOutputPercent(output);
   }
 
-  if(now>lcdTime)
+  if (now > lcdTime)
   {
     drawMenu();
-    lcdTime+=250; 
+    lcdTime += 250;
   }
-  if(millis() > serialTime)
+  if (millis() > serialTime)
   {
     //if(receivingProfile && (now-profReceiveStart)>profReceiveTimeout) receivingProfile = false;
     SerialReceive();
@@ -482,7 +474,7 @@ void SerialReceive()
       {
         if(runningProfile)
         { //stop the current profile execution
-          StopProfile();
+          stopProfile();
         }
 
         if(b1==0)
@@ -518,8 +510,8 @@ void SerialReceive()
   case 8:
     if(index==2 && b2<2)
     {
-      if(b2==1) StartProfile();
-      else StopProfile();
+      if(b2==1) startProfile();
+      else stopProfile();
 
     }
     break;
@@ -596,23 +588,23 @@ void SerialSend()
   if(runningProfile)
   {
     Serial.print("PROF ");
-    Serial.print(int(curProfStep));
+    Serial.print(int(0));
     Serial.print(" ");
-    Serial.print(int(curType));
+    Serial.print(int(0));
     Serial.print(" ");
-switch(curType)
+switch(1)
 {
   case 1: //ramp
-    Serial.println((helperTime-now)); //time remaining
+    Serial.println((now)); //time remaining
 
   break;
   case 2: //wait
     Serial.print(abs(input-setpoint));
     Serial.print(" ");
-    Serial.println(curVal==0? -1 : double(now-helperTime));
+    Serial.println(0==0? -1 : double(now-0));
   break;  
   case 3: //step
-    Serial.println(curTime-(now-helperTime));
+    Serial.println(0-(now-0));
   break;
   default: 
   break;

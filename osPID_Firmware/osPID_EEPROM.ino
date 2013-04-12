@@ -104,7 +104,8 @@ enum {
   STATUS_BUFFER_LENGTH = 128,
   STATUS_BUFFER_BLOCK_LENGTH = 4,
   STATUS_BLOCK_CRC_OFFSET = 0,
-  STATUS_BLOCK_STATUS_OFFSET = 2
+  STATUS_BLOCK_STATUS_OFFSET = 2,
+  STATUS_BLOCK_COUNT = (STATUS_BUFFER_LENGTH / STATUS_BUFFER_BLOCK_LENGTH)
 };
 
 // the start value for doing CRC-16 cyclic redundancy checks
@@ -271,7 +272,7 @@ bool checkEEPROMProfile(byte index)
 void saveEEPROMProfile(byte index)
 {
   const int base = PROFILE_BLOCK_START_OFFSET + index * PROFILE_BLOCK_LENGTH;
-  byte swizzle = 0x80; // we start by or-ing 0x80 into the stepTypes
+  byte swizzle = ospProfile::STEP_EEPROM_SWIZZLE; // we start by or-ing 0x80 into the stepTypes
 
 retry:
   ospSettingsHelper settings(CRC16_INIT, base + 2); // skip the CRC-16 slot
@@ -291,9 +292,9 @@ retry:
 
   int crcValue = settings.crcValue();
 
-  if (crcValue == 0 && swizzle) {
-    // zero is a reserved value in the status buffer, so take out the swizzle
-    // and retry to generate a different CRC-16
+  if (crcValue == -1 && swizzle) {
+    // 0xFFFF is a reserved values in the status buffer, so take out the swizzle
+    // and retry the save to generate a different CRC-16
     swizzle = 0x00;
     goto retry;
   }
@@ -314,23 +315,113 @@ char getProfileNameCharAt(byte profileIndex, byte i)
   return ch;
 }
 
-bool tryRestoreRingbufferState()
+void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, double *endpoint)
 {
+  const int base = PROFILE_BLOCK_START_OFFSET
+                    + profileIndex * PROFILE_BLOCK_LENGTH;
+
+  ospSettingsHelper::eepromRead(base + PROFILE_STEP_TYPES_OFFSET + i, *type);
+  *type &= ospProfile::STEP_CONTENT_MASK;
+
+  ospSettingsHelper::eepromRead(base + PROFILE_STEP_DURATIONS_OFFSET + i*sizeof(unsigned long), *duration);
+  ospSettingsHelper::eepromRead(base + PROFILE_STEP_ENDPOINTS_OFFSET + i*sizeof(double), *endpoint);
+}
+
+byte currentStatusBufferBlockIndex;
+
+// search through the profiles for one with the given CRC-16, and return
+// its index or 0xFF if not found
+byte profileIndexForCrc(int crc)
+{
+  int profileCrc;
+
+  for (byte i = 0; i < NR_PROFILES; i++)
+  {
+    int crcAddress = PROFILE_BLOCK_START_OFFSET + i * PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET;
+    ospSettingsHelper::eepromRead(crcAddress, profileCrc);
+
+    if (crc == profileCrc)
+      return i;
+  }
+  return 0xFF;
+}
+
+// this function reads the status buffer to see if execution of a profile
+// was interrupted; if it was, it loads activeProfile and currentProfileStep
+// with the step that was interrupted and returns true. If any profile has been
+// run, activeProfile is restored to the last profile to have been run.
+bool shouldResumeProfileExecution()
+{
+  int crc, statusBits;
+
+  for (int blockAddress = STATUS_BUFFER_START_OFFSET;
+    blockAddress < STATUS_BUFFER_START_OFFSET + STATUS_BUFFER_LENGTH;
+    blockAddress += STATUS_BUFFER_BLOCK_LENGTH, currentStatusBufferBlockIndex++)
+  {
+    ospSettingsHelper::eepromRead(blockAddress + STATUS_BLOCK_CRC_OFFSET, crc);
+
+    if (crc == -1) // not a valid profile CRC-16
+      continue;
+
+    byte profileIndex = profileIndexForCrc(crc);
+    if (profileIndex == 0xFF)
+      return false; // the recorded profile no longer exists
+
+    // this is either the last profile fully executed or one that was interrupted
+    activeProfileIndex = profileIndex;
+    ospSettingsHelper::eepromRead(blockAddress + STATUS_BLOCK_STATUS_OFFSET, statusBits);
+    if (statusBits != 0)
+    {
+      // we found an active profile
+      currentProfileStep = ffs(statusBits) - 1;
+      return true;
+    }
+    else
+      return false;
+  }
+
+  // didn't find anything
+  currentStatusBufferBlockIndex = 0;
   return false;
 }
 
-void startEEPROMProfileExecution(byte profileIndex)
+void recordProfileStart()
 {
+  // figure out which status buffer slot to use, and which one was last used
+  byte priorBlockIndex = currentStatusBufferBlockIndex;
+  currentStatusBufferBlockIndex = (currentStatusBufferBlockIndex + 1) % STATUS_BLOCK_COUNT;
+
+  // record the start of profile execution
+  int crc, ffff = 0xFFFF;
+  int crcAddress = PROFILE_BLOCK_START_OFFSET + activeProfileIndex * PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET;
+  int statusBlockAddress = STATUS_BUFFER_START_OFFSET + currentStatusBufferBlockIndex * STATUS_BUFFER_BLOCK_LENGTH;
+
+  // we only clear bits (no erase) to write the CRC; it will get erased to 0xFFFF when the _next_
+  // profile is executed
+  ospSettingsHelper::eepromRead(crcAddress, crc);
+  ospSettingsHelper::eepromClearBits(statusBlockAddress + STATUS_BLOCK_CRC_OFFSET, crc);
+  ospSettingsHelper::eepromWrite(statusBlockAddress + STATUS_BLOCK_STATUS_OFFSET, ffff);
+
+  // and delete the previous execution record
+  ospSettingsHelper::eepromWrite(STATUS_BUFFER_START_OFFSET + priorBlockIndex * STATUS_BUFFER_BLOCK_LENGTH, ffff);
 }
 
-// finish a step: loads the command for the next step from EEPROM and returns
-// true, or returns false if that was the last step
-bool completeEEPROMProfileStep(byte profileIndex, byte step)
+// clear the Incomplete bit for the just-completed profile step
+void recordProfileStepCompletion(byte step)
 {
-  return false;
+  int statusAddress = STATUS_BUFFER_START_OFFSET
+        + currentStatusBufferBlockIndex * STATUS_BUFFER_BLOCK_LENGTH
+        + STATUS_BLOCK_STATUS_OFFSET;
+
+  int status = 0xFFFF;
+  status <<= (step + 1);
+  ospSettingsHelper::eepromClearBits(statusAddress, status);
 }
 
-void finishEEPROMProfileExecution(byte profileIndex)
+// mark the profile as complete by clearing all the Incomplete bits, regardless
+// of how many steps it actually contained
+void recordProfileCompletion()
 {
+  recordProfileStepCompletion(15);
 }
 
