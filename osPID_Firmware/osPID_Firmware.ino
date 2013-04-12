@@ -122,7 +122,6 @@ unsigned long now, lcdTime, buttonTime, ioTime, serialTime;
 
 void setup()
 {
-  Serial.begin(9600);
   lcdTime=10;
   buttonTime=1;
   ioTime=5;
@@ -134,12 +133,18 @@ void setup()
   theLCD.print(F(" osPID   "));
   theLCD.setCursor(0,1);
   theLCD.print(F(" v2.00bks"));
-  delay(1000);
+
+  now = millis();
 
   theInputCard.initialize();
   theOutputCard.initialize();
 
   setupEEPROM();
+  setupSerial();
+
+  delay(millis() < now + 1000 ? now + 1000 - millis() : 10);
+
+  now = millis();
 
   // show the controller name?
 

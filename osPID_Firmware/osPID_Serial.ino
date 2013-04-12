@@ -1,8 +1,8 @@
 /* This file contains the routines implementing serial-port (i.e. USB) communications
    between the controller and a command computer */
 
+#include <avr/pgmspace.h>
 #include "ospAssert.h"
-
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("COMM"), __LINE__);
@@ -18,6 +18,17 @@ enum {
 };
 
 byte serialSpeed = SERIAL_SPEED_28p8k;
+
+PROGMEM int serialSpeedTable[7] = { 9600, 14400, 19200, 38400, 57600, 115200 };
+
+void setupSerial()
+{
+  ospAssert(serialSpeed >= 0 && serialSpeed < 7);
+
+  Serial.end();
+  int kbps = pgm_read_word_near(&serialSpeedTable[serialSpeed]);
+  Serial.begin(kbps);
+}
 
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
 

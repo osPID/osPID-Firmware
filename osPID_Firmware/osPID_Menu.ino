@@ -83,6 +83,7 @@ enum {
   ITEM_CONFIG_MENU,
   ITEM_PROFILE_MENU,
   ITEM_SETPOINT_MENU,
+  ITEM_COMM_MENU,
   
   // then double items
   FIRST_FLOAT_ITEM,
@@ -105,25 +106,35 @@ enum {
   ITEM_SETPOINT4,
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
+  ITEM_COMM_9p6k,
+  ITEM_COMM_14p4k,
+  ITEM_COMM_19p2k,
+  ITEM_COMM_28p8k,
+  ITEM_COMM_38p4k,
+  ITEM_COMM_57p6k,
+  ITEM_COMM_115k,
   
   ITEM_COUNT,
   MENU_COUNT = FIRST_FLOAT_ITEM,
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
 };
 
-PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD, ITEM_PROFILE_MENU };
+PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[4] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION };
+PROGMEM const byte configMenuItems[5] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_COMM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
+PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
+                                        ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
 
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
-  { 4, 0, mainMenuItems },
-  { 4, 0, dashMenuItems },
-  { 4, 0, configMenuItems },
-  { 3, 0, profileMenuItems },
-  { 4, MENU_FLAG_2x2_FORMAT, setpointMenuItems }
+  { sizeof(mainMenuItems), 0, mainMenuItems },
+  { sizeof(dashMenuItems), 0, dashMenuItems },
+  { sizeof(configMenuItems), 0, configMenuItems },
+  { sizeof(profileMenuItems), 0, profileMenuItems },
+  { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
+  { sizeof(commMenuItems), 0, commMenuItems }
 };
 
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
@@ -305,8 +316,8 @@ void drawFullRowItem(byte row, bool selected, byte item)
     break;
   // case ITEM_SETPOINT_MENU: should not happen
   case ITEM_AUTOTUNE_CMD:
-      theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
-      break;
+    theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
+    break;
   case ITEM_PROFILE1:
   case ITEM_PROFILE2:
   case ITEM_PROFILE3:
@@ -317,11 +328,32 @@ void drawFullRowItem(byte row, bool selected, byte item)
   //case ITEM_SETPOINT3:
   //case ITEM_SETPOINT4: should not happen
   case ITEM_PID_MODE:
-      theLCD.print(modeIndex==0 ? F("Mod Man") : F("Mod PID"));
-      break;
+    theLCD.print(modeIndex==0 ? F("Mod Man") : F("Mod PID"));
+    break;
   case ITEM_PID_DIRECTION:
-      theLCD.print(ctrlDirection==0 ? F("Act Dir") : F("Act Rev"));
-      break;
+    theLCD.print(ctrlDirection==0 ? F("Act Dir") : F("Act Rev"));
+    break;
+  case ITEM_COMM_9p6k:
+    theLCD.print(F(" 9.6kbd"));
+    break;
+  case ITEM_COMM_14p4k:
+    theLCD.print(F("14.4kbd"));
+    break;
+  case ITEM_COMM_19p2k:
+    theLCD.print(F("19.2kbd"));
+    break;
+  case ITEM_COMM_28p8k:
+    theLCD.print(F("28.8kbd"));
+    break;
+  case ITEM_COMM_38p4k:
+    theLCD.print(F("38.4kbd"));
+    break;
+  case ITEM_COMM_57p6k:
+    theLCD.print(F("57.6kbd"));
+    break;
+  case ITEM_COMM_115k:
+    theLCD.print(F("115kbd"));
+    break;
   default:
     BUGCHECK();
   }
@@ -419,7 +451,8 @@ void backKeyPress()
   }
 
   // go up a level in the menu hierarchy
-  switch (menuState.currentMenu)
+  byte prevMenu = menuState.currentMenu;
+  switch (prevMenu)
   {
   case ITEM_MAIN_MENU:
     break;
@@ -427,13 +460,18 @@ void backKeyPress()
   case ITEM_CONFIG_MENU:
   case ITEM_PROFILE_MENU:
     menuState.currentMenu = ITEM_MAIN_MENU;
-    menuState.highlightedItemMenuIndex = 0;
-    menuState.firstItemMenuIndex = 0;
+    menuState.highlightedItemMenuIndex = prevMenu - 1;
+    menuState.firstItemMenuIndex = prevMenu - 1;
     break;
   case ITEM_SETPOINT_MENU:
     menuState.currentMenu = ITEM_DASHBOARD_MENU;
     menuState.highlightedItemMenuIndex = 0;
     menuState.firstItemMenuIndex = 0;
+    break;
+  case ITEM_COMM_MENU:
+    menuState.currentMenu = ITEM_CONFIG_MENU;
+    menuState.highlightedItemMenuIndex = 4;
+    menuState.firstItemMenuIndex = 3;
     break;
   default:
     BUGCHECK();
@@ -619,6 +657,17 @@ void okKeyPress()
   case ITEM_PID_MODE:
   case ITEM_PID_DIRECTION:
     startEditing();
+    break;
+
+  case ITEM_COMM_9p6k:
+  case ITEM_COMM_14p4k:
+  case ITEM_COMM_19p2k:
+  case ITEM_COMM_28p8k:
+  case ITEM_COMM_38p4k:
+  case ITEM_COMM_57p6k:
+  case ITEM_COMM_115k:
+    serialSpeed = (item - ITEM_COMM_9p6k);
+    setupSerial();
     break;
 
   default:
