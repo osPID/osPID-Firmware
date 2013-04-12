@@ -1,6 +1,24 @@
 /* This file contains the routines implementing serial-port (i.e. USB) communications
    between the controller and a command computer */
 
+#include "ospAssert.h"
+
+
+#undef BUGCHECK
+#define BUGCHECK() ospBugCheck(PSTR("COMM"), __LINE__);
+
+enum {
+  SERIAL_SPEED_9p6k = 0,
+  SERIAL_SPEED_14p4k = 1,
+  SERIAL_SPEED_19p2k = 2,
+  SERIAL_SPEED_28p8k = 3,
+  SERIAL_SPEED_38p4k = 4,
+  SERIAL_SPEED_57p6k = 5,
+  SERIAL_SPEED_115k = 6
+};
+
+byte serialSpeed = SERIAL_SPEED_28p8k;
+
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
 
 /*Profile declarations*/

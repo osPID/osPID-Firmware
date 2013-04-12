@@ -19,8 +19,8 @@
 * Offset | Size | Item
 * --------------------
 *      0 |    2 | CRC-16
-*      2 |    1 | settings byte
-*      3 |    1 | (reserved for future use)
+*      2 |    1 | settings byte 1
+*      3 |    1 | settings byte 2
 *      4 |   16 | Controller name
 *     20 |    4 | P gain
 *     24 |    4 | I gain
@@ -70,7 +70,8 @@
 
 enum {
   SETTINGS_CRC_OFFSET = 0,
-  SETTINGS_SBYTE_OFFSET = 2,
+  SETTINGS_SBYTE1_OFFSET = 2,
+  SETTINGS_SBYTE2_OFFSET = 3,
   SETTINGS_NAME_OFFSET = 4,
   SETTINGS_NAME_LENGTH = 16,
   SETTINGS_P_OFFSET = 20,
@@ -168,13 +169,13 @@ bool checkEEPROMSettings()
 {
   int storedCrc, calculatedCrc;
 
-  calculatedCrc = checkEEPROMBlockCrc(SETTINGS_SBYTE_OFFSET, SETTINGS_CRC_LENGTH);
+  calculatedCrc = checkEEPROMBlockCrc(SETTINGS_SBYTE1_OFFSET, SETTINGS_CRC_LENGTH);
   ospSettingsHelper::eepromRead(SETTINGS_CRC_OFFSET, storedCrc);
 
   return (calculatedCrc == storedCrc);
 }
 
-union SettingsByte {
+union SettingsByte1 {
   struct {
     byte pidMode : 1;
     byte pidDirection : 1;
@@ -185,17 +186,32 @@ union SettingsByte {
   byte byteVal;
 };
 
+extern byte serialSpeed;
+
+union SettingsByte2 {
+  struct {
+    byte serialSpeed : 3;
+    byte spare : 5;
+  };
+  byte byteVal;
+};
+
 void saveEEPROMSettings()
 {
-  SettingsByte sb;
-  ospSettingsHelper settings(CRC16_INIT, SETTINGS_SBYTE_OFFSET);
+  SettingsByte1 sb1;
+  SettingsByte2 sb2;
+  ospSettingsHelper settings(CRC16_INIT, SETTINGS_SBYTE1_OFFSET);
 
-  sb.byteVal = 0xFF;
-  sb.pidMode = modeIndex;
-  sb.pidDirection = ctrlDirection;
-  sb.powerOnBehavior = powerOnBehavior;
-  sb.setpointIndex = setpointIndex;
-  settings.save(sb.byteVal);
+  sb1.byteVal = 0;
+  sb1.pidMode = modeIndex;
+  sb1.pidDirection = ctrlDirection;
+  sb1.powerOnBehavior = powerOnBehavior;
+  sb1.setpointIndex = setpointIndex;
+  settings.save(sb1.byteVal);
+
+  sb2.byteVal = 0;
+  sb2.serialSpeed = serialSpeed;
+  settings.save(sb2.byteVal);
 
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
     settings.save(controllerName[i]);
@@ -223,14 +239,18 @@ void saveEEPROMSettings()
 
 void restoreEEPROMSettings()
 {
-  SettingsByte sb;
-  ospSettingsHelper settings(CRC16_INIT, SETTINGS_SBYTE_OFFSET);
+  SettingsByte1 sb1;
+  SettingsByte2 sb2;
+  ospSettingsHelper settings(CRC16_INIT, SETTINGS_SBYTE1_OFFSET);
 
-  settings.restore(sb.byteVal);
-  modeIndex = sb.pidMode;
-  ctrlDirection = sb.pidDirection;
-  powerOnBehavior = sb.powerOnBehavior;
-  setpointIndex = sb.setpointIndex;
+  settings.restore(sb1.byteVal);
+  modeIndex = sb1.pidMode;
+  ctrlDirection = sb1.pidDirection;
+  powerOnBehavior = sb1.powerOnBehavior;
+  setpointIndex = sb1.setpointIndex;
+
+  settings.restore(sb2.byteVal);
+  serialSpeed = sb2.serialSpeed;
 
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
     settings.restore(controllerName[i]);
