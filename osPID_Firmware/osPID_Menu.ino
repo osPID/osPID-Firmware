@@ -737,7 +737,9 @@ void okKeyPress()
   }
 }
 
-void okKeyLongPress()
+// returns true if there was a long-press action; false if a long press
+// is the same as a short press
+bool okKeyLongPress()
 {
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
@@ -752,10 +754,12 @@ void okKeyLongPress()
     menuState.currentMenu = ITEM_PROFILE_MENU;
     break;
   default:
-    return;
+    return false;
   }
 
   menuState.highlightedItemMenuIndex = 0;
   menuState.firstItemMenuIndex = 0;
+
+  return true;
 }
 

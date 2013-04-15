@@ -205,10 +205,16 @@ void checkButtons()
       // on release
       executeButton = heldButton;
     }
-    else if (heldButton == BUTTON_OK && (now - buttonPressTime) > 125)
+    else if (heldButton == BUTTON_OK && (now - buttonPressTime) > 400)
     {
-      // BUTTON_OK was held for at least 250 ms: execute a long-press
-      okKeyLongPress();
+      // BUTTON_OK was held for at least 400 ms: execute a long-press
+      bool longPress = okKeyLongPress();
+
+      if (!longPress)
+      {
+        // no long-press action defined, so fall back to a short-press
+        executeButton = BUTTON_OK;
+      }
     }
     heldButton = BUTTON_NONE;
   }
