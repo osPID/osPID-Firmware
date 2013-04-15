@@ -544,6 +544,9 @@ void updownKeyPress(bool up)
   if (!canEditItem(item))
     return;
 
+  // _something_ is going to change, so the settings are now dirty
+  markSettingsDirty();
+
   if (item >= FIRST_ACTION_ITEM)
   {
     switch (item)
@@ -684,10 +687,10 @@ void okKeyPress()
     activeProfileIndex = item - ITEM_PROFILE1;
     if (!tuning)
       startProfile();
+    markSettingsDirty();
 
     // return to the prior menu
     backKeyPress();
-    // FIXME: mark settings dirty
     break;
 
   case ITEM_SETPOINT1:
@@ -696,10 +699,10 @@ void okKeyPress()
   case ITEM_SETPOINT4:
     setpointIndex = item - ITEM_SETPOINT1;
     setpoint = setPoints[setpointIndex];
+    markSettingsDirty();
 
     // return to the prior menu
     backKeyPress();
-    // FIXME: mark settings dirty
     break;
 
   case ITEM_PID_MODE:
@@ -716,20 +719,20 @@ void okKeyPress()
   case ITEM_COMM_115k:
     serialSpeed = (item - ITEM_COMM_9p6k);
     setupSerial();
+    markSettingsDirty();
 
     // return to the prior menu
     backKeyPress();
-    // FIXME: mark settings dirty
     break;
 
   case ITEM_POWERON_DISABLE:
   case ITEM_POWERON_CONTINUE:
   case ITEM_POWERON_RESUME_PROFILE:
     powerOnBehavior = (item - ITEM_POWERON_DISABLE);
+    markSettingsDirty();
 
     // return to the prior menu
     backKeyPress();
-    // FIXME: mark settings dirty
     break;
 
   default:

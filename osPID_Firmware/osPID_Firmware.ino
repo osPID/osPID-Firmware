@@ -242,6 +242,20 @@ void checkButtons()
   }
 }
 
+bool settingsWritebackNeeded;
+unsigned long settingsWritebackTime;
+
+// record that the settings have changed, and need to be written to EEPROM
+// as soon as they are done changing
+void markSettingsDirty()
+{
+  settingsWritebackNeeded = true;
+
+  // wait until nothing has changed for 5s before writing to EEPROM
+  // this reduces EEPROM wear by not writing every time a digit is changed
+  settingsWritebackTime = now + 5000;
+}
+
 void loop()
 {
   now = millis();
@@ -300,6 +314,11 @@ void loop()
   {
     drawMenu();
     lcdTime += 250;
+  }
+
+  if (settingsWritebackNeeded && now > settingsWritebackTime) {
+    saveEEPROMSettings();
+    settingsWritebackNeeded = false;
   }
 
   if (millis() > serialTime)
