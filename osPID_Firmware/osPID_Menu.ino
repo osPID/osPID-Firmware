@@ -604,8 +604,23 @@ void okKeyPress()
 
     // it's a menu: open that menu
     menuState.currentMenu = item;
-    menuState.highlightedItemMenuIndex = 0;
-    menuState.firstItemMenuIndex = 0;
+
+    switch (item)
+    {
+    case ITEM_PROFILE_MENU:
+      menuState.highlightedItemMenuIndex = activeProfileIndex;
+      break;
+    case ITEM_SETPOINT_MENU:
+      menuState.highlightedItemMenuIndex = setpointIndex;
+      break;
+    case ITEM_COMM_MENU:
+      menuState.highlightedItemMenuIndex = serialSpeed;
+      break;
+    default:
+      menuState.highlightedItemMenuIndex = 0;
+      break;
+    }
+    menuState.firstItemMenuIndex = min(menuState.highlightedItemMenuIndex, menuData[menuState.currentMenu].itemCount() - 1);
     return;
   }
 
