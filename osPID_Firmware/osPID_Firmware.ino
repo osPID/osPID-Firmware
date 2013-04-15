@@ -126,9 +126,11 @@ void setup()
   buttonTime=1;
   ioTime=5;
   serialTime=6;
-  //windowStartTime=2;
+
+  // set up the LCD
   theLCD.begin(8, 2);
 
+  // display a startup message
   theLCD.setCursor(0,0);
   theLCD.print(F(" osPID   "));
   theLCD.setCursor(0,1);
@@ -136,10 +138,14 @@ void setup()
 
   now = millis();
 
+  // set up the peripheral cards
   theInputCard.initialize();
   theOutputCard.initialize();
 
+  // load the EEPROM settings
   setupEEPROM();
+
+  // set up the serial interface
   setupSerial();
 
   delay(millis() < now + 1000 ? now + 1000 - millis() : 10);
