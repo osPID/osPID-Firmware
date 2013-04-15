@@ -340,6 +340,8 @@ void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *du
   const int base = PROFILE_BLOCK_START_OFFSET
                     + profileIndex * PROFILE_BLOCK_LENGTH;
 
+
+  ospAssert(profileIndex >= 0 && profileIndex < NR_PROFILES);
   ospSettingsHelper::eepromRead(base + PROFILE_STEP_TYPES_OFFSET + i, *type);
   *type &= ospProfile::STEP_CONTENT_MASK;
 
@@ -370,7 +372,7 @@ byte profileIndexForCrc(int crc)
 // was interrupted; if it was, it loads activeProfile and currentProfileStep
 // with the step that was interrupted and returns true. If any profile has been
 // run, activeProfile is restored to the last profile to have been run.
-bool shouldResumeProfileExecution()
+bool profileWasInterrupted()
 {
   int crc, statusBits;
 

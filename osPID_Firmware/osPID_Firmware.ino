@@ -154,11 +154,22 @@ void setup()
 
   // show the controller name?
 
+  // configure the PID loop
   myPID.SetSampleTime(1000);
   myPID.SetOutputLimits(0, 100);
   myPID.SetTunings(kp, ki, kd);
   myPID.SetControllerDirection(ctrlDirection);
+
+  if (powerOnBehavior == POWERON_GOTO_MANUAL)
+    modeIndex = MANUAL;
   myPID.SetMode(modeIndex);
+
+  // finally, check whether we were interrupted in the middle of a profile
+  if (profileWasInterrupted())
+    if (powerOnBehavior == POWERON_RESUME_PROFILE)
+      startCurrentProfileStep();
+    else
+      recordProfileCompletion(); // we don't want to pick up again, so mark it completed
 }
 
 byte heldButton;
@@ -237,22 +248,20 @@ void loop()
   //read in the input
   if (doIO)
   { 
-    ioTime+=250;
+    ioTime += 250;
     input = theInputCard.readInput();
-    if (!isnan(input))pidInput = input;
+    if (!isnan(input))
+      pidInput = input;
   }
 
   if (tuning)
   {
     byte val = (aTune.Runtime());
 
-    if(val != 0)
+    if (val != 0)
     {
       tuning = false;
-    }
 
-    if (!tuning)
-    {
       // FIXME: convert gain sign to PID action direction
       // We're done, set the tuning parameters
       kp = aTune.GetKp();
@@ -265,6 +274,7 @@ void loop()
   }
   else
   {
+    // FIXME: should the PID be computing if there's no I/O?
     // step the profile, if there is one running
     if (runningProfile)
       profileLoopIteration();
@@ -283,6 +293,7 @@ void loop()
     drawMenu();
     lcdTime += 250;
   }
+
   if (millis() > serialTime)
   {
     //if(receivingProfile && (now-profReceiveStart)>profReceiveTimeout) receivingProfile = false;
@@ -291,12 +302,4 @@ void loop()
     serialTime += 500;
   }
 }
-
-
-
-
-
-
-
-
 
