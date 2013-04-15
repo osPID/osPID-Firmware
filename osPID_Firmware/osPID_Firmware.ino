@@ -99,12 +99,12 @@ double setpoint=250,input=250,output=50, pidInput=250;
 
 // what to do on power-on
 enum {
-    POWERON_GOTO_MANUAL,
-    POWERON_GOTO_SETPOINT,
+    POWERON_DISABLE = 0,
+    POWERON_CONTINUE_LOOP,
     POWERON_RESUME_PROFILE
 };
 
-byte powerOnBehavior = POWERON_GOTO_MANUAL;
+byte powerOnBehavior = POWERON_CONTINUE_LOOP;
 
 // the paremeters for the autotuner
 double aTuneStep = 20, aTuneNoise = 1;
@@ -160,8 +160,10 @@ void setup()
   myPID.SetTunings(kp, ki, kd);
   myPID.SetControllerDirection(ctrlDirection);
 
-  if (powerOnBehavior == POWERON_GOTO_MANUAL)
+  if (powerOnBehavior == POWERON_DISABLE) {
     modeIndex = MANUAL;
+    output = 0;
+  }
   myPID.SetMode(modeIndex);
 
   // finally, check whether we were interrupted in the middle of a profile

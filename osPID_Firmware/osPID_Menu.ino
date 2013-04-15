@@ -78,13 +78,14 @@ struct MenuItem {
 // all of the items which might be displayed on the screen
 enum {
   // all menus must be first
-  ITEM_MAIN_MENU,
+  ITEM_MAIN_MENU = 0,
   ITEM_DASHBOARD_MENU,
   ITEM_CONFIG_MENU,
   ITEM_PROFILE_MENU,
   ITEM_SETPOINT_MENU,
   ITEM_COMM_MENU,
-  
+  ITEM_POWERON_MENU,
+
   // then double items
   FIRST_FLOAT_ITEM,
   ITEM_SETPOINT = FIRST_FLOAT_ITEM,
@@ -100,12 +101,15 @@ enum {
   ITEM_PROFILE1,
   ITEM_PROFILE2,
   ITEM_PROFILE3,
+
   ITEM_SETPOINT1,
   ITEM_SETPOINT2,
   ITEM_SETPOINT3,
   ITEM_SETPOINT4,
+
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
+
   ITEM_COMM_9p6k,
   ITEM_COMM_14p4k,
   ITEM_COMM_19p2k,
@@ -113,7 +117,11 @@ enum {
   ITEM_COMM_38p4k,
   ITEM_COMM_57p6k,
   ITEM_COMM_115k,
-  
+
+  ITEM_POWERON_DISABLE,
+  ITEM_POWERON_CONTINUE,
+  ITEM_POWERON_RESUME_PROFILE,
+
   ITEM_COUNT,
   MENU_COUNT = FIRST_FLOAT_ITEM,
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
@@ -121,11 +129,12 @@ enum {
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[5] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_COMM_MENU };
+PROGMEM const byte configMenuItems[6] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_POWERON_MENU, ITEM_COMM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
                                         ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
+PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
 
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
@@ -134,7 +143,8 @@ PROGMEM const MenuItem menuData[MENU_COUNT] =
   { sizeof(configMenuItems), 0, configMenuItems },
   { sizeof(profileMenuItems), 0, profileMenuItems },
   { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
-  { sizeof(commMenuItems), 0, commMenuItems }
+  { sizeof(commMenuItems), 0, commMenuItems },
+  { sizeof(poweronMenuItems), 0, poweronMenuItems }
 };
 
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
@@ -315,6 +325,12 @@ void drawFullRowItem(byte row, bool selected, byte item)
       drawProfileName(activeProfileIndex);
     break;
   // case ITEM_SETPOINT_MENU: should not happen
+  case ITEM_COMM_MENU:
+    theLCD.print(F("Comm   "));
+    break;
+  case ITEM_POWERON_MENU:
+    theLCD.print(F("PowerOn"));
+    break;
   case ITEM_AUTOTUNE_CMD:
     theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
     break;
@@ -352,7 +368,16 @@ void drawFullRowItem(byte row, bool selected, byte item)
     theLCD.print(F("57.6kbd"));
     break;
   case ITEM_COMM_115k:
-    theLCD.print(F("115kbd"));
+    theLCD.print(F("115 kbd"));
+    break;
+  case ITEM_POWERON_DISABLE:
+    theLCD.print(F("Disable"));
+    break;
+  case ITEM_POWERON_CONTINUE:
+    theLCD.print(F("Hold   "));
+    break;
+  case ITEM_POWERON_RESUME_PROFILE:
+    theLCD.print(F("Profile"));
     break;
   default:
     BUGCHECK();
@@ -469,6 +494,11 @@ void backKeyPress()
     menuState.firstItemMenuIndex = 0;
     break;
   case ITEM_COMM_MENU:
+    menuState.currentMenu = ITEM_CONFIG_MENU;
+    menuState.highlightedItemMenuIndex = 5;
+    menuState.firstItemMenuIndex = 4;
+    break;
+  case ITEM_POWERON_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
     menuState.highlightedItemMenuIndex = 4;
     menuState.firstItemMenuIndex = 3;
@@ -616,6 +646,9 @@ void okKeyPress()
     case ITEM_COMM_MENU:
       menuState.highlightedItemMenuIndex = serialSpeed;
       break;
+    case ITEM_POWERON_MENU:
+      menuState.highlightedItemMenuIndex = powerOnBehavior;
+      break;
     default:
       menuState.highlightedItemMenuIndex = 0;
       break;
@@ -683,6 +716,20 @@ void okKeyPress()
   case ITEM_COMM_115k:
     serialSpeed = (item - ITEM_COMM_9p6k);
     setupSerial();
+
+    // return to the prior menu
+    backKeyPress();
+    // FIXME: mark settings dirty
+    break;
+
+  case ITEM_POWERON_DISABLE:
+  case ITEM_POWERON_CONTINUE:
+  case ITEM_POWERON_RESUME_PROFILE:
+    powerOnBehavior = (item - ITEM_POWERON_DISABLE);
+
+    // return to the prior menu
+    backKeyPress();
+    // FIXME: mark settings dirty
     break;
 
   default:
