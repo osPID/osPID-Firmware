@@ -270,6 +270,10 @@ static void completeAutoTune()
   ki = aTune.GetKi();
   kd = aTune.GetKd();
 
+  // set the PID controller to accept the new gain settings
+  myPID.SetControllerDirection(DIRECT);
+  myPID.SetMode(AUTOMATIC);
+
   if (kp < 0)
   {
     // the auto-tuner found a negative gain sign: convert the coefficients
@@ -282,12 +286,14 @@ static void completeAutoTune()
   }
   else
   {
-    myPID.SetControllerDirection(DIRECT);
     ctrlDirection = DIRECT;
   }
 
   myPID.SetTunings(kp, ki, kd);
+
+  // this will restore the user-requested PID controller mode
   stopAutoTune();
+
   markSettingsDirty();
 }
 
