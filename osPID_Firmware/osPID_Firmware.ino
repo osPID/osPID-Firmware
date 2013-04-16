@@ -175,10 +175,12 @@ void setup()
 
   // finally, check whether we were interrupted in the middle of a profile
   if (profileWasInterrupted())
+  {
     if (powerOnBehavior == POWERON_RESUME_PROFILE)
       startCurrentProfileStep();
     else
       recordProfileCompletion(); // we don't want to pick up again, so mark it completed
+  }
 }
 
 // Letting a button auto-repeat without redrawing the LCD in between leads to a
