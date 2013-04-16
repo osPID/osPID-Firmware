@@ -370,10 +370,10 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   //case ITEM_SETPOINT3:
   //case ITEM_SETPOINT4: should not happen
   case ITEM_PID_MODE:
-    theLCD.print(modeIndex==0 ? F("Mod Man") : F("Mod PID"));
+    theLCD.print(modeIndex == MANUAL ? F("ManCtrl") : F("PidLoop"));
     break;
   case ITEM_PID_DIRECTION:
-    theLCD.print(ctrlDirection==0 ? F("Act Dir") : F("Act Rev"));
+    theLCD.print(ctrlDirection == DIRECT ? F("ActnFwd") : F("ActnRev"));
     break;
   case ITEM_COMM_9p6k:
     theLCD.print(F(" 9.6kbd"));
