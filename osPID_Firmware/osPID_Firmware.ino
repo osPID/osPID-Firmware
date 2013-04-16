@@ -118,14 +118,18 @@ bool tuning = false;
 PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
-unsigned long now, lcdTime, buttonTime, ioTime, serialTime;
+unsigned long now, lcdTime;
 
+// how often to step the PID loop, in milliseconds: it is impractical to set this
+// to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
+// of latency, and (b) the controller needs time to handle the LCD, EEPROM, and serial
+// I/O
+enum { PID_LOOP_SAMPLE_TIME = 1000 };
+
+// initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
 {
-  lcdTime=10;
-  buttonTime=1;
-  ioTime=5;
-  serialTime=6;
+  lcdTime = 25;
 
   // set up the LCD
   theLCD.begin(8, 2);
@@ -155,7 +159,7 @@ void setup()
   // show the controller name?
 
   // configure the PID loop
-  myPID.SetSampleTime(1000);
+  myPID.SetSampleTime(PID_LOOP_SAMPLE_TIME);
   myPID.SetOutputLimits(0, 100);
   myPID.SetTunings(kp, ki, kd);
   myPID.SetControllerDirection(ctrlDirection);
@@ -174,6 +178,11 @@ void setup()
       recordProfileCompletion(); // we don't want to pick up again, so mark it completed
 }
 
+// Letting a button auto-repeat without redrawing the LCD in between leads to a
+// poor user interface
+bool lcdRedrawNeeded;
+
+// keep track of which button is being held, and for how long
 byte heldButton;
 unsigned long buttonPressTime;
 
@@ -191,6 +200,13 @@ void checkButtons()
       ; // OK does long-press/short-press, not auto-repeat
     else if ((now - buttonPressTime) > 250)
     {
+      // don't auto-repeat until 100 ms after the redraw
+      if (lcdRedrawNeeded)
+      {
+        buttonPressTime = now - 150;
+        return;
+      }
+
       // auto-repeat
       executeButton = button;
       buttonPressTime = now;
@@ -219,11 +235,13 @@ void checkButtons()
     heldButton = BUTTON_NONE;
   }
 
+  if (executeButton == BUTTON_NONE)
+    return;
+
+  lcdRedrawNeeded = true;
+
   switch (executeButton)
   {
-  case BUTTON_NONE:
-    break;
-
   case BUTTON_RETURN:
     backKeyPress();
     break;
@@ -256,29 +274,57 @@ void markSettingsDirty()
   settingsWritebackTime = now + 5000;
 }
 
+// This is the Arduino main loop.
+//
+// There are two goals this loop must balance: the highest priority is
+// that the PID loop be executed reliably and on-time; the other goal is that
+// the screen, buttons, and serial interfaces all be responsive. However,
+// since things like redrawing the LCD may take tens of milliseconds -- and responding
+// to serial commands can take 100s of milliseconds at low bit rates -- a certain
+// measure of cleverness is required.
+//
+// Alongside the real-time task of the PID loop, there are 6 other tasks which may
+// need to be performed:
+// 1. handling a button press
+// 2. executing a step of the auto-tuner
+// 3. executing a step of a profile
+// 4. redrawing the LCD
+// 5. saving settings to EEPROM
+// 6. processing a serial-port command
+//
+// Characters from the serial port are received asynchronously: it is only the
+// command _processing_ which needs to be scheduled.
+
+// whether loop() is permitted to do LCD, EEPROM, or serial I/O: this is set
+// to false when loop() is being re-entered during some slow operation
+bool blockSlowOperations;
+
+void realtimeLoop()
+{
+  blockSlowOperations = true;
+  loop();
+  blockSlowOperations = false;
+}
+
+// we accumulate characters for a single serial command in this buffer
+char serialCommandBuffer[33];
+byte serialCommandLength;
+
 void loop()
 {
+  // first up is the realtime part of the loop, which is not allowed to perform
+  // EEPROM writes or serial I/O
   now = millis();
 
-  if (now >= buttonTime)
-  {
-    checkButtons();
-    buttonTime += 50;
-  }
+  // read in the input
+  input = theInputCard.readInput();
 
-  bool doIO = now >= ioTime;
-  //read in the input
-  if (doIO)
-  { 
-    ioTime += 250;
-    input = theInputCard.readInput();
-    if (!isnan(input))
-      pidInput = input;
-  }
+  if (!isnan(input))
+    pidInput = input;
 
   if (tuning)
   {
-    byte val = (aTune.Runtime());
+    byte val = aTune.Runtime();
 
     if (val != 0)
     {
@@ -291,42 +337,64 @@ void loop()
       kd = aTune.GetKd();
       myPID.SetTunings(kp, ki, kd);
       stopAutoTune();
-      saveEEPROMSettings();
+      markSettingsDirty();
     }
   }
   else
   {
-    // FIXME: should the PID be computing if there's no I/O?
     // step the profile, if there is one running
+    // this may call ospSettingsHelper::eepromClearBits(), but not
+    // ospSettingsHelper::eepromWrite()
     if (runningProfile)
       profileLoopIteration();
 
-    // allow the PID to compute if necessary
+    // update the PID
     myPID.Compute();
   }
 
-  if (doIO)
-  {
-    theOutputCard.setOutputPercent(output);
-  }
+  theOutputCard.setOutputPercent(output);
 
-  if (now > lcdTime)
+  // after the realtime part comes the slow operations, which may re-enter
+  // the realtime part of the loop but not the slow part
+  if (blockSlowOperations)
+    return;
+
+  // we want to monitor the buttons as often as possible
+  checkButtons();
+
+  // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
+  // a button is pressed
+  if (now > lcdTime || lcdRedrawNeeded)
   {
     drawMenu();
+    lcdRedrawNeeded = false;
     lcdTime += 250;
   }
 
   if (settingsWritebackNeeded && now > settingsWritebackTime) {
-    saveEEPROMSettings();
+    // clear settingsWritebackNeeded first, so that it gets re-armed if the
+    // realtime loop calls markSettingsDirty()
     settingsWritebackNeeded = false;
+    saveEEPROMSettings();
   }
 
-  if (millis() > serialTime)
+  // accept any pending characters from the serial buffer
+  byte avail = Serial.available();
+  while (avail)
   {
-    //if(receivingProfile && (now-profReceiveStart)>profReceiveTimeout) receivingProfile = false;
-    SerialReceive();
-    SerialSend();
-    serialTime += 500;
+    char ch = Serial.read();
+    if (serialCommandLength < 32)
+    {
+      // throw away excess characters
+      serialCommandBuffer[serialCommandLength++] = ch;
+    }
+
+    if (ch == '\n')
+    {
+      // a complete command has been received
+      serialCommandBuffer[serialCommandLength] = '\0';
+      processSerialCommand();
+    }
   }
 }
 

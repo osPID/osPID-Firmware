@@ -115,7 +115,7 @@ enum {
 // the index of the currently in-use (or next free) status buffer block
 byte statusBufferIndex = 0;
 
-// check each EEPROM block and either restore it or reset it
+// check each EEPROM block and either restore it or mark it to be reset
 void setupEEPROM()
 {
   // first check the profiles
@@ -133,7 +133,7 @@ void setupEEPROM()
     restoreEEPROMSettings();
   } else {
     // bad CRC: save our hardcoded defaults
-    saveEEPROMSettings();
+    markSettingsDirty();
   }
 }
 

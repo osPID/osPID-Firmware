@@ -21,10 +21,16 @@ template<size_t size> void ospSettingsHelper::eepromReadSize(unsigned int addres
   }
 }
 
+extern void realtimeLoop();
+
+// since EEPROM write time is ~4 ms per byte, we perform an iteration of the realtime loop after
+// every byte written
 template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int address, const byte *p) {
   for (byte n = size; n; n--) {
-    if (eeprom_read_byte((byte *)address) != *p)
+    if (eeprom_read_byte((byte *)address) != *p) {
       eeprom_write_byte((byte *)address, *p);
+      ::realtimeLoop();
+    }
     p++;
     address++;
   }
@@ -35,6 +41,9 @@ template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int addre
 // it is basically a clone of the implementation of eeprom_write_byte, except that
 // we program EEPM1 to 1 to set program-only mode (rather than erase-then-program
 // mode, which is the default of 0)
+//
+// NOTE: this function does _not_ perform a realtime loop iteration, since it is called by
+// the profile executor, which is _part_ of the realtime loop
 template<size_t size> void ospSettingsHelper::eepromClearBitsSize(unsigned int address, const byte *p) {
   for (byte n = size; n; n--) {
     __asm__ __volatile__ (
