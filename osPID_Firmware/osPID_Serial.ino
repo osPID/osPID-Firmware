@@ -293,8 +293,16 @@ void cmdPeek(int address)
   else
     val = * (byte *)address;
 
-  Serial.print('0' + (val >> 4));
-  Serial.print('0' + (val & 0x0F));
+  byte b = val >> 4;
+  if (b < 10)
+    Serial.print('0' + b);
+  else
+    Serial.print('A' - 10 + b);
+  b = val & 0x0F;
+  if (b < 10)
+    Serial.print('0' + b);
+  else
+    Serial.print('A' - 10 + b);
 }
 
 void cmdPoke(int address, byte val)
@@ -443,8 +451,39 @@ void cmdExamineSettings()
   }
 }
 
-void cmdExamineProfile(byte index)
+void cmdExamineProfile(byte profileIndex)
 {
+  serialPrint(F("Profile "));
+  Serial.print('0' + profileIndex);
+  serialPrint(F(": "));
+
+  for (byte i = 0; i < ospProfile::NAME_LENGTH; i++)
+  {
+    char ch = getProfileNameCharAt(profileIndex, i);
+    if (ch == '\0')
+      break;
+    Serial.print(ch);
+  }
+  Serial.println();
+
+  for (byte i = 0; i < ospProfile::NR_STEPS; i++)
+  {
+    byte type;
+    unsigned long duration;
+    double endpoint;
+
+    getProfileStepData(profileIndex, i, &type, &duration, &endpoint);
+
+    if (type == ospProfile::STEP_INVALID)
+      break;
+    serialPrint("  ");
+    if (type < 10)
+      Serial.print(' ');
+    serialPrint(type);
+    serialPrint(' ');
+    serialPrint(duration);
+    serialPrint(endpoint);
+  }
 }
 
 // The command line parsing is table-driven, which saves more than 1.5 kB of code
@@ -769,6 +808,7 @@ void processSerialCommand()
       goto out_EINV;
 
     profileBuffer.clear();
+    memset(profileBuffer.name, 0, sizeof(profileBuffer.name));
     strcpy(profileBuffer.name, p);
     break;
   case 'O': // directly set the output command
