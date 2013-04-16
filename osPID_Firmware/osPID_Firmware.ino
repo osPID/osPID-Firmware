@@ -85,11 +85,11 @@ char controllerName[17] = { 'o', 's', 'P', 'I', 'D', ' ',
 double kp = 2, ki = 0.5, kd = 2;
 
 // the direction flag for the PID controller
-byte ctrlDirection = 0;
+byte ctrlDirection = DIRECT;
 
 // whether the controller is executing a PID law or just outputting a manual
 // value
-byte modeIndex = 0;
+byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
 double setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
@@ -99,6 +99,12 @@ byte setpointIndex = 0;
 
 // the variables to which the PID controller is bound
 double setpoint=250,input=250,output=50, pidInput=250;
+
+// the hard trip limits
+double lowerTripLimit = 0, upperTripLimit = 200;
+bool tripLimitsEnabled;
+bool tripped;
+bool tripAutoReset;
 
 // what to do on power-on
 enum {
@@ -122,6 +128,7 @@ PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
 unsigned long now, lcdTime;
+
 
 // how often to step the PID loop, in milliseconds: it is impractical to set this
 // to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
@@ -381,6 +388,19 @@ void loop()
 
     // update the PID
     myPID.Compute();
+  }
+
+  // after the PID has updated, check the trip limits
+  if (tripLimitsEnabled)
+  {
+    if (tripAutoReset)
+      tripped = false;
+
+    if (isnan(input) || input < lowerTripLimit || input > upperTripLimit || tripped)
+    {
+      output = 0;
+      tripped = true;
+    }
   }
 
   theOutputCard.setOutputPercent(output);

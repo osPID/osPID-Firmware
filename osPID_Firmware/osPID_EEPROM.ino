@@ -30,7 +30,8 @@
 *     52 |    4 | Autotune noise parameter
 *     56 |    4 | Autotune look-back parameter
 *     60 |    4 | Manual output setting
-*     64 |    8 | (reserved for future use)
+*     64 |    4 | Lower trip limit
+*     68 |    4 | Upper trip limit
 *     72 |   64 | Input card setting space
 *    136 |   64 | Output card setting space
 *
@@ -181,7 +182,8 @@ union SettingsByte1 {
     byte pidDirection : 1;
     byte powerOnBehavior : 2;
     byte setpointIndex : 2;
-    byte spare : 2;
+    byte tripLimitsEnabled : 1;
+    byte tripAutoReset : 1;
   };
   byte byteVal;
 };
@@ -207,6 +209,8 @@ static void saveEEPROMSettings()
   sb1.pidDirection = ctrlDirection;
   sb1.powerOnBehavior = powerOnBehavior;
   sb1.setpointIndex = setpointIndex;
+  sb1.tripLimitsEnabled = tripLimitsEnabled;
+  sb1.tripAutoReset = tripAutoReset;
   settings.save(sb1.byteVal);
 
   sb2.byteVal = 0;
@@ -231,6 +235,9 @@ static void saveEEPROMSettings()
 
   settings.save(output);
 
+  settings.save(lowerTripLimit);
+  settings.save(upperTripLimit);
+
   settings.fillUpTo(INPUT_CARD_SETTINGS_OFFSET);
   theInputCard.saveSettings(settings);
   settings.fillUpTo(OUTPUT_CARD_SETTINGS_OFFSET);
@@ -248,6 +255,8 @@ static void restoreEEPROMSettings()
   ctrlDirection = sb1.pidDirection;
   powerOnBehavior = sb1.powerOnBehavior;
   setpointIndex = sb1.setpointIndex;
+  tripLimitsEnabled = sb1.tripLimitsEnabled;
+  tripAutoReset = sb1.tripAutoReset;
 
   settings.restore(sb2.byteVal);
   serialSpeed = sb2.serialSpeed;
@@ -269,6 +278,9 @@ static void restoreEEPROMSettings()
   settings.restore(aTuneLookBack);
 
   settings.restore(output);
+
+  settings.restore(lowerTripLimit);
+  settings.restore(upperTripLimit);
 
   settings.skipTo(INPUT_CARD_SETTINGS_OFFSET);
   theInputCard.restoreSettings(settings);

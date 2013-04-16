@@ -61,7 +61,7 @@ Command list:
   k #Integer #Integer -- poKe at memory address: the first number is the address,
   the second is the byte to write there, in decimal
 
-  L? #Number -- set interLock trip point
+  L? #Number #Number -- set interLock lower and upper trip points
 
   l? #0-1 -- enable or disable interlock temperature Limit
 
@@ -91,6 +91,10 @@ Command list:
   S? #Number -- Setpoint -- change the (currently active) setpoint
 
   s? #0-3 -- Select setpoint -- changes which setpoint is active
+
+  T? -- query Trip state or clear a trip
+
+  t? #0-1 -- trip auto-reseT -- enable or disable automatic recovery from trips
 
   V #0-2 -- saVe the profile buffer to profile N
 
@@ -493,6 +497,7 @@ enum {
   ARGS_NONE = 0,
   ARGS_INTEGER,
   ARGS_FLOAT,
+  ARGS_FLOAT_FLOAT,
   ARGS_INTEGER_INTEGER,
   ARGS_INTEGER_INTEGER_FLOAT,
   ARGS_INTEGER_INTEGER_INTEGER,
@@ -517,7 +522,7 @@ PROGMEM SerialCommandParseData commandParseData[] = {
   { 'E', ARGS_STRING },
   { 'I', ARGS_NONE },
   { 'K', ARGS_INTEGER },
-  { 'L', ARGS_FLOAT | ARGS_FLAG_QUERYABLE },
+  { 'L', ARGS_FLOAT_FLOAT | ARGS_FLAG_QUERYABLE },
   { 'M', ARGS_INTEGER | ARGS_FLAG_QUERYABLE },
   { 'N', ARGS_STRING | ARGS_FLAG_QUERYABLE },
   { 'O', ARGS_FLOAT | ARGS_FLAG_QUERYABLE },
@@ -525,6 +530,7 @@ PROGMEM SerialCommandParseData commandParseData[] = {
   { 'Q', ARGS_NONE },
   { 'R', ARGS_INTEGER | ARGS_FLAG_QUERYABLE },
   { 'S', ARGS_FLOAT | ARGS_FLAG_QUERYABLE },
+  { 'T', ARGS_NONE | ARGS_FLAG_QUERYABLE },
   { 'V', ARGS_INTEGER },
   { 'X', ARGS_NONE },
   { 'a', ARGS_FLOAT_FLOAT_INTEGER },
@@ -539,6 +545,7 @@ PROGMEM SerialCommandParseData commandParseData[] = {
   { 'p', ARGS_FLOAT | ARGS_FLAG_QUERYABLE },
   { 'r', ARGS_INTEGER },
   { 's', ARGS_INTEGER | ARGS_FLAG_QUERYABLE },
+  { 't', ARGS_INTEGER | ARGS_FLAG_QUERYABLE },
   { 'x', ARGS_INTEGER }
 };
 
@@ -611,8 +618,11 @@ static void processSerialCommand()
       serialPrintln(ki);
       break;
     case 'L':
+      serialPrintln(lowerTripLimit);
+      serialPrintln(upperTripLimit);
+      break;
     case 'l':
-      // FIXME
+      serialPrintln(tripLimitsEnabled);
       break;
     case 'M':
       serialPrintln(modeIndex);
@@ -637,6 +647,12 @@ static void processSerialCommand()
       break;
     case 's':
       serialPrintln(setpointIndex);
+      break;
+    case 'T':
+      serialPrintln(tripped);
+      break;
+    case 't':
+      serialPrintln(tripAutoReset);
       break;
     default:
       goto out_EINV;
@@ -665,18 +681,18 @@ static void processSerialCommand()
   case ARGS_NONE:
     CHECK_CMD_END();
     break;
-  case ARGS_INTEGER_INTEGER_INTEGER:
-  case ARGS_INTEGER_INTEGER_FLOAT:
+  case ARGS_INTEGER_INTEGER_INTEGER: // i1, i2, i3
+  case ARGS_INTEGER_INTEGER_FLOAT: // i1, i2, f1
     CHECK_SPACE();
     p2 = parseInt(p, &i1);
     CHECK_P2();
     // fall through
-  case ARGS_INTEGER_INTEGER:
+  case ARGS_INTEGER_INTEGER: // i2, i3
     CHECK_SPACE();
     p2 = parseInt(p, &i2);
     CHECK_P2();
     // fall through
-  case ARGS_INTEGER:
+  case ARGS_INTEGER: // i3
     CHECK_SPACE();
     if (argDescriptor == ARGS_INTEGER_INTEGER_FLOAT)
       p2 = parseFloat(p, &f1);
@@ -685,13 +701,16 @@ static void processSerialCommand()
     CHECK_P2();
     CHECK_CMD_END();
     break;
-  case ARGS_FLOAT:
+  case ARGS_FLOAT_FLOAT: // f2, f1
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f2);
+  case ARGS_FLOAT: // f1
     CHECK_SPACE();
     p2 = parseFloat(p, &f1);
     CHECK_P2();
     CHECK_CMD_END();
     break;
-  case ARGS_FLOAT_FLOAT_INTEGER:
+  case ARGS_FLOAT_FLOAT_INTEGER: // f1, f2, i3
     CHECK_SPACE();
     p2 = parseFloat(p, &f1);
     CHECK_P2();
@@ -703,7 +722,7 @@ static void processSerialCommand()
     CHECK_P2();
     CHECK_CMD_END();
     break;
-  case ARGS_STRING:
+  case ARGS_STRING: // p
     CHECK_SPACE();
     // remove the trailing '\n' or '\r\n' from the #String
     if (serialCommandBuffer[serialCommandLength - 1] == '\r')
@@ -713,7 +732,7 @@ static void processSerialCommand()
     // p now points to the #String
     break;
   default:
-    ospAssert(false);
+    BUGCHECK();
   }
 
 #undef CHECK_CMD_END
@@ -787,12 +806,17 @@ static void processSerialCommand()
 
     cmdPoke(i2, i3);
     break;
-  case 'L':
-    // FIXME
-    goto out_EINV;
-  case 'l':
-    // FIXME
-    goto out_EINV;
+  case 'L': // set trip limits
+    BOUNDS_CHECK(f2, -999.9, 999.9);
+    BOUNDS_CHECK(f1, -999.9, 999.9);
+
+    lowerTripLimit = f2;
+    upperTripLimit = f1;
+    break;
+  case 'l': // set limit trip enabled
+    BOUNDS_CHECK(i3, 0, 1);
+    tripLimitsEnabled = i3;
+    break;
   case 'M': // set the controller mode (PID or manual)
     BOUNDS_CHECK(i3, 0, 1);
 
@@ -860,7 +884,7 @@ static void processSerialCommand()
     Serial.println(F("Reset the unit to complete."));
     break;
   case 'S': // change the setpoint
-    BOUNDS_CHECK(f1, 0, 99.99);
+    BOUNDS_CHECK(f1, -999.9, 999.9);
 
     if (tuning)
       goto out_EMOD;
@@ -874,6 +898,15 @@ static void processSerialCommand()
 
     setpointIndex = i3;
     markSettingsDirty();
+    break;
+  case 'T': // clear a trip
+    if (!tripped)
+      goto out_EMOD;
+    tripped = false;
+    break;
+  case 't': // set trip auto-reset
+    BOUNDS_CHECK(i3, 0, 1);
+    tripAutoReset = i3;
     break;
   case 'V': // save the profile buffer to EEPROM
     BOUNDS_CHECK(i3, 0, 2);

@@ -11,6 +11,7 @@ enum { TYPE_NAV = 0, TYPE_VAL = 1, TYPE_OPT = 2 };
 enum {
   FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
   FLOAT_FLAG_2_DECIMAL_PLACES = 0,
+  FLOAT_FLAG_RANGE_0_100 = 0x04,
   FLOAT_FLAG_RANGE_0_99 = 0x20,
   FLOAT_FLAG_RANGE_M999_P999 = 0,
   FLOAT_FLAG_NO_EDIT = 0x40,
@@ -31,7 +32,12 @@ struct FloatItem {
   }
 
   double maximumValue() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_RANGE_0_99 ? 99.99 : 999.9);
+    byte flags = pgm_read_byte_near(&pmemFlags);
+    if (flags & FLOAT_FLAG_RANGE_0_100)
+      return 100.0;
+    if (flags & FLOAT_FLAG_RANGE_0_99)
+      return 99.99;
+    return 999.9;
   }
 
   double currentValue() const {
@@ -85,6 +91,7 @@ enum {
   ITEM_SETPOINT_MENU,
   ITEM_COMM_MENU,
   ITEM_POWERON_MENU,
+  ITEM_TRIP_MENU,
 
   // then double items
   FIRST_FLOAT_ITEM,
@@ -94,6 +101,8 @@ enum {
   ITEM_KP,
   ITEM_KI,
   ITEM_KD,
+  ITEM_LOWER_TRIP_LIMIT,
+  ITEM_UPPER_TRIP_LIMIT,
 
   // then generic/specialized items
   FIRST_ACTION_ITEM,
@@ -122,6 +131,9 @@ enum {
   ITEM_POWERON_CONTINUE,
   ITEM_POWERON_RESUME_PROFILE,
 
+  ITEM_TRIP_ENABLED,
+  ITEM_TRIP_AUTORESET,
+
   ITEM_COUNT,
   MENU_COUNT = FIRST_FLOAT_ITEM,
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
@@ -129,12 +141,13 @@ enum {
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[6] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_POWERON_MENU, ITEM_COMM_MENU };
+PROGMEM const byte configMenuItems[7] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
                                         ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
 PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
+PROGMEM const byte tripMenuItems[4] = { ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
 
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
@@ -144,17 +157,20 @@ PROGMEM const MenuItem menuData[MENU_COUNT] =
   { sizeof(profileMenuItems), 0, profileMenuItems },
   { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
   { sizeof(commMenuItems), 0, commMenuItems },
-  { sizeof(poweronMenuItems), 0, poweronMenuItems }
+  { sizeof(poweronMenuItems), 0, poweronMenuItems },
+  { sizeof(tripMenuItems), 0, tripMenuItems }
 };
 
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint },
   { 'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input },
-  { 'O', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output },
+  { 'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output },
   { 'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp },
   { 'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki },
   { 'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd },
+  { 'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit },
+  { 'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit }
 };
 
 struct MenuStateData {
@@ -208,11 +224,18 @@ static void drawFloat(byte item)
   double val = floatItemData[itemIndex].currentValue();
   byte decimals = floatItemData[itemIndex].decimalPlaces();
 
+  // flash "Trip" for the setpoint if the controller has hit a limit trip
+  if (tripped && item == ITEM_SETPOINT)
+  {
+    theLCD.print(icon);
+    theLCD.print(now % 2048 < 1024 ? F(" Trip ") : F("       "));
+    return;
+  }
   if (isnan(val))
   {
     // display an error
     theLCD.print(icon);
-    theLCD.print(now % 2048 < 1024 ? F(" Error"):F("      "));
+    theLCD.print(now % 2048 < 1024 ? F(" IOErr"):F("      "));
     return;
   }
 
@@ -333,6 +356,9 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_POWERON_MENU:
     theLCD.print(F("PowerOn"));
     break;
+  case ITEM_TRIP_MENU:
+    theLCD.print(F("Trip   "));
+    break;
   case ITEM_AUTOTUNE_CMD:
     theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
     break;
@@ -381,6 +407,11 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_POWERON_RESUME_PROFILE:
     theLCD.print(F("Profile"));
     break;
+  case ITEM_TRIP_ENABLED:
+    theLCD.print(tripLimitsEnabled ? F("Enabled") : F("Disabld"));
+    break;
+  case ITEM_TRIP_AUTORESET:
+    theLCD.print(tripAutoReset ? F("AReset ") : F("MReset "));
   default:
     BUGCHECK();
   }
@@ -389,24 +420,32 @@ static void drawFullRowItem(byte row, bool selected, byte item)
 // flash a status indicator if appropriate
 static void drawStatusFlash(byte row)
 {
-  if(tuning)
+  theLCD.setCursor(0,row);
+
+  if (tripped)
   {
     if (now % 2048 < 700)
-    {
-      theLCD.setCursor(0,row);
       theLCD.print('T');
-    }
+    else if (now % 2048 < 1400)
+      theLCD.print('R');
+    else
+      theLCD.print('P');
+  }
+  else if (tuning)
+  {
+    if (now % 2048 < 700)
+      theLCD.print('t');
+    else if (now % 2048 < 1400)
+      theLCD.print('u');
+    else
+      theLCD.print('n');
   }
   else if (runningProfile)
   {
     if (now % 2048 < 700)
-    {
-      theLCD.setCursor(0,row);
       theLCD.print('P');
-    }
     else if (now % 2048 < 1400)
     {
-      theLCD.setCursor(0,row);
       char c;
       if (currentProfileStep < 10)
         c = currentProfileStep + '0';
@@ -497,14 +536,18 @@ static void backKeyPress()
     break;
   case ITEM_COMM_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = 5;
-    menuState.firstItemMenuIndex = 4;
+    menuState.highlightedItemMenuIndex = 6;
+    menuState.firstItemMenuIndex = 5;
     break;
   case ITEM_POWERON_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
+    menuState.highlightedItemMenuIndex = 5;
+    menuState.firstItemMenuIndex = 4;
+    break;
+  case ITEM_TRIP_MENU:
+    menuState.currentMenu = ITEM_CONFIG_MENU;
     menuState.highlightedItemMenuIndex = 4;
     menuState.firstItemMenuIndex = 3;
-    break;
   default:
     BUGCHECK();
   }
@@ -558,9 +601,15 @@ static void updownKeyPress(bool up)
       myPID.SetMode(modeIndex);
       break;
     case ITEM_PID_DIRECTION:
-        ctrlDirection = (ctrlDirection == 0 ? 1 : 0);
-        myPID.SetControllerDirection(ctrlDirection);
-        break;
+      ctrlDirection = (ctrlDirection == 0 ? 1 : 0);
+      myPID.SetControllerDirection(ctrlDirection);
+      break;
+    case ITEM_TRIP_ENABLED:
+      tripLimitsEnabled = !tripLimitsEnabled;
+      break;
+    case ITEM_TRIP_AUTORESET:
+      tripAutoReset = !tripAutoReset;
+      break;
     default:
       BUGCHECK();
     }
@@ -660,6 +709,12 @@ static void okKeyPress()
 
   if (item < FIRST_ACTION_ITEM)
   {
+    // the setpoint flashes "Trip" if the unit has tripped; OK clears the trip
+    if (tripped && item == ITEM_SETPOINT)
+    {
+      tripped = false;
+      return;
+    }
     // it's a numeric value: mark that the user wants to edit it
     // (the cursor will change if they can't)
     startEditing();
@@ -704,6 +759,8 @@ static void okKeyPress()
     break;
 
   case ITEM_PID_MODE:
+  case ITEM_TRIP_ENABLED:
+  case ITEM_TRIP_AUTORESET:
     startEditing();
     break;
 
