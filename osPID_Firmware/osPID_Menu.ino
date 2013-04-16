@@ -575,7 +575,7 @@ void updownKeyPress(bool up)
   while (pow10-- > 0)
     increment *= 10.0;
   while (pow10++ < 0)
-    increment /= 10.0;
+    increment *= 0.1;
 
   if (!up)
     increment = -increment;

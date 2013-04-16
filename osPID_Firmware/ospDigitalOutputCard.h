@@ -75,7 +75,7 @@ public:
 
   void setOutputPercent(double percent) {
     unsigned long wind = millis() % outputWindowMilliseconds;
-    unsigned long oVal = (unsigned long)(percent * (double)outputWindowMilliseconds / 100.0);
+    unsigned long oVal = (unsigned long)(percent * 0.01 * (double)outputWindowMilliseconds);
 
     if (outputType == OUTPUT_RELAY)
       digitalWrite(RelayPin, (oVal>wind) ? HIGH : LOW);
