@@ -403,7 +403,7 @@ void loop()
 
   // accept any pending characters from the serial buffer
   byte avail = Serial.available();
-  while (avail)
+  while (avail--)
   {
     char ch = Serial.read();
     if (serialCommandLength < 32)
