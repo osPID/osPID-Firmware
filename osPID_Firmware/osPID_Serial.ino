@@ -319,9 +319,10 @@ static void cmdPoke(int address, byte val)
 
 static void cmdIdentify()
 {
-  Serial.println(F("osPID " OSPID_VERSION_TAG));
-  Serial.print(F("Unit "));
-  serialPrintln(controllerName);
+  serialPrintln(F("osPID " OSPID_VERSION_TAG));
+  serialPrint(F("Unit \""));
+  serialPrint(controllerName);
+  Serial.println('"');
 }
 
 static void cmdQuery()
