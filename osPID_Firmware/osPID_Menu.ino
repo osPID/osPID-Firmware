@@ -557,13 +557,11 @@ void updownKeyPress(bool up)
       break;
     case ITEM_PID_DIRECTION:
         ctrlDirection = (ctrlDirection == 0 ? 1 : 0);
-        // FIXME
-        Serial.println(ctrlDirection);
+        myPID.SetControllerDirection(ctrlDirection);
         break;
     default:
       BUGCHECK();
     }
-    // FIXME: mark settings dirty
     return;
   }
 
@@ -596,8 +594,6 @@ void updownKeyPress(bool up)
 
   double *valPtr = floatItemData[item - FIRST_FLOAT_ITEM].valuePtr();
   *valPtr = val;
-
-  // FIXME: mark settings dirty
 }
 
 void okKeyPress()

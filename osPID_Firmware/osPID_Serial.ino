@@ -838,8 +838,12 @@ void processSerialCommand()
     cmdQuery();
     break;
   case 'R': // set the controller action direction
-    // FIXME
-    goto out_EINV;
+    BOUNDS_CHECK(i3, 0, 1);
+
+    ctrlDirection = i3;
+    myPID.SetControllerDirection(i3);
+    markSettingsDirty();
+    break;
   case 'r': // reset memory
     if (i3 != -999)
       goto out_EINV;
