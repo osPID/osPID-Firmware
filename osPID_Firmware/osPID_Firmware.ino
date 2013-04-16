@@ -59,6 +59,9 @@ ospCardSimulator theInputCard
 #define theOutputCard theInputCard
 #endif
 
+// the 7 character version tag is displayed in the startup tag and the Identify response
+#define OSPID_VERSION_TAG "v2.0bks"
+
 // we use the LiquidCrystal library to drive the LCD screen
 LiquidCrystal theLCD(A1, A0, 4, 7, 8, 9);
 
@@ -138,7 +141,7 @@ void setup()
   theLCD.setCursor(0,0);
   theLCD.print(F(" osPID   "));
   theLCD.setCursor(0,1);
-  theLCD.print(F(" v2.00bks"));
+  theLCD.print(F(" " OSPID_VERSION_TAG));
 
   now = millis();
 
