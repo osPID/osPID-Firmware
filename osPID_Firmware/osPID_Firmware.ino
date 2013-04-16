@@ -263,6 +263,34 @@ void checkButtons()
   }
 }
 
+void completeAutoTune()
+{
+  // We're done, set the tuning parameters
+  kp = aTune.GetKp();
+  ki = aTune.GetKi();
+  kd = aTune.GetKd();
+
+  if (kp < 0)
+  {
+    // the auto-tuner found a negative gain sign: convert the coefficients
+    // to positive with REVERSE controller action
+    kp = -kp;
+    ki = -ki;
+    kd = -kd;
+    myPID.SetControllerDirection(REVERSE);
+    ctrlDirection = REVERSE;
+  }
+  else
+  {
+    myPID.SetControllerDirection(DIRECT);
+    ctrlDirection = DIRECT;
+  }
+
+  myPID.SetTunings(kp, ki, kd);
+  stopAutoTune();
+  markSettingsDirty();
+}
+
 bool settingsWritebackNeeded;
 unsigned long settingsWritebackTime;
 
@@ -332,15 +360,7 @@ void loop()
     if (val != 0)
     {
       tuning = false;
-
-      // FIXME: convert gain sign to PID action direction
-      // We're done, set the tuning parameters
-      kp = aTune.GetKp();
-      ki = aTune.GetKi();
-      kd = aTune.GetKd();
-      myPID.SetTunings(kp, ki, kd);
-      stopAutoTune();
-      markSettingsDirty();
+      completeAutoTune();
     }
   }
   else

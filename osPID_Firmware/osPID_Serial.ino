@@ -10,7 +10,7 @@
 #define BUGCHECK() ospBugCheck(PSTR("COMM"), __LINE__);
 
 /* The serial command format for the controller is meant to be human-readable.
-It consists of a one-letter command, followed by one or more parameter values
+It consists of a one-letter command mnemonic, followed by one or more parameter values
 separated by spaces (' '). The command is terminated by a newline '\n'; an optional
 carriage-return '\r' before the newline is ignored.
 
