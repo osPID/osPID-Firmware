@@ -3,10 +3,16 @@
 
 #include "ospSettingsHelper.h"
 
+extern void realtimeLoop();
+
+// since EEPROM write time is ~4 ms per byte, we perform an iteration of the realtime loop after
+// every byte which requires an actual erase/program cycle
 template<size_t size> void ospSettingsHelper::saveSize(const byte *p) {
   for (byte n = size; n; n--) {
-    if (eeprom_read_byte((byte *)address) != *p)
+    if (eeprom_read_byte((byte *)address) != *p) {
       eeprom_write_byte((byte *)address, *p);
+      ::realtimeLoop();
+    }
     crc16 = _crc16_update(crc16, *p);
     p++;
     address++;
@@ -21,10 +27,8 @@ template<size_t size> void ospSettingsHelper::eepromReadSize(unsigned int addres
   }
 }
 
-extern void realtimeLoop();
-
 // since EEPROM write time is ~4 ms per byte, we perform an iteration of the realtime loop after
-// every byte written
+// every byte which requires an actual erase/program
 template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int address, const byte *p) {
   for (byte n = size; n; n--) {
     if (eeprom_read_byte((byte *)address) != *p) {
