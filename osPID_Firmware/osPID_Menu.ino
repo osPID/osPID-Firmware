@@ -6,8 +6,6 @@
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
 
-enum { TYPE_NAV = 0, TYPE_VAL = 1, TYPE_OPT = 2 };
-
 enum {
   FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
   FLOAT_FLAG_2_DECIMAL_PLACES = 0,
