@@ -794,8 +794,12 @@ void processSerialCommand()
     // FIXME
     goto out_EINV;
   case 'M': // set the controller mode (PID or manual)
-    // FIXME
-    goto out_EINV;
+    BOUNDS_CHECK(i3, 0, 1);
+
+    modeIndex = i3;
+    myPID.SetMode(i3);
+    markSettingsDirty();
+    break;
   case 'N': // set the unit name
     if (strlen(p) > 16)
       goto out_EINV;
@@ -820,8 +824,11 @@ void processSerialCommand()
     output = f1;
     break;
   case 'o': // set power-on behavior
-    // FIXME
-    goto out_EINV;
+    BOUNDS_CHECK(i3, 0, 2);
+
+    powerOnBehavior = i3;
+    markSettingsDirty();
+    break;
   case 'P': // define a profile step
     if (!profileBuffer.addStep(i1, i2, f1))
       goto out_EINV;
