@@ -115,6 +115,8 @@ enum {
 
 byte powerOnBehavior = POWERON_CONTINUE_LOOP;
 
+bool controllerIsBooting = true;
+
 // the paremeters for the autotuner
 double aTuneStep = 20, aTuneNoise = 1;
 unsigned int aTuneLookBack = 10;
@@ -188,6 +190,8 @@ void setup()
     else
       recordProfileCompletion(); // we don't want to pick up again, so mark it completed
   }
+
+  controllerIsBooting = false;
 }
 
 // Letting a button auto-repeat without redrawing the LCD in between leads to a
@@ -347,6 +351,9 @@ bool blockSlowOperations;
 
 void realtimeLoop()
 {
+  if (controllerIsBooting)
+    return;
+
   blockSlowOperations = true;
   loop();
   blockSlowOperations = false;

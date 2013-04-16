@@ -514,6 +514,9 @@ struct SerialCommandParseData {
   byte args;
 };
 
+// FIXME: this table is now dense enough that it would be better to have
+// two 26-byte arrays separately for the entire upper and lowercase alphabets
+
 // this table must be sorted in ASCII order, that is A-Z then a-z
 PROGMEM SerialCommandParseData commandParseData[] = {
   { 'A', ARGS_NONE },

@@ -134,7 +134,7 @@ static void setupEEPROM()
     restoreEEPROMSettings();
   } else {
     // bad CRC: save our hardcoded defaults
-    markSettingsDirty();
+    saveEEPROMSettings();
   }
 }
 
