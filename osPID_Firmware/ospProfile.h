@@ -2,6 +2,7 @@
 #define OSPPROFILE_H
 
 #include <Arduino.h>
+#include <avr/pgmspace.h>
 
 // an ospProfile encapsulates the information for a setpoint profile
 class ospProfile {
@@ -33,8 +34,7 @@ public:
   }
 
   void clear() {
-    for (byte i = 0; i < NAME_LENGTH; i++)
-      name[i] = "Profil1"[i];
+    strcpy_P(name, PSTR("Profil1"));
     for (byte i = 0; i < NR_STEPS; i++) {
       stepTypes[i] = STEP_INVALID;
       stepDurations[i] = 0;
