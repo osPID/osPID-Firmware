@@ -12,7 +12,7 @@ public:
   // 0x0000 when the profile is saved
   enum {
     STEP_RAMP_TO_SETPOINT = 0,
-    STEP_SOAK_AT_TEMPERATURE = 1,
+    STEP_SOAK_AT_VALUE = 1,
     STEP_JUMP_TO_SETPOINT = 2,
     STEP_WAIT_TO_CROSS = 3,
     STEP_FLAG_BUZZER = 0x40,

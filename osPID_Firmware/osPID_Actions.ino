@@ -94,7 +94,8 @@ bool startCurrentProfileStep()
   case ospProfile::STEP_RAMP_TO_SETPOINT:
     profileState.initialSetpoint = setpoint;
     break;
-  case ospProfile::STEP_SOAK_AT_TEMPERATURE:
+  case ospProfile::STEP_SOAK_AT_VALUE:
+    // targetSetpoint is actually maximumError
     break;
   case ospProfile::STEP_JUMP_TO_SETPOINT:
     setpoint = profileState.targetSetpoint;
@@ -128,7 +129,7 @@ void profileLoopIteration()
     delta = profileState.targetSetpoint - setpoint;
     setpoint += delta * (profileState.stepEndMillis - now) / (double)profileState.stepDuration;
     return;
-  case ospProfile::STEP_SOAK_AT_TEMPERATURE:
+  case ospProfile::STEP_SOAK_AT_VALUE:
     delta = fabs(setpoint - input);
     if (delta > profileState.maximumError)
       profileState.stepEndMillis = now + profileState.stepDuration;
