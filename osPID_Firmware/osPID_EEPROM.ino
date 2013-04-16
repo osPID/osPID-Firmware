@@ -298,7 +298,7 @@ retry:
   ospSettingsHelper settings(CRC16_INIT, base + 2); // skip the CRC-16 slot
 
   // write the profile settings and calculate the CRC-16
-  for (byte i = 0; i < ospProfile::NAME_LENGTH; i++)
+  for (byte i = 0; i < ospProfile::NAME_LENGTH+1; i++)
     settings.save(profileBuffer.name[i]);
 
   for (byte i = 0; i < ospProfile::NR_STEPS; i++)
@@ -330,6 +330,8 @@ char getProfileNameCharAt(byte profileIndex, byte i)
                         + PROFILE_NAME_OFFSET
                         + i;
   char ch;
+  ospAssert(profileIndex >= 0 && profileIndex < NR_PROFILES);
+  ospAssert(i >= 0 && i < ospProfile::NAME_LENGTH+1);
   ospSettingsHelper::eepromRead(address, ch);
 
   return ch;

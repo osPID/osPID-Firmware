@@ -4,6 +4,7 @@
 #include <math.h>
 #include <avr/pgmspace.h>
 #include "ospAssert.h"
+#include "ospProfile.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("COMM"), __LINE__);
@@ -27,7 +28,7 @@ Command list:
 
   a #Number #Number #Integer -- set Autotune parameters: step, noise, and lookback
 
-  C #Integer -- Clear the memory if and only if the number is -999
+  C -- Cancel any profile execution or auto-tune currently in progress
 
   c #Integer -- set the Comm speed, in kbps
 
@@ -68,7 +69,9 @@ Command list:
   {output}" plus "P {profile name} {profile step}" if a profile is active
   or "A active" if currently auto-tuning
 
-  R #0-1 -- diRection set PID gain sign
+  R #0-1 -- diRection -- set PID gain sign
+
+  r #Integer -- Reset the memory to the hardcoded defaults, if and only if the number is -999
 
   S #Number -- Setpoint -- change the (currently active) setpoint
 
@@ -76,9 +79,9 @@ Command list:
 
   V #0-2 -- saVe the profile buffer to profile N
 
-  X -- dump the unit's settings
+  X -- eXamine: dump the unit's settings
 
-  x #0-2 -- dump profile N
+  x #0-2 -- eXamine profile: dump profile N
 
 Response codes:
   OK -- success
@@ -239,6 +242,33 @@ bool cmdSetSerialSpeed(long speed)
   return false;
 }
 
+bool cmdStartProfile(const char *name)
+{
+  for (byte i = 0; i < NR_PROFILES; i++)
+  {
+    byte ch = 0;
+    const char *p = name;
+    bool match = true;
+
+    while (*p && ch < ospProfile::NAME_LENGTH)
+    {
+      if (*p != getProfileNameCharAt(i, ch))
+        match = false;
+      p++;
+      ch++;
+    }
+
+    if (match && ch <= ospProfile::NAME_LENGTH)
+    {
+      // found the requested profile: start it
+      activeProfileIndex = i;
+      startProfile();
+      return true;
+    }
+  }
+  return false;
+}
+
 void cmdPeek(int address)
 {
   byte val;
@@ -267,47 +297,333 @@ void cmdIdentify()
   serialPrintln(controllerName);
 }
 
+void cmdQuery()
+{
+}
+
+void cmdExamineSettings()
+{
+}
+
+void cmdExamineProfile(byte index)
+{
+}
+
 // this is the entry point to the serial command processor: it is called
 // when a '\n' has been received over the serial connection, and therefore
 // a full command is buffered in serialCommandBuffer
 void processSerialCommand()
 {
-  char *p = &serialCommandBuffer[1], *p2;
+  const char *p = &serialCommandBuffer[1], *p2;
+  double f1, f2;
+  long i1, i2;
 
   if (serialCommandBuffer[--serialCommandLength] != '\n')
     goto out_EINV;
 
+#define CHECK_SPACE()                                   \
+  if ((*p++) != ' ')                                    \
+    goto out_EINV;                                      \
+  else do { } while (0)
+#define CHECK_P2()                                      \
+  if (p2 == p)                                          \
+    goto out_EINV;                                      \
+  else do { p = p2; } while (0)
+#define CHECK_CMD_END()                                 \
+  if (*p != '\n' && !(*p == '\r' && *(++p) == '\n'))    \
+    goto out_EINV;                                      \
+  else do { } while (0)
+#define BOUNDS_CHECK(f, min, max)                       \
+  if ((f) < (min) || (f) > (max))                       \
+    goto out_EINV;                                      \
+  else do { } while (0)
+
   switch (serialCommandBuffer[0])
   {
-  case 'A':
-  case 'a':
-  case 'C':
-  case 'c':
-  case 'D':
-  case 'E':
-  case 'e':
-  case 'I':
-  case 'i':
-  case 'K':
-  case 'k':
+  case 'A': // start an auto-tune
+    CHECK_CMD_END();
+    if (runningProfile || tuning)
+      goto out_EMOD;
+    startAutoTune();
+    goto out_OK;
+
+  case 'a': // set the auto-tune parameters
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f2);
+    CHECK_P2();
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+
+    aTuneStep = f1;
+    aTuneNoise = f2;
+    aTuneLookBack = i1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'C': // cancel an auto-tune or profile execution
+    CHECK_CMD_END();
+    if (tuning)
+      stopAutoTune();
+    else if (runningProfile)
+      stopProfile();
+    else
+      goto out_EMOD;
+    goto out_OK;
+
+  case 'c': // set the comm speed
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+
+    if (cmdSetSerialSpeed(i1)) // since this resets the interface, just return
+      return;
+    goto out_EINV;
+
+  case 'D': // set the D gain
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(f1, 0, 100);
+
+    if (tuning)
+      goto out_EMOD;
+    kd = f1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'E': // execute a profile by name
+    CHECK_SPACE();
+    // remove the trailing '\n' or '\r\n' before reading the command name #String
+    if (serialCommandBuffer[serialCommandLength - 1] == '\r')
+      serialCommandBuffer[--serialCommandLength] = '\0';
+    else
+      serialCommandBuffer[serialCommandLength] = '\0';
+
+    if (tuning || runningProfile || modeIndex != AUTOMATIC)
+      goto out_EMOD;
+
+    if (!cmdStartProfile(p))
+      goto out_EINV;
+    goto out_OK;
+
+  case 'e': // execute a profile by number
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(i1, 0, NR_PROFILES-1);
+
+    if (tuning || runningProfile || modeIndex != AUTOMATIC)
+      goto out_EMOD;
+
+    activeProfileIndex = i1;
+    startProfile();
+    goto out_OK;
+
+  case 'I': // identify
+    CHECK_CMD_END();
+    cmdIdentify();
+    goto out_OK;
+
+  case 'i': // set the I gain
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(f1, 0, 100);
+
+    if (tuning)
+      goto out_EMOD;
+    ki = f1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'K': // memory peek
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+
+    cmdPeek(i1);
+    goto out_OK;
+
+  case 'k': // memory poke
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    p2 = parseInt(p, &i2);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(i2, 0, 255);
+
+    cmdPoke(i1, i2);
+    goto out_OK;
+
   case 'L':
+    goto out_EINV;
   case 'l':
-  case 'M':
-  case 'N':
-  case 'n':
-  case 'O':
-  case 'P':
-  case 'p':
-  case 'Q':
-  case 'R':
-  case 'S':
-  case 's':
-  case 'V':
-  case 'X':
-  case 'x':
+    goto out_EINV;
+
+  case 'M': // set the controller mode (PID or manual)
+    goto out_EINV;
+
+  case 'N': // set the unit name
+    CHECK_SPACE();
+    // remove the trailing '\n' or '\r\n' before reading the command name #String
+    if (serialCommandBuffer[serialCommandLength - 1] == '\r')
+      serialCommandBuffer[--serialCommandLength] = '\0';
+    else
+      serialCommandBuffer[serialCommandLength] = '\0';
+
+    if (strlen(p) > 16)
+      goto out_EINV;
+
+    strcpy(controllerName, p);
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'n': // clear and name the profile buffer
+    CHECK_SPACE();
+    // remove the trailing '\n' or '\r\n' before reading the command name #String
+    if (serialCommandBuffer[serialCommandLength - 1] == '\r')
+      serialCommandBuffer[--serialCommandLength] = '\0';
+    else
+      serialCommandBuffer[serialCommandLength] = '\0';
+
+    if (strlen(p) > ospProfile::NAME_LENGTH)
+      goto out_EINV;
+
+    profileBuffer.clear();
+    strcpy(profileBuffer.name, p);
+    goto out_OK;
+
+  case 'O': // directly set the output command
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(f1, 0, 100);
+
+    if (tuning || runningProfile || modeIndex != MANUAL)
+      goto out_EMOD;
+
+    output = f1;
+    goto out_OK;
+
+  case 'P': // define a profile step
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_SPACE();
+    p2 = parseInt(p, &i2);
+    CHECK_P2();
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+
+    if (!profileBuffer.addStep(i1, i2, f1))
+      goto out_EINV;
+    goto out_OK;
+
+  case 'p': // set the P gain
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(f1, 0, 99.99);
+
+    if (tuning)
+      goto out_EMOD;
+    kp = f1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'Q': // query current status
+    CHECK_CMD_END();
+    cmdQuery();
+    goto out_OK;
+
+  case 'R': // set the controller action direction
+    goto out_EINV;
+
+  case 'r': // reset memory
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+
+    if (i1 != -999)
+      goto out_EINV;
+
+    clearEEPROM();
+    Serial.println(F("Memory marked for reset."));
+    Serial.println(F("Reset the unit to complete."));
+    goto out_OK;
+
+  case 'S': // change the setpoint
+    CHECK_SPACE();
+    p2 = parseFloat(p, &f1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(f1, 0, 99.99);
+
+    if (tuning)
+      goto out_EMOD;
+
+    setPoints[setpointIndex] = f1;
+    setpoint = f1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 's': // change the active setpoint
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(i1, 0, 3);
+
+    setpointIndex = i1;
+    markSettingsDirty();
+    goto out_OK;
+
+  case 'V': // save the profile buffer to EEPROM
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(i1, 0, 2);
+
+    saveEEPROMProfile(i1);
+    goto out_OK;
+
+  case 'X': // examine: dump the controller settings
+    CHECK_CMD_END();
+    cmdExamineSettings();
+    goto out_OK;
+
+  case 'x': // examine a profile: dump a description of the give profile
+    CHECK_SPACE();
+    p2 = parseInt(p, &i1);
+    CHECK_P2();
+    CHECK_CMD_END();
+    BOUNDS_CHECK(i1, 0, 2);
+
+    cmdExamineProfile(i1);
+    goto out_OK;
+
   default:
     goto out_EINV;
   }
+
+#undef CHECK_CMD_END()
 
 out_EINV:
   Serial.println(F("EINV"));

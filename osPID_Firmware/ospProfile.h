@@ -15,6 +15,8 @@ public:
     STEP_SOAK_AT_VALUE = 1,
     STEP_JUMP_TO_SETPOINT = 2,
     STEP_WAIT_TO_CROSS = 3,
+
+    LAST_VALID_STEP = STEP_WAIT_TO_CROSS,
     STEP_FLAG_BUZZER = 0x40,
     STEP_EEPROM_SWIZZLE = 0x80,
     STEP_INVALID = 0x7F,
@@ -22,9 +24,10 @@ public:
     STEP_TYPE_MASK = 0x3F
   };
 
-  enum { NR_STEPS = 16, NAME_LENGTH = 8 };
+  enum { NR_STEPS = 16, NAME_LENGTH = 7 };
 
-  char name[NAME_LENGTH];
+  char name[NAME_LENGTH+1];
+  byte nextStep;
   byte stepTypes[NR_STEPS];
   unsigned long stepDurations[NR_STEPS];
   double stepEndpoints[NR_STEPS];
@@ -33,7 +36,23 @@ public:
     clear();
   }
 
+  bool addStep(byte type, unsigned long duration, double endpoint)
+  {
+    if (nextStep == NR_STEPS)
+      return false;
+    if (type & STEP_EEPROM_SWIZZLE)
+      return false;
+    if ((type & STEP_TYPE_MASK) > LAST_VALID_STEP)
+      return false;
+
+    stepTypes[nextStep] = type;
+    stepDurations[nextStep] = duration;
+    stepEndpoints[nextStep] = endpoint;
+    return true;
+  }
+
   void clear() {
+    nextStep = 0;
     strcpy_P(name, PSTR("Profil1"));
     for (byte i = 0; i < NR_STEPS; i++) {
       stepTypes[i] = STEP_INVALID;
