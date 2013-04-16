@@ -132,7 +132,7 @@ byte serialSpeed = SERIAL_SPEED_28p8k;
 
 PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 38400, 57600, 115200 };
 
-void setupSerial()
+static void setupSerial()
 {
   ospAssert(serialSpeed >= 0 && serialSpeed < 7);
 
@@ -143,7 +143,7 @@ void setupSerial()
 
 // parse an int out of a string; returns a pointer to the first non-numeric
 // character
-const char * parseInt(const char *str, long *out)
+static const char * parseInt(const char *str, long *out)
 {
   long value = 0;
   bool isNegative = false;
@@ -174,7 +174,7 @@ const char * parseInt(const char *str, long *out)
 
 // parse a simple floating-point value out of a string; returns a pointer
 // to the first non-numeric character
-const char * parseFloat(const char *str, double *out)
+static const char * parseFloat(const char *str, double *out)
 {
   bool isNegative = false;
   bool hasFraction = false;
@@ -234,7 +234,7 @@ template<typename T> void __attribute__((noinline)) serialPrintln(T t)
   realtimeLoop();
 }
 
-bool cmdSetSerialSpeed(long speed)
+static bool cmdSetSerialSpeed(long speed)
 {
   for (byte i = 0; i < (sizeof(serialSpeedTable) / sizeof(serialSpeedTable[0])); i++)
   {
@@ -257,7 +257,7 @@ bool cmdSetSerialSpeed(long speed)
   return false;
 }
 
-bool cmdStartProfile(const char *name)
+static bool cmdStartProfile(const char *name)
 {
   for (byte i = 0; i < NR_PROFILES; i++)
   {
@@ -284,7 +284,7 @@ bool cmdStartProfile(const char *name)
   return false;
 }
 
-void cmdPeek(int address)
+static void cmdPeek(int address)
 {
   byte val;
 
@@ -305,7 +305,7 @@ void cmdPeek(int address)
     Serial.print('A' - 10 + b);
 }
 
-void cmdPoke(int address, byte val)
+static void cmdPoke(int address, byte val)
 {
   if (address < 0)
     ospSettingsHelper::eepromWrite(-address, val);
@@ -313,14 +313,14 @@ void cmdPoke(int address, byte val)
     *(byte *)address = val;
 }
 
-void cmdIdentify()
+static void cmdIdentify()
 {
   Serial.println(F("osPID " OSPID_VERSION_TAG));
   Serial.print(F("Unit "));
   serialPrintln(controllerName);
 }
 
-void cmdQuery()
+static void cmdQuery()
 {
   Serial.print(F("S "));
   serialPrintln(setpoint);
@@ -348,7 +348,7 @@ void cmdQuery()
     serialPrintln(F("A active"));
 }
 
-void cmdExamineSettings()
+static void cmdExamineSettings()
 {
   unsigned int crc16;
   serialPrint(F("EEPROM checksum: "));
@@ -451,7 +451,7 @@ void cmdExamineSettings()
   }
 }
 
-void cmdExamineProfile(byte profileIndex)
+static void cmdExamineProfile(byte profileIndex)
 {
   serialPrint(F("Profile "));
   Serial.print('0' + profileIndex);
@@ -543,7 +543,7 @@ PROGMEM SerialCommandParseData commandParseData[] = {
 };
 
 // perform a binary search for the argument descriptor of the given mnemonic
-byte argsForMnemonic(char mnemonic)
+static byte argsForMnemonic(char mnemonic)
 {
   byte start = 0, end = sizeof(commandParseData) / sizeof(commandParseData[0]) - 1;
 
@@ -573,7 +573,7 @@ byte argsForMnemonic(char mnemonic)
 // this is the entry point to the serial command processor: it is called
 // when a '\n' has been received over the serial connection, and therefore
 // a full command is buffered in serialCommandBuffer
-void processSerialCommand()
+static void processSerialCommand()
 {
   const char *p = &serialCommandBuffer[1], *p2;
   double f1, f2;

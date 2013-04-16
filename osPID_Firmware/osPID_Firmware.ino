@@ -190,7 +190,7 @@ byte heldButton;
 unsigned long buttonPressTime;
 
 // test the buttons and look for button presses or long-presses
-void checkButtons()
+static void checkButtons()
 {
   byte button = theButtonReader.get();
   byte executeButton = BUTTON_NONE;
@@ -263,7 +263,7 @@ void checkButtons()
   }
 }
 
-void completeAutoTune()
+static void completeAutoTune()
 {
   // We're done, set the tuning parameters
   kp = aTune.GetKp();
@@ -296,7 +296,7 @@ unsigned long settingsWritebackTime;
 
 // record that the settings have changed, and need to be written to EEPROM
 // as soon as they are done changing
-void markSettingsDirty()
+static void markSettingsDirty()
 {
   settingsWritebackNeeded = true;
 

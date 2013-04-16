@@ -116,7 +116,7 @@ enum {
 byte statusBufferIndex = 0;
 
 // check each EEPROM block and either restore it or mark it to be reset
-void setupEEPROM()
+static void setupEEPROM()
 {
   // first check the profiles
   for (byte i = 0; i < NR_PROFILES; i++) {
@@ -138,7 +138,7 @@ void setupEEPROM()
 }
 
 // force a reset to factory defaults
-void clearEEPROM() {
+static void clearEEPROM() {
   // overwrite the CRC-16s
   int zero = 0;
   ospSettingsHelper::eepromWrite(SETTINGS_CRC_OFFSET, zero);
@@ -151,7 +151,7 @@ void clearEEPROM() {
   // anything with them
 }
 
-int checkEEPROMBlockCrc(int address, int length)
+static int checkEEPROMBlockCrc(int address, int length)
 {
   int crc = CRC16_INIT;
 
@@ -165,7 +165,7 @@ int checkEEPROMBlockCrc(int address, int length)
 }
 
 // check the CRC-16 of the settings block
-bool checkEEPROMSettings()
+static bool checkEEPROMSettings()
 {
   int storedCrc, calculatedCrc;
 
@@ -196,7 +196,7 @@ union SettingsByte2 {
   byte byteVal;
 };
 
-void saveEEPROMSettings()
+static void saveEEPROMSettings()
 {
   SettingsByte1 sb1;
   SettingsByte2 sb2;
@@ -237,7 +237,7 @@ void saveEEPROMSettings()
   theOutputCard.saveSettings(settings);
 }
 
-void restoreEEPROMSettings()
+static void restoreEEPROMSettings()
 {
   SettingsByte1 sb1;
   SettingsByte2 sb2;
@@ -277,7 +277,7 @@ void restoreEEPROMSettings()
 }
 
 // check the CRC-16 of the i'th profile block
-bool checkEEPROMProfile(byte index)
+static bool checkEEPROMProfile(byte index)
 {
   int base = PROFILE_BLOCK_START_OFFSET + index * PROFILE_BLOCK_LENGTH;
   int storedCrc, calculatedCrc;
@@ -289,7 +289,7 @@ bool checkEEPROMProfile(byte index)
 }
 
 // write the profileBuffer to the i'th profile block
-void saveEEPROMProfile(byte index)
+static void saveEEPROMProfile(byte index)
 {
   const int base = PROFILE_BLOCK_START_OFFSET + index * PROFILE_BLOCK_LENGTH;
   byte swizzle = ospProfile::STEP_EEPROM_SWIZZLE; // we start by or-ing 0x80 into the stepTypes
@@ -323,7 +323,7 @@ retry:
   ospSettingsHelper::eepromWrite(base, crcValue);
 }
 
-char getProfileNameCharAt(byte profileIndex, byte i)
+static char getProfileNameCharAt(byte profileIndex, byte i)
 {
   const int address = PROFILE_BLOCK_START_OFFSET
                         + profileIndex * PROFILE_BLOCK_LENGTH
@@ -337,7 +337,7 @@ char getProfileNameCharAt(byte profileIndex, byte i)
   return ch;
 }
 
-void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, double *endpoint)
+static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, double *endpoint)
 {
   const int base = PROFILE_BLOCK_START_OFFSET
                     + profileIndex * PROFILE_BLOCK_LENGTH;
@@ -355,7 +355,7 @@ byte currentStatusBufferBlockIndex;
 
 // search through the profiles for one with the given CRC-16, and return
 // its index or 0xFF if not found
-byte profileIndexForCrc(int crc)
+static byte profileIndexForCrc(int crc)
 {
   int profileCrc;
 
@@ -374,7 +374,7 @@ byte profileIndexForCrc(int crc)
 // was interrupted; if it was, it loads activeProfile and currentProfileStep
 // with the step that was interrupted and returns true. If any profile has been
 // run, activeProfile is restored to the last profile to have been run.
-bool profileWasInterrupted()
+static bool profileWasInterrupted()
 {
   int crc, statusBits;
 
@@ -409,7 +409,7 @@ bool profileWasInterrupted()
   return false;
 }
 
-void recordProfileStart()
+static void recordProfileStart()
 {
   // figure out which status buffer slot to use, and which one was last used
   byte priorBlockIndex = currentStatusBufferBlockIndex;
@@ -431,7 +431,7 @@ void recordProfileStart()
 }
 
 // clear the Incomplete bit for the just-completed profile step
-void recordProfileStepCompletion(byte step)
+static void recordProfileStepCompletion(byte step)
 {
   int statusAddress = STATUS_BUFFER_START_OFFSET
         + currentStatusBufferBlockIndex * STATUS_BUFFER_BLOCK_LENGTH
@@ -444,7 +444,7 @@ void recordProfileStepCompletion(byte step)
 
 // mark the profile as complete by clearing all the Incomplete bits, regardless
 // of how many steps it actually contained
-void recordProfileCompletion()
+static void recordProfileCompletion()
 {
   recordProfileStepCompletion(15);
 }

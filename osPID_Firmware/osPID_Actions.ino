@@ -38,7 +38,7 @@ void ospBugCheck(const char *block, int line)
 
 byte ATuneModeRemember;
 
-void startAutoTune()
+static void startAutoTune()
 {
   ATuneModeRemember = myPID.GetMode();
   myPID.SetMode(MANUAL);
@@ -49,7 +49,7 @@ void startAutoTune()
   tuning = true;
 }
 
-void stopAutoTune()
+static void stopAutoTune()
 {
   aTune.Cancel();
   tuning = false;
@@ -72,7 +72,7 @@ struct ProfileState {
 
 ProfileState profileState;
 
-bool startCurrentProfileStep()
+static bool startCurrentProfileStep()
 {
   byte stepType;
   getProfileStepData(activeProfileIndex, currentProfileStep,
@@ -112,7 +112,7 @@ bool startCurrentProfileStep()
 
 // this function gets called every iteration of loop() while a profile is
 // running
-void profileLoopIteration()
+static void profileLoopIteration()
 {
   double delta;
   ospAssert(!tuning);
@@ -158,7 +158,7 @@ void profileLoopIteration()
   stopProfile();
 }
 
-void startProfile()
+static void startProfile()
 {
   ospAssert(!runningProfile);
 
@@ -170,7 +170,7 @@ void startProfile()
     stopProfile();
 }
 
-void stopProfile()
+static void stopProfile()
 {
   ospAssert(runningProfile);
 

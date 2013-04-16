@@ -168,7 +168,7 @@ struct MenuStateData {
 
 struct MenuStateData menuState;
 
-void drawMenu()
+static void drawMenu()
 {
   byte itemCount = menuData[menuState.currentMenu].itemCount();
 
@@ -200,7 +200,7 @@ void drawMenu()
 }
 
 // draw a floating-point item's value at the current position
-void drawFloat(byte item)
+static void drawFloat(byte item)
 {
   char buffer[8];
   byte itemIndex = item - FIRST_FLOAT_ITEM;
@@ -261,7 +261,7 @@ void drawFloat(byte item)
 }
 
 // can a given item be edited
-bool canEditItem(byte item)
+static bool canEditItem(byte item)
 {
   bool canEdit = !tuning;
 
@@ -274,7 +274,7 @@ bool canEditItem(byte item)
 }
 
 // draw the selector character at the current position
-void drawSelector(byte item, bool selected)
+static void drawSelector(byte item, bool selected)
 {
   bool canEdit = canEditItem(item);
 
@@ -293,14 +293,14 @@ void drawSelector(byte item, bool selected)
 }
 
 // draw a profile name at the current position
-void drawProfileName(byte profileIndex)
+static void drawProfileName(byte profileIndex)
 {
   for (byte i = 0; i < 8; i++)
     theLCD.print(getProfileNameCharAt(profileIndex, i));
 }
 
 // draw an item occupying a full 8x1 display line
-void drawFullRowItem(byte row, bool selected, byte item)
+static void drawFullRowItem(byte row, bool selected, byte item)
 {
   theLCD.setCursor(0,row);
 
@@ -385,7 +385,7 @@ void drawFullRowItem(byte row, bool selected, byte item)
 }
 
 // flash a status indicator if appropriate
-void drawStatusFlash(byte row)
+static void drawStatusFlash(byte row)
 {
   if(tuning)
   {
@@ -416,7 +416,7 @@ void drawStatusFlash(byte row)
 
 // draw an item which takes up half a row (4 characters),
 // for 2x2 menu mode
-void drawHalfRowItem(byte row, byte col, bool selected, byte item)
+static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 {
   theLCD.setCursor(col, row);
 
@@ -441,7 +441,7 @@ void drawHalfRowItem(byte row, byte col, bool selected, byte item)
   }
 }
 
-void startEditing()
+static void startEditing()
 {
   menuState.editing = true;
   menuState.editDepth = 3;
@@ -449,13 +449,13 @@ void startEditing()
   theLCD.cursor();
 }
 
-void stopEditing()
+static void stopEditing()
 {
   menuState.editing = false;
   theLCD.noCursor();
 }
 
-void backKeyPress()
+static void backKeyPress()
 {
   if (menuState.editing)
   {
@@ -508,7 +508,7 @@ void backKeyPress()
   }
 }
 
-void updownKeyPress(bool up)
+static void updownKeyPress(bool up)
 {
   if (!menuState.editing)
   {
@@ -596,7 +596,7 @@ void updownKeyPress(bool up)
   *valPtr = val;
 }
 
-void okKeyPress()
+static void okKeyPress()
 {
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
@@ -738,7 +738,7 @@ void okKeyPress()
 
 // returns true if there was a long-press action; false if a long press
 // is the same as a short press
-bool okKeyLongPress()
+static bool okKeyLongPress()
 {
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
