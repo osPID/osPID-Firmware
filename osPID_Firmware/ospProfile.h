@@ -48,6 +48,7 @@ public:
     stepTypes[nextStep] = type;
     stepDurations[nextStep] = duration;
     stepEndpoints[nextStep] = endpoint;
+    nextStep++;
     return true;
   }
 
