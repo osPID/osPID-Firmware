@@ -624,7 +624,7 @@ static void updownKeyPress(bool up)
   double increment = 1.0;
 
   byte pow10 = menuState.editDepth - decimalPointPosition;
-  while (pow10-- > 0)
+  while (pow10-- > 1)
     increment *= 10.0;
   while (pow10++ < 0)
     increment *= 0.1;
