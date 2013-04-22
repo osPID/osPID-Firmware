@@ -752,12 +752,11 @@ static void processSerialCommand()
   {
   case 'A': // start an auto-tune
     startAutoTune();
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'a': // set the auto-tune parameters
     aTuneStep = f1;
     aTuneNoise = f2;
     aTuneLookBack = i3;
-    markSettingsDirty();
     break;
   case 'C': // cancel an auto-tune or profile execution
     if (tuning)
@@ -766,7 +765,7 @@ static void processSerialCommand()
       stopProfile();
     else
       goto out_EMOD;
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'c': // set the comm speed
     if (cmdSetSerialSpeed(i3)) // since this resets the interface, just return
       return;
@@ -776,12 +775,11 @@ static void processSerialCommand()
     if (tuning)
       goto out_EMOD;
     kd = f1;
-    markSettingsDirty();
     break;
   case 'E': // execute a profile by name
     if (!cmdStartProfile(p))
       goto out_EINV;
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'e': // execute a profile by number
     BOUNDS_CHECK(i3, 0, NR_PROFILES-1);
 
@@ -790,26 +788,25 @@ static void processSerialCommand()
 
     activeProfileIndex = i3;
     startProfile();
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'I': // identify
     cmdIdentify();
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'i': // set the I gain
     BOUNDS_CHECK(f1, 0, 100);
 
     if (tuning)
       goto out_EMOD;
     ki = f1;
-    markSettingsDirty();
     break;
   case 'K': // memory peek
     cmdPeek(i3);
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'k': // memory poke
     BOUNDS_CHECK(i3, 0, 255);
 
     cmdPoke(i2, i3);
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'L': // set trip limits
     BOUNDS_CHECK(f2, -999.9, 999.9);
     BOUNDS_CHECK(f1, -999.9, 999.9);
@@ -828,14 +825,12 @@ static void processSerialCommand()
     if (modeIndex == MANUAL)
       output = manualOutput;
     myPID.SetMode(i3);
-    markSettingsDirty();
     break;
   case 'N': // set the unit name
     if (strlen(p) > 16)
       goto out_EINV;
 
     strcpy(controllerName, p);
-    markSettingsDirty();
     break;
   case 'n': // clear and name the profile buffer
     if (strlen(p) > ospProfile::NAME_LENGTH)
@@ -857,7 +852,6 @@ static void processSerialCommand()
     BOUNDS_CHECK(i3, 0, 2);
 
     powerOnBehavior = i3;
-    markSettingsDirty();
     break;
   case 'P': // define a profile step
     if (!profileBuffer.addStep(i1, i2, f1))
@@ -869,17 +863,15 @@ static void processSerialCommand()
     if (tuning)
       goto out_EMOD;
     kp = f1;
-    markSettingsDirty();
     break;
   case 'Q': // query current status
     cmdQuery();
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'R': // set the controller action direction
     BOUNDS_CHECK(i3, 0, 1);
 
     ctrlDirection = i3;
     myPID.SetControllerDirection(i3);
-    markSettingsDirty();
     break;
   case 'r': // reset memory
     if (i3 != -999)
@@ -888,7 +880,7 @@ static void processSerialCommand()
     clearEEPROM();
     Serial.println(F("Memory marked for reset."));
     Serial.println(F("Reset the unit to complete."));
-    break;
+    goto out_OK; // no EEPROM writeback needed or wanted!
   case 'S': // change the setpoint
     BOUNDS_CHECK(f1, -999.9, 999.9);
 
@@ -897,19 +889,17 @@ static void processSerialCommand()
 
     setPoints[setpointIndex] = f1;
     setpoint = f1;
-    markSettingsDirty();
     break;
   case 's': // change the active setpoint
     BOUNDS_CHECK(i3, 0, 3);
 
     setpointIndex = i3;
-    markSettingsDirty();
     break;
   case 'T': // clear a trip
     if (!tripped)
       goto out_EMOD;
     tripped = false;
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 't': // set trip auto-reset
     BOUNDS_CHECK(i3, 0, 1);
     tripAutoReset = i3;
@@ -918,21 +908,23 @@ static void processSerialCommand()
     BOUNDS_CHECK(i3, 0, 2);
 
     saveEEPROMProfile(i3);
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'X': // examine: dump the controller settings
     cmdExamineSettings();
-    break;
+    goto out_OK; // no EEPROM writeback needed
   case 'x': // examine a profile: dump a description of the give profile
     BOUNDS_CHECK(i3, 0, 2);
 
     cmdExamineProfile(i3);
-    break;
+    goto out_OK; // no EEPROM writeback needed
   default:
     goto out_EINV;
   }
 
 #undef BOUNDS_CHECK
 
+  // we wrote a setting of some sort: schedule an EEPROM writeback
+  markSettingsDirty();
 out_OK:
   Serial.println(F("OK"));
   return;
