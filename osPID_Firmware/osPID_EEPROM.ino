@@ -233,7 +233,7 @@ static void saveEEPROMSettings()
   settings.save(aTuneNoise);
   settings.save(aTuneLookBack);
 
-  settings.save(output);
+  settings.save(manualOutput);
 
   settings.save(lowerTripLimit);
   settings.save(upperTripLimit);
@@ -277,7 +277,7 @@ static void restoreEEPROMSettings()
   settings.restore(aTuneNoise);
   settings.restore(aTuneLookBack);
 
-  settings.restore(output);
+  settings.restore(manualOutput);
 
   settings.restore(lowerTripLimit);
   settings.restore(upperTripLimit);

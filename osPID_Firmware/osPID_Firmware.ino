@@ -98,7 +98,7 @@ double setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
 byte setpointIndex = 0;
 
 // the variables to which the PID controller is bound
-double setpoint=250,input=250,output=50, pidInput=250;
+double setpoint=250,input=250,output=0, pidInput=250, manualOutput=0;
 
 // the hard trip limits
 double lowerTripLimit = 0, upperTripLimit = 200;
@@ -178,7 +178,7 @@ void setup()
 
   if (powerOnBehavior == POWERON_DISABLE) {
     modeIndex = MANUAL;
-    output = 0;
+    output = manualOutput;
   }
   myPID.SetMode(modeIndex);
 
@@ -317,6 +317,10 @@ unsigned long settingsWritebackTime;
 // as soon as they are done changing
 static void markSettingsDirty()
 {
+  // capture any possible changes to the output value if we're in MANUAL mode
+  if (modeIndex == MANUAL)
+    manualOutput = output;
+
   settingsWritebackNeeded = true;
 
   // wait until nothing has changed for 5s before writing to EEPROM

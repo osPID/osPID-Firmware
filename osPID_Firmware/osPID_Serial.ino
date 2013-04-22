@@ -825,6 +825,8 @@ static void processSerialCommand()
     BOUNDS_CHECK(i3, 0, 1);
 
     modeIndex = i3;
+    if (modeIndex == MANUAL)
+      output = manualOutput;
     myPID.SetMode(i3);
     markSettingsDirty();
     break;

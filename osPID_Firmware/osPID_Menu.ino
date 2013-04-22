@@ -596,6 +596,9 @@ static void updownKeyPress(bool up)
     {
     case ITEM_PID_MODE:
       modeIndex = (modeIndex == 0 ? 1 : 0);
+      // use the manual output value
+      if (modeIndex == MANUAL)
+        output = manualOutput;
       myPID.SetMode(modeIndex);
       break;
     case ITEM_PID_DIRECTION:
