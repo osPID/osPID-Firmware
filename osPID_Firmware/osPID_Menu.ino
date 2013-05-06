@@ -575,10 +575,9 @@ static void updownKeyPress(bool up)
     if (menuState.highlightedItemMenuIndex == menuItemCount - 1)
       return;
 
-    if (menuState.highlightedItemMenuIndex != menuState.firstItemMenuIndex)
-      menuState.firstItemMenuIndex++;
-
-    menuState.highlightedItemMenuIndex = menuState.firstItemMenuIndex;
+    menuState.highlightedItemMenuIndex++;
+    if (menuState.highlightedItemMenuIndex != menuState.firstItemMenuIndex + 1)
+      menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex - 1;
     return;
   }
 
