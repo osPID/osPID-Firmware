@@ -71,7 +71,8 @@ struct MenuItem {
   }
 
   byte itemAt(byte index) const {
-    return pgm_read_byte_near(&pmemItemPtr[index]);
+    const byte *itemPtr = (const byte *)pgm_read_word_near(&pmemItemPtr);
+    return pgm_read_byte_near(&itemPtr[index]);
   }
 
   bool is2x2() const {
