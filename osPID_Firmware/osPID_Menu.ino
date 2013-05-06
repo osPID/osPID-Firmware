@@ -301,6 +301,12 @@ static bool canEditItem(byte item)
 // draw the selector character at the current position
 static void drawSelector(byte item, bool selected)
 {
+  if (!selected)
+  {
+    theLCD.print(' ');
+    return;
+  }
+
   bool canEdit = canEditItem(item);
 
   if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
@@ -309,12 +315,10 @@ static void drawSelector(byte item, bool selected)
     stopEditing();
   }
 
-  if (!selected)
-    theLCD.print(' ');
-  else if (menuState.editing)
-    theLCD.print(canEdit ? '[' : '|');
+  if (menuState.editing)
+    theLCD.print(canEdit ? '[' : '!');
   else
-    theLCD.print(canEdit ? '>' : '}');
+    theLCD.print(canEdit ? '>' : '|');
 }
 
 // draw a profile name at the current position
@@ -482,12 +486,14 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
   }
 }
 
-static void startEditing()
+static void startEditing(byte item)
 {
   menuState.editing = true;
   menuState.editDepth = 3;
   menuState.editStartMillis = millis();
-  theLCD.cursor();
+
+  if (canEditItem(item))
+    theLCD.cursor();
 }
 
 static void stopEditing()
@@ -720,7 +726,7 @@ static void okKeyPress()
     }
     // it's a numeric value: mark that the user wants to edit it
     // (the cursor will change if they can't)
-    startEditing();
+    startEditing(item);
     return;
   }
 
@@ -764,12 +770,12 @@ static void okKeyPress()
   case ITEM_PID_MODE:
   case ITEM_TRIP_ENABLED:
   case ITEM_TRIP_AUTORESET:
-    startEditing();
+    startEditing(item);
     break;
 
   case ITEM_PID_DIRECTION:
     if (modeIndex == AUTOMATIC)
-      startEditing();
+      startEditing(item);
     break;
 
   case ITEM_COMM_9p6k:
