@@ -17,9 +17,9 @@ void ospBugCheck(const char *block, int line)
 
     theLCD.noCursor();
 
-    theLCD.setCursor(0, 0);
+    theLCD.clear();
     for (int i = 0; i < 4; i++)
-      theLCD.print(pgm_read_byte_near(&block[i]));
+      theLCD.print((char)pgm_read_byte_near(&block[i]));
     theLCD.print(F(" Err"));
 
     theLCD.setCursor(0, 1);
