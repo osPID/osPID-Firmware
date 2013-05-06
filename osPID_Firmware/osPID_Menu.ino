@@ -211,6 +211,7 @@ static void drawMenu()
     drawFullRowItem(1, !highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex+1));
 
     drawStatusFlash(highlightFirst ? 0 : 1);
+    theLCD.setCursor(menuState.editDepth, highlightFirst ? 0 : 1);
   }
 }
 
@@ -305,7 +306,7 @@ static void drawSelector(byte item, bool selected)
   if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
   {
     // cancel the disallowed edit
-    menuState.editing = false;
+    stopEditing();
   }
 
   if (!selected)
