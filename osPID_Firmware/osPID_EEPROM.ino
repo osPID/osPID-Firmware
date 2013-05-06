@@ -227,8 +227,6 @@ static void saveEEPROMSettings()
   for (byte i = 0; i < NR_SETPOINTS; i++)
     settings.save(setPoints[i]);
 
-  setpoint = setPoints[setpointIndex];
-
   settings.save(aTuneStep);
   settings.save(aTuneNoise);
   settings.save(aTuneLookBack);

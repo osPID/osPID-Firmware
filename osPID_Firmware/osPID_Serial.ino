@@ -894,6 +894,7 @@ static void processSerialCommand()
     BOUNDS_CHECK(i3, 0, 3);
 
     setpointIndex = i3;
+    setpoint = setPoints[setpointIndex];
     break;
   case 'T': // clear a trip
     if (!tripped)

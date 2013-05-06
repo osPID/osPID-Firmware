@@ -654,6 +654,9 @@ static void updownKeyPress(bool up)
 
   double *valPtr = floatItemData[itemIndex].valuePtr();
   *valPtr = val;
+
+  if (item == ITEM_SETPOINT)
+    setPoints[setpointIndex] = setpoint;
 }
 
 static void okKeyPress()
