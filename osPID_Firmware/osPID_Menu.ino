@@ -621,7 +621,8 @@ static void updownKeyPress(bool up)
   // not a setting: must be a number
 
   // determine how much to increment or decrement
-  byte decimalPointPosition = 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces();
+  const byte itemIndex = item - FIRST_FLOAT_ITEM;
+  byte decimalPointPosition = 7 - floatItemData[itemIndex].decimalPlaces();
   double increment = 1.0;
 
   byte pow10 = menuState.editDepth - decimalPointPosition;
@@ -634,18 +635,18 @@ static void updownKeyPress(bool up)
     increment = -increment;
 
   // do the in/decrement and clamp it
-  double val = floatItemData[item - FIRST_FLOAT_ITEM].currentValue();
+  double val = floatItemData[itemIndex].currentValue();
   val += increment;
 
-  double min = floatItemData[item - FIRST_FLOAT_ITEM].minimumValue();
+  double min = floatItemData[itemIndex].minimumValue();
   if (val < min)
     val = min;
 
-  double max = floatItemData[item - FIRST_FLOAT_ITEM].maximumValue();
+  double max = floatItemData[itemIndex].maximumValue();
   if (val > max)
     val = max;
 
-  double *valPtr = floatItemData[item - FIRST_FLOAT_ITEM].valuePtr();
+  double *valPtr = floatItemData[itemIndex].valuePtr();
   *valPtr = val;
 }
 
