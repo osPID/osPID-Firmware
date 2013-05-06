@@ -26,7 +26,7 @@ struct FloatItem {
   }
 
   double minimumValue() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_RANGE_0_99 ? 0 : -999.9);
+    return (pgm_read_byte_near(&pmemFlags) & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_100) ? 0 : -999.9);
   }
 
   double maximumValue() const {
