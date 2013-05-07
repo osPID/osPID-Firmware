@@ -218,6 +218,16 @@ static void drawBadCsum(byte profile)
   delay(2000);
 }
 
+// draw a banner reporting that we're resuming an interrupted profile
+static void drawResumeProfileBanner()
+{
+  theLCD.setCursor(0, 0);
+  theLCD.print(F("Resuming"));
+  theLCD.setCursor(0, 1);
+  drawProfileName(activeProfileIndex);
+  delay(1000);
+}
+
 static void drawMenu()
 {
   byte itemCount = menuData[menuState.currentMenu].itemCount();

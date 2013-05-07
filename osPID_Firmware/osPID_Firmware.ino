@@ -181,7 +181,10 @@ void setup()
   if (profileWasInterrupted())
   {
     if (powerOnBehavior == POWERON_RESUME_PROFILE)
+    {
+      drawResumeProfileBanner();
       startCurrentProfileStep();
+    }
     else
       recordProfileCompletion(); // we don't want to pick up again, so mark it completed
   }
