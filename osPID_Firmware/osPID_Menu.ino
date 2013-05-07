@@ -191,6 +191,33 @@ struct MenuStateData {
 
 struct MenuStateData menuState;
 
+// draw the initial startup banner
+static void drawStartupBanner()
+{
+  // display a startup message
+  theLCD.setCursor(0, 0);
+  theLCD.print(F(" osPID   "));
+  theLCD.setCursor(0, 1);
+  theLCD.print(F(" " OSPID_VERSION_TAG));
+}
+
+// draw a banner reporting a bad EEPROM checksum
+static void drawBadCsum(byte profile)
+{
+  delay(500);
+  theLCD.setCursor(0, 0);
+  if (profile == 0xFF)
+    theLCD.print(F("Config  "));
+  else
+  {
+    theLCD.print(F("Profile"));
+    theLCD.print(profile);
+  }
+  theLCD.setCursor(0, 1);
+  theLCD.print(F("Cleared "));
+  delay(2000);
+}
+
 static void drawMenu()
 {
   byte itemCount = menuData[menuState.currentMenu].itemCount();

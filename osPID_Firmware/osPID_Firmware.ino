@@ -145,12 +145,7 @@ void setup()
 
   // set up the LCD
   theLCD.begin(8, 2);
-
-  // display a startup message
-  theLCD.setCursor(0,0);
-  theLCD.print(F(" osPID   "));
-  theLCD.setCursor(0,1);
-  theLCD.print(F(" " OSPID_VERSION_TAG));
+  drawStartupBanner();
 
   now = millis();
 

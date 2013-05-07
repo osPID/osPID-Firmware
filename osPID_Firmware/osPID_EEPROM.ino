@@ -124,6 +124,7 @@ static void setupEEPROM()
     if (!checkEEPROMProfile(i)) {
       // bad CRC: clear this profile by writing it using our hardcoded
       // "empty profile" defaults
+      drawBadCsum(i);
       profileBuffer.name[6] = '1' + i;
       saveEEPROMProfile(i);
     }
@@ -134,6 +135,7 @@ static void setupEEPROM()
     restoreEEPROMSettings();
   } else {
     // bad CRC: save our hardcoded defaults
+    drawBadCsum(0xFF);
     saveEEPROMSettings();
   }
 }
