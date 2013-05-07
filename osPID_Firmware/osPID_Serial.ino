@@ -134,7 +134,7 @@ enum {
 
 byte serialSpeed = SERIAL_SPEED_28p8k;
 
-PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 38400, 57600, 115200 };
+PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 28800, 38400, 57600, 115200 };
 
 static void setupSerial()
 {
