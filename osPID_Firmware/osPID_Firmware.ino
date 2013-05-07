@@ -200,7 +200,8 @@ bool lcdRedrawNeeded;
 
 // keep track of which button is being held, and for how long
 byte heldButton;
-unsigned long buttonPressTime;
+byte autoRepeatCount;
+unsigned long autoRepeatTriggerTime;
 
 // test the buttons and look for button presses or long-presses
 static void checkButtons()
@@ -208,36 +209,40 @@ static void checkButtons()
   byte button = theButtonReader.get();
   byte executeButton = BUTTON_NONE;
 
+  enum {
+    AUTOREPEAT_DELAY = 250,
+    AUTOREPEAT_PERIOD = 350
+  };
+
   if (button != BUTTON_NONE)
   {
     if (heldButton == BUTTON_NONE)
-      buttonPressTime = now + 125; // auto-repeat delay
+    {
+      autoRepeatTriggerTime = now + AUTOREPEAT_DELAY;
+    }
     else if (heldButton == BUTTON_OK)
-      ; // OK does long-press/short-press, not auto-repeat
-    else if ((now - buttonPressTime) > 250)
+    {
+      // OK does long-press/short-press, not auto-repeat
+    }
+    else if (now > autoRepeatTriggerTime)
     {
       // don't auto-repeat until 100 ms after the redraw
       if (lcdRedrawNeeded)
       {
-        buttonPressTime = now - 150;
+        autoRepeatTriggerTime = now + 150;
         return;
       }
 
       // auto-repeat
       executeButton = button;
-      buttonPressTime = now;
+      autoRepeatCount += 1;
+      autoRepeatTriggerTime = now + AUTOREPEAT_PERIOD;
     }
     heldButton = button;
   }
   else if (heldButton != BUTTON_NONE)
   {
-    if (now < buttonPressTime)
-    {
-      // the button hasn't triggered auto-repeat yet; execute it
-      // on release
-      executeButton = heldButton;
-    }
-    else if (heldButton == BUTTON_OK && (now - buttonPressTime) > 400)
+    if (heldButton == BUTTON_OK && (now > autoRepeatTriggerTime + (400 - AUTOREPEAT_DELAY)))
     {
       // BUTTON_OK was held for at least 400 ms: execute a long-press
       bool longPress = okKeyLongPress();
@@ -248,7 +253,15 @@ static void checkButtons()
         executeButton = BUTTON_OK;
       }
     }
+    else if (autoRepeatCount == 0)
+    {
+      // the button hasn't triggered auto-repeat yet; execute it on release
+      executeButton = heldButton;
+    }
+
+    // else: the button was in auto-repeat, so don't execute it again on release
     heldButton = BUTTON_NONE;
+    autoRepeatCount = 0;
   }
 
   if (executeButton == BUTTON_NONE)
@@ -421,11 +434,15 @@ void loop()
   if (blockSlowOperations)
     return;
 
+  // update the time after each major operation;
+  now = millis();
+
   // we want to monitor the buttons as often as possible
   checkButtons();
 
   // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
   // a button is pressed
+  now = millis();
   if (now > lcdTime || lcdRedrawNeeded)
   {
     drawMenu();
@@ -433,6 +450,7 @@ void loop()
     lcdTime += 250;
   }
 
+  now = millis();
   if (settingsWritebackNeeded && now > settingsWritebackTime) {
     // clear settingsWritebackNeeded first, so that it gets re-armed if the
     // realtime loop calls markSettingsDirty()
