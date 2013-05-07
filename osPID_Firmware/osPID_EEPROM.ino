@@ -102,7 +102,7 @@ enum {
 };
 
 enum {
-  STATUS_BUFFER_START_OFFSET = 462,
+  STATUS_BUFFER_START_OFFSET = 200+462,
   STATUS_BUFFER_LENGTH = 128,
   STATUS_BUFFER_BLOCK_LENGTH = 4,
   STATUS_BLOCK_CRC_OFFSET = 0,
@@ -111,7 +111,7 @@ enum {
 };
 
 // the start value for doing CRC-16 cyclic redundancy checks
-#define CRC16_INIT 0xffff
+#define CRC16_INIT 0xFFFFu
 
 // the index of the currently in-use (or next free) status buffer block
 byte statusBufferIndex = 0;
@@ -143,20 +143,20 @@ static void setupEEPROM()
 // force a reset to factory defaults
 static void clearEEPROM() {
   // overwrite the CRC-16s
-  int zero = 0;
+  unsigned int zero = 0;
   ospSettingsHelper::eepromWrite(SETTINGS_CRC_OFFSET, zero);
 
   for (byte i = 0; i < NR_PROFILES; i++) {
-    ospSettingsHelper::eepromWrite(PROFILE_BLOCK_START_OFFSET + i*PROFILE_BLOCK_LENGTH, zero);
+    ospSettingsHelper::eepromWrite(PROFILE_BLOCK_START_OFFSET + i*PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET, zero);
   }
 
   // since the status buffer blocks are tagged by CRC-16 values, we don't need to do
   // anything with them
 }
 
-static int checkEEPROMBlockCrc(int address, int length)
+static unsigned int checkEEPROMBlockCrc(int address, int length)
 {
-  int crc = CRC16_INIT;
+  unsigned int crc = CRC16_INIT;
 
   while (length--) {
     byte b = eeprom_read_byte((byte *)address);
@@ -170,7 +170,7 @@ static int checkEEPROMBlockCrc(int address, int length)
 // check the CRC-16 of the settings block
 static bool checkEEPROMSettings()
 {
-  int storedCrc, calculatedCrc;
+  unsigned int storedCrc, calculatedCrc;
 
   calculatedCrc = checkEEPROMBlockCrc(SETTINGS_SBYTE1_OFFSET, SETTINGS_CRC_LENGTH);
   ospSettingsHelper::eepromRead(SETTINGS_CRC_OFFSET, storedCrc);
@@ -242,6 +242,12 @@ static void saveEEPROMSettings()
   theInputCard.saveSettings(settings);
   settings.fillUpTo(OUTPUT_CARD_SETTINGS_OFFSET);
   theOutputCard.saveSettings(settings);
+
+  // fill any trailing unused space
+  settings.fillUpTo(SETTINGS_SBYTE1_OFFSET + SETTINGS_CRC_LENGTH);
+
+  // and finalize the save by writing the CRC
+  ospSettingsHelper::eepromWrite(SETTINGS_CRC_OFFSET, settings.crcValue());
 }
 
 static void restoreEEPROMSettings()
@@ -278,6 +284,7 @@ static void restoreEEPROMSettings()
   settings.restore(aTuneLookBack);
 
   settings.restore(manualOutput);
+  output = manualOutput;
 
   settings.restore(lowerTripLimit);
   settings.restore(upperTripLimit);
@@ -292,9 +299,9 @@ static void restoreEEPROMSettings()
 static bool checkEEPROMProfile(byte index)
 {
   int base = PROFILE_BLOCK_START_OFFSET + index * PROFILE_BLOCK_LENGTH;
-  int storedCrc, calculatedCrc;
+  unsigned int storedCrc, calculatedCrc;
 
-  calculatedCrc = checkEEPROMBlockCrc(base + PROFILE_CRC_OFFSET, PROFILE_CRC_LENGTH);
+  calculatedCrc = checkEEPROMBlockCrc(base + PROFILE_NAME_OFFSET, PROFILE_CRC_LENGTH);
   ospSettingsHelper::eepromRead(base + PROFILE_CRC_OFFSET, storedCrc);
 
   return (calculatedCrc == storedCrc);
@@ -307,14 +314,14 @@ static void saveEEPROMProfile(byte index)
   byte swizzle = ospProfile::STEP_EEPROM_SWIZZLE; // we start by or-ing 0x80 into the stepTypes
 
 retry:
-  ospSettingsHelper settings(CRC16_INIT, base + 2); // skip the CRC-16 slot
+  ospSettingsHelper settings(CRC16_INIT, base + PROFILE_NAME_OFFSET); // skip the CRC-16 slot
 
   // write the profile settings and calculate the CRC-16
   for (byte i = 0; i < ospProfile::NAME_LENGTH+1; i++)
     settings.save(profileBuffer.name[i]);
 
   for (byte i = 0; i < ospProfile::NR_STEPS; i++)
-    settings.save(profileBuffer.stepTypes[i] | swizzle);
+    settings.save(byte(profileBuffer.stepTypes[i] | swizzle));
 
   for (byte i = 0; i < ospProfile::NR_STEPS; i++)
     settings.save(profileBuffer.stepDurations[i]);
@@ -322,9 +329,9 @@ retry:
   for (byte i = 0; i < ospProfile::NR_STEPS; i++)
     settings.save(profileBuffer.stepEndpoints[i]);
 
-  int crcValue = settings.crcValue();
+  unsigned int crcValue = settings.crcValue();
 
-  if (crcValue == -1 && swizzle) {
+  if (crcValue == 0xFFFFu && swizzle) {
     // 0xFFFF is a reserved values in the status buffer, so take out the swizzle
     // and retry the save to generate a different CRC-16
     swizzle = 0x00;
@@ -363,18 +370,26 @@ static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned l
   ospSettingsHelper::eepromRead(base + PROFILE_STEP_ENDPOINTS_OFFSET + i*sizeof(double), *endpoint);
 }
 
+static unsigned int getProfileCrc(byte profileIndex)
+{
+  const int crcAddress = PROFILE_BLOCK_START_OFFSET + profileIndex * PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET;
+
+  unsigned int crc;
+  ospSettingsHelper::eepromRead(crcAddress, crc);
+  return crc;
+}
+
 byte currentStatusBufferBlockIndex;
 
 // search through the profiles for one with the given CRC-16, and return
 // its index or 0xFF if not found
-static byte profileIndexForCrc(int crc)
+static byte profileIndexForCrc(unsigned int crc)
 {
-  int profileCrc;
+  unsigned int profileCrc;
 
   for (byte i = 0; i < NR_PROFILES; i++)
   {
-    int crcAddress = PROFILE_BLOCK_START_OFFSET + i * PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET;
-    ospSettingsHelper::eepromRead(crcAddress, profileCrc);
+    profileCrc = getProfileCrc(i);
 
     if (crc == profileCrc)
       return i;
@@ -388,7 +403,7 @@ static byte profileIndexForCrc(int crc)
 // run, activeProfile is restored to the last profile to have been run.
 static bool profileWasInterrupted()
 {
-  int crc, statusBits;
+  unsigned int statusBits, crc;
 
   for (int blockAddress = STATUS_BUFFER_START_OFFSET;
     blockAddress < STATUS_BUFFER_START_OFFSET + STATUS_BUFFER_LENGTH;
@@ -396,7 +411,7 @@ static bool profileWasInterrupted()
   {
     ospSettingsHelper::eepromRead(blockAddress + STATUS_BLOCK_CRC_OFFSET, crc);
 
-    if (crc == -1) // not a valid profile CRC-16
+    if (crc == 0xFFFFu) // not a valid profile CRC-16
       continue;
 
     byte profileIndex = profileIndexForCrc(crc);
@@ -428,7 +443,7 @@ static void recordProfileStart()
   currentStatusBufferBlockIndex = (currentStatusBufferBlockIndex + 1) % STATUS_BLOCK_COUNT;
 
   // record the start of profile execution
-  int crc, ffff = 0xFFFF;
+  unsigned int crc, ffff = 0xFFFFu;
   int crcAddress = PROFILE_BLOCK_START_OFFSET + activeProfileIndex * PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET;
   int statusBlockAddress = STATUS_BUFFER_START_OFFSET + currentStatusBufferBlockIndex * STATUS_BUFFER_BLOCK_LENGTH;
 
@@ -449,7 +464,7 @@ static void recordProfileStepCompletion(byte step)
         + currentStatusBufferBlockIndex * STATUS_BUFFER_BLOCK_LENGTH
         + STATUS_BLOCK_STATUS_OFFSET;
 
-  int status = 0xFFFF;
+  unsigned int status = 0xFFFFu;
   status <<= (step + 1);
   ospSettingsHelper::eepromClearBits(statusAddress, status);
 }

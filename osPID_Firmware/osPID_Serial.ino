@@ -390,7 +390,7 @@ static void cmdExamineSettings()
 
   Serial.println();
 
-  serialPrintln(F("Comm speed (bps): "));
+  serialPrint(F("Comm speed (bps): "));
   serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
 
   serialPrint(F("Power-on: "));
@@ -460,7 +460,7 @@ static void cmdExamineSettings()
 static void cmdExamineProfile(byte profileIndex)
 {
   serialPrint(F("Profile "));
-  Serial.print('0' + profileIndex);
+  Serial.print(char('0' + profileIndex));
   serialPrint(F(": "));
 
   for (byte i = 0; i < ospProfile::NAME_LENGTH; i++)
@@ -471,6 +471,9 @@ static void cmdExamineProfile(byte profileIndex)
     Serial.print(ch);
   }
   Serial.println();
+
+  serialPrint(F("Checksum: "));
+  serialPrintln(getProfileCrc(profileIndex));
 
   for (byte i = 0; i < ospProfile::NR_STEPS; i++)
   {

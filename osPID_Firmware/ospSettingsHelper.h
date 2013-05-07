@@ -8,7 +8,7 @@
 
 class ospSettingsHelper {
 private:
-  int crc16;
+  unsigned int crc16;
   int address;
 
   // using private size-templated methods lets there be only 3 instantiations
@@ -20,7 +20,7 @@ private:
   template<size_t size> static void eepromClearBitsSize(unsigned int address, const byte *p);
   
 public:
-  ospSettingsHelper(int crcInit, int baseAddress) :
+  ospSettingsHelper(unsigned int crcInit, int baseAddress) :
     crc16(crcInit),
     address(baseAddress)
   {
@@ -48,7 +48,7 @@ public:
     address = newAddress;
   }
 
-  int crcValue() const { return crc16; }
+  unsigned int crcValue() const { return crc16; }
 
   template<typename T> static void eepromRead(unsigned int address, T& value) {
     byte *p = (byte *)&value;
