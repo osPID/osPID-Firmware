@@ -847,14 +847,10 @@ static void okKeyPress()
     break;
 
   case ITEM_PID_MODE:
+  case ITEM_PID_DIRECTION:
   case ITEM_TRIP_ENABLED:
   case ITEM_TRIP_AUTORESET:
     startEditing(item);
-    break;
-
-  case ITEM_PID_DIRECTION:
-    if (modeIndex == AUTOMATIC)
-      startEditing(item);
     break;
 
   case ITEM_COMM_9p6k:
