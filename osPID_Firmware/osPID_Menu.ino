@@ -207,8 +207,6 @@ static void drawMenu()
 
       drawHalfRowItem(i / 2, i % 2, highlight, item);
     }
-    
-    drawStatusFlash(menuState.highlightedItemMenuIndex / 2);
   }
   else
   {
@@ -217,10 +215,10 @@ static void drawMenu()
 
     drawFullRowItem(0, highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex));
     drawFullRowItem(1, !highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex+1));
-
-    drawStatusFlash(highlightFirst ? 0 : 1);
-    theLCD.setCursor(menuState.editDepth, highlightFirst ? 0 : 1);
   }
+
+  // certain ongoing states flash a notification in the cursor slot
+  drawStatusFlash();
 }
 
 // draw a floating-point item's value at the current position
@@ -428,45 +426,56 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_TRIP_AUTORESET:
     theLCD.print(tripAutoReset ? F("AReset ") : F("MReset "));
     break;
+  case ITEM_RESET_ROM_NO:
+    theLCD.print(F("No     "));
+    break;
+  case ITEM_RESET_ROM_YES:
+    theLCD.print(F("Yes    "));
+    break;
   default:
     BUGCHECK();
   }
 }
 
 // flash a status indicator if appropriate
-static void drawStatusFlash(byte row)
+static void drawStatusFlash()
 {
-  theLCD.setCursor(0,row);
-
   if (tripped)
   {
+    char ch;
+
     if (now % 2048 < 700)
-      theLCD.print('T');
+      ch = 'T';
     else if (now % 2048 < 1400)
-      theLCD.print('R');
+      ch = 'R';
     else
-      theLCD.print('P');
+      ch = 'P';
+    drawNotificationCursor(ch);
   }
   else if (tuning)
   {
+    char ch;
+
     if (now % 2048 < 700)
-      theLCD.print('t');
+      ch = 't';
     else if (now % 2048 < 1400)
-      theLCD.print('u');
+      ch = 'u';
     else
-      theLCD.print('n');
+      ch = 'n';
+    drawNotificationCursor(ch);
   }
   else if (runningProfile)
   {
     if (now % 2048 < 700)
-      theLCD.print('P');
+      drawNotificationCursor('P');
     else if (now % 2048 < 1400)
     {
       char c;
       if (currentProfileStep < 10)
         c = currentProfileStep + '0';
-      else c = currentProfileStep + 'A';
-      theLCD.print(c);
+      else
+        c = currentProfileStep + 'A';
+      drawNotificationCursor(c);
     }
   }
 }
@@ -496,6 +505,30 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
   default:
     BUGCHECK();
   }
+}
+
+// draw a character at the current location of the selection indicator
+// (it will be overwritten at the next screen redraw)
+static void drawNotificationCursor(char icon)
+{
+  if (menuData[menuState.currentMenu].is2x2())
+  {
+    ospAssert(!menuState.editing);
+
+    byte row = menuState.highlightedItemMenuIndex / 2;
+    byte col = 4 * (menuState.highlightedItemMenuIndex % 2);
+
+    theLCD.setCursor(col, row);
+    theLCD.print(icon);
+    return;
+  }
+
+  byte row = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex) ? 0 : 1;
+  theLCD.setCursor(0, row);
+  theLCD.print(icon);
+
+  if (menuState.editing)
+    theLCD.setCursor(menuState.editDepth, row);
 }
 
 static void startEditing(byte item)

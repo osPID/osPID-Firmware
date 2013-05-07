@@ -455,6 +455,9 @@ void loop()
     // clear settingsWritebackNeeded first, so that it gets re-armed if the
     // realtime loop calls markSettingsDirty()
     settingsWritebackNeeded = false;
+
+    // display a '$' instead of the cursor to show that we're saving to EEPROM
+    drawNotificationCursor('$');
     saveEEPROMSettings();
   }
 
