@@ -239,7 +239,7 @@ template<typename T> void __attribute__((noinline)) serialPrintln(T t)
   realtimeLoop();
 }
 
-static bool cmdSetSerialSpeed(long speed)
+static bool cmdSetSerialSpeed(const long& speed)
 {
   for (byte i = 0; i < (sizeof(serialSpeedTable) / sizeof(serialSpeedTable[0])); i++)
   {
@@ -322,8 +322,8 @@ static void cmdIdentify()
 {
   serialPrintln(F("osPID " OSPID_VERSION_TAG));
   serialPrint(F("Unit \""));
-  serialPrint(controllerName);
-  Serial.println('"');
+  Serial.print(controllerName);
+  serialPrintln('"');
 }
 
 static void cmdQuery()
@@ -485,7 +485,7 @@ static void cmdExamineProfile(byte profileIndex)
 
     if (type == ospProfile::STEP_INVALID)
       break;
-    serialPrint("  ");
+    serialPrint(F("  "));
     if (type < 10)
       Serial.print(' ');
     serialPrint(type);
@@ -636,7 +636,8 @@ static void processSerialCommand()
       serialPrintln(modeIndex);
       break;
     case 'N':
-      serialPrintln(controllerName);
+      Serial.print(controllerName);
+      Serial.println();
       break;
     case 'O':
       serialPrintln(output);
