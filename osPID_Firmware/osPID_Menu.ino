@@ -890,8 +890,10 @@ static void okKeyPress()
     break;
   case ITEM_RESET_ROM_YES:
     clearEEPROM();
-    backKeyPress();
-    // FIXME: can we force a reboot here?
+
+    // perform a software reset by jumping to 0x0000, which is the start of the application code
+    typedef void (*VoidFn)(void);
+    ((VoidFn) 0x0000)();
     break;
   default:
     BUGCHECK();
