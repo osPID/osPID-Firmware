@@ -205,7 +205,7 @@ static void drawMenu()
       bool highlight = (i == menuState.highlightedItemMenuIndex);
       byte item = menuData[menuState.currentMenu].itemAt(i);
 
-      drawHalfRowItem(i / 2, i % 2, highlight, item);
+      drawHalfRowItem(i / 2, 4 * (i % 2), highlight, item);
     }
   }
   else
