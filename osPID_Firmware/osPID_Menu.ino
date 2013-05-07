@@ -555,6 +555,7 @@ static void backKeyPress()
     menuState.currentMenu = ITEM_CONFIG_MENU;
     menuState.highlightedItemMenuIndex = 4;
     menuState.firstItemMenuIndex = 3;
+    break;
   default:
     BUGCHECK();
   }
@@ -826,6 +827,7 @@ static bool okKeyLongPress()
     menuState.currentMenu = ITEM_SETPOINT_MENU;
     break;
   case ITEM_PROFILE_MENU:
+    // open the profile menu
     menuState.currentMenu = ITEM_PROFILE_MENU;
     break;
   default:
