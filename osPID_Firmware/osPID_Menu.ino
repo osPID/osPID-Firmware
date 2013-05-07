@@ -298,8 +298,6 @@ static bool canEditItem(byte item)
     canEdit = true; // menus always get a '>' selector
   else if (item < FIRST_ACTION_ITEM)
     canEdit = canEdit && floatItemData[item - FIRST_FLOAT_ITEM].canEdit();
-  else if (item == ITEM_PID_DIRECTION)
-    canEdit = (modeIndex == AUTOMATIC);
 
   return canEdit;
 }
