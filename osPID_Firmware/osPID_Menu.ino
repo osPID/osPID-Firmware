@@ -659,6 +659,12 @@ static void updownKeyPress(bool up)
       if (menuState.highlightedItemMenuIndex == 0)
         return;
 
+      if (menuData[menuState.currentMenu].is2x2())
+      {
+        menuState.highlightedItemMenuIndex--;
+        return;
+      }
+
       if (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex)
         menuState.firstItemMenuIndex--;
 
@@ -673,6 +679,10 @@ static void updownKeyPress(bool up)
       return;
 
     menuState.highlightedItemMenuIndex++;
+
+    if (menuData[menuState.currentMenu].is2x2())
+      return;
+
     if (menuState.highlightedItemMenuIndex != menuState.firstItemMenuIndex + 1)
       menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex - 1;
     return;
