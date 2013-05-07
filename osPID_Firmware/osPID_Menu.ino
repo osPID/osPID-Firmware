@@ -211,7 +211,7 @@ static void drawBadCsum(byte profile)
   else
   {
     theLCD.print(F("Profile"));
-    theLCD.print(profile);
+    theLCD.print(profile + 1);
   }
   theLCD.setCursor(0, 1);
   theLCD.print(F("Cleared "));
