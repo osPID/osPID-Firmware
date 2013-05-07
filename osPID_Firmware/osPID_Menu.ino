@@ -88,9 +88,10 @@ enum {
   ITEM_PROFILE_MENU,
   ITEM_CONFIG_MENU,
   ITEM_SETPOINT_MENU,
-  ITEM_COMM_MENU,
-  ITEM_POWERON_MENU,
   ITEM_TRIP_MENU,
+  ITEM_POWERON_MENU,
+  ITEM_COMM_MENU,
+  ITEM_RESET_ROM_MENU,
 
   // then double items
   FIRST_FLOAT_ITEM,
@@ -133,6 +134,9 @@ enum {
   ITEM_TRIP_ENABLED,
   ITEM_TRIP_AUTORESET,
 
+  ITEM_RESET_ROM_NO,
+  ITEM_RESET_ROM_YES,
+
   ITEM_COUNT,
   MENU_COUNT = FIRST_FLOAT_ITEM,
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
@@ -140,26 +144,30 @@ enum {
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[7] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU };
+PROGMEM const byte configMenuItems[8] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
                                         ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
 PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
 PROGMEM const byte tripMenuItems[4] = { ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
+PROGMEM const byte resetRomMenuItems[2] = { ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
 
+// This must be in the same order as the ITEM_*_MENU enumeration values
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { sizeof(mainMenuItems), 0, mainMenuItems },
   { sizeof(dashMenuItems), 0, dashMenuItems },
-  { sizeof(configMenuItems), 0, configMenuItems },
   { sizeof(profileMenuItems), 0, profileMenuItems },
+  { sizeof(configMenuItems), 0, configMenuItems },
   { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
-  { sizeof(commMenuItems), 0, commMenuItems },
+  { sizeof(tripMenuItems), 0, tripMenuItems },
   { sizeof(poweronMenuItems), 0, poweronMenuItems },
-  { sizeof(tripMenuItems), 0, tripMenuItems }
+  { sizeof(commMenuItems), 0, commMenuItems },
+  { sizeof(resetRomMenuItems), 0, resetRomMenuItems }
 };
 
+// This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint },
@@ -363,6 +371,9 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_TRIP_MENU:
     theLCD.print(F("Trip   "));
     break;
+  case ITEM_RESET_ROM_MENU:
+    theLCD.print(F("RsetROM"));
+    break;
   case ITEM_AUTOTUNE_CMD:
     theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
     break;
@@ -541,20 +552,13 @@ static void backKeyPress()
     menuState.highlightedItemMenuIndex = 0;
     menuState.firstItemMenuIndex = 0;
     break;
-  case ITEM_COMM_MENU:
-    menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = 6;
-    menuState.firstItemMenuIndex = 5;
-    break;
-  case ITEM_POWERON_MENU:
-    menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = 5;
-    menuState.firstItemMenuIndex = 4;
-    break;
   case ITEM_TRIP_MENU:
+  case ITEM_POWERON_MENU:
+  case ITEM_COMM_MENU:
+  case ITEM_RESET_ROM_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = 4;
-    menuState.firstItemMenuIndex = 3;
+    menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 4;
+    menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex;
     break;
   default:
     BUGCHECK();
@@ -808,6 +812,14 @@ static void okKeyPress()
     backKeyPress();
     break;
 
+  case ITEM_RESET_ROM_NO:
+    backKeyPress();
+    break;
+  case ITEM_RESET_ROM_YES:
+    clearEEPROM();
+    backKeyPress();
+    // FIXME: can we force a reboot here?
+    break;
   default:
     BUGCHECK();
   }
