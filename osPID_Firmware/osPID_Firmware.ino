@@ -329,7 +329,7 @@ unsigned long settingsWritebackTime;
 static void markSettingsDirty()
 {
   // capture any possible changes to the output value if we're in MANUAL mode
-  if (modeIndex == MANUAL)
+  if (modeIndex == MANUAL && !tuning && !tripped)
     manualOutput = output;
 
   settingsWritebackNeeded = true;

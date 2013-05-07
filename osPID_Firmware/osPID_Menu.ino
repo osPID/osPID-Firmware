@@ -801,6 +801,7 @@ static void okKeyPress()
     if (tripped && item == ITEM_SETPOINT)
     {
       tripped = false;
+      output = manualOutput;
       return;
     }
     // it's a numeric value: mark that the user wants to edit it
