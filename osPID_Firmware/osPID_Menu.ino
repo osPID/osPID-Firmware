@@ -534,7 +534,10 @@ static void drawNotificationCursor(char icon)
 static void startEditing(byte item)
 {
   menuState.editing = true;
-  menuState.editDepth = 3;
+  if (item < FIRST_ACTION_ITEM)
+    menuState.editDepth = 3;
+  else
+    menuState.editDepth = 1;
   menuState.editStartMillis = millis();
 
   if (canEditItem(item))
