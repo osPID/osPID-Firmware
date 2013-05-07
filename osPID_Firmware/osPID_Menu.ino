@@ -416,6 +416,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     break;
   case ITEM_TRIP_AUTORESET:
     theLCD.print(tripAutoReset ? F("AReset ") : F("MReset "));
+    break;
   default:
     BUGCHECK();
   }
