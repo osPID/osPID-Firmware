@@ -478,6 +478,8 @@ static void drawStatusFlash()
       drawNotificationCursor(c);
     }
   }
+  else
+    drawNotificationCursor(0);
 }
 
 // draw an item which takes up half a row (4 characters),
@@ -509,11 +511,16 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 
 // draw a character at the current location of the selection indicator
 // (it will be overwritten at the next screen redraw)
+//
+// if icon is '\0', then just set the cursor at the editable location
 static void drawNotificationCursor(char icon)
 {
   if (menuData[menuState.currentMenu].is2x2())
   {
     ospAssert(!menuState.editing);
+
+    if (!icon)
+      return;
 
     byte row = menuState.highlightedItemMenuIndex / 2;
     byte col = 4 * (menuState.highlightedItemMenuIndex % 2);
@@ -524,8 +531,12 @@ static void drawNotificationCursor(char icon)
   }
 
   byte row = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex) ? 0 : 1;
-  theLCD.setCursor(0, row);
-  theLCD.print(icon);
+
+  if (icon)
+  {
+    theLCD.setCursor(0, row);
+    theLCD.print(icon);
+  }
 
   if (menuState.editing)
     theLCD.setCursor(menuState.editDepth, row);
@@ -538,6 +549,7 @@ static void startEditing(byte item)
     menuState.editDepth = 3;
   else
     menuState.editDepth = 1;
+
   menuState.editStartMillis = millis();
 
   if (canEditItem(item))
