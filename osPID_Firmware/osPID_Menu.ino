@@ -283,48 +283,24 @@ static void drawFloat(byte item)
     return;
   }
 
-  for (int i = 0; i < decimals; i++)
-    val *= 10;
-
-  int num = (int)round(val);
-
-  buffer[0] = icon;
-
-  bool isNeg = num < 0;
-  if (isNeg)
-    num = -num;
-
-  bool didneg = false;
-  byte decimalPointPosition = 6-decimals;
-
-  for(byte i = 6; i >= 1; i--)
+  // count how many characters the value will occupy
+  byte charsNeeded = decimals + 2; // decimal places, decimal point, and ones place
+  int num = (int) val;
+  if (num < 0)
   {
-    if (i == decimalPointPosition)
-      buffer[i] = '.';
-    else
-    {
-      if (num == 0)
-      {
-        if (i >= decimalPointPosition - 1) // one zero before the decimal point
-          buffer[i]='0';
-        else if (isNeg && !didneg) // minus sign comes before zeros
-        {
-          buffer[i] = '-';
-          didneg = true;
-        }
-        else
-          buffer[i] = ' '; // skip leading zeros
-      }
-      else
-      {
-        buffer[i] = num % 10 + '0';
-        num /= 10;
-      }
-    }
+    charsNeeded++; // minus sign
+    num = -num;
   }
+  if (num > 99)
+    charsNeeded++; // hundreds place
+  if (num > 9)
+    charsNeeded++; // tens place
 
-  buffer[7] = '\0';
-  theLCD.print(buffer);
+  theLCD.print(icon);
+  byte spacesNeeded = 6 - charsNeeded;
+  while (spacesNeeded--)
+    theLCD.print(' ');
+  theLCD.print(val, decimals);
 }
 
 // can a given item be edited
