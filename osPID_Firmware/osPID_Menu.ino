@@ -249,6 +249,7 @@ static void drawMenu()
   {
     // 2x1 format; supports an arbitrary number of items in the menu
     bool highlightFirst = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex);
+    ospAssert(menuState.firstItemMenuIndex + 1 < itemCount);
 
     drawFullRowItem(0, highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex));
     drawFullRowItem(1, !highlightFirst, menuData[menuState.currentMenu].itemAt(menuState.firstItemMenuIndex+1));
@@ -627,8 +628,8 @@ static void backKeyPress()
   case ITEM_CONFIG_MENU:
   case ITEM_PROFILE_MENU:
     menuState.currentMenu = ITEM_MAIN_MENU;
-    menuState.highlightedItemMenuIndex = prevMenu - 1;
-    menuState.firstItemMenuIndex = prevMenu - 1;
+    menuState.highlightedItemMenuIndex = prevMenu - ITEM_DASHBOARD_MENU;
+    menuState.firstItemMenuIndex = prevMenu - ITEM_DASHBOARD_MENU;
     break;
   case ITEM_SETPOINT_MENU:
     menuState.currentMenu = ITEM_DASHBOARD_MENU;
@@ -641,7 +642,7 @@ static void backKeyPress()
   case ITEM_RESET_ROM_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
     menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 4;
-    menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex;
+    menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex - 1;
     break;
   default:
     BUGCHECK();
