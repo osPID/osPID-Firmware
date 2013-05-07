@@ -234,7 +234,8 @@ template<typename T> void __attribute__((noinline)) serialPrint(T t)
 
 template<typename T> void __attribute__((noinline)) serialPrintln(T t)
 {
-  Serial.println(t);
+  Serial.print(t);
+  Serial.println();
   realtimeLoop();
 }
 
