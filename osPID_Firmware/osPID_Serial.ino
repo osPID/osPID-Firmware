@@ -776,7 +776,7 @@ static void processSerialCommand()
       return;
     goto out_EINV;
   case 'D': // set the D gain
-    BOUNDS_CHECK(f1, 0, 100);
+    BOUNDS_CHECK(f1, 0, 99.99);
     if (tuning)
       goto out_EMOD;
     kd = f1;
@@ -798,7 +798,7 @@ static void processSerialCommand()
     cmdIdentify();
     goto out_OK; // no EEPROM writeback needed
   case 'i': // set the I gain
-    BOUNDS_CHECK(f1, 0, 100);
+    BOUNDS_CHECK(f1, 0, 99.99);
 
     if (tuning)
       goto out_EMOD;
