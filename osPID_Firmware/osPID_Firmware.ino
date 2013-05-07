@@ -2,13 +2,13 @@
 
 #include <LiquidCrystal.h>
 #include <Arduino.h>
-#include "AnalogButton_local.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
-#include "ospProfile.h"
+#include "ospAnalogButton.h"
 #include "ospCardSimulator.h"
-#include "ospTemperatureInputCard.h"
 #include "ospDigitalOutputCard.h"
+#include "ospTemperatureInputCard.h"
+#include "ospProfile.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MAIN"), __LINE__);
@@ -66,8 +66,8 @@ ospCardSimulator theInputCard
 LiquidCrystal theLCD(A1, A0, 4, 7, 8, 9);
 
 // our AnalogButton library provides debouncing and interpretation
-// of the multiplexed theButtonReader
-AnalogButton theButtonReader(A3, 0, 253, 454, 657);
+// of the analog-multiplexed button channel
+ospAnalogButton<A3, 0, 253, 454, 657> theButtonReader;
 
 // an in-memory buffer that we use when receiving a profile over USB
 ospProfile profileBuffer;
