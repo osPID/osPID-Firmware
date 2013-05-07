@@ -195,7 +195,8 @@ extern byte serialSpeed;
 union SettingsByte2 {
   struct {
     byte serialSpeed : 3;
-    byte spare : 5;
+    byte activeProfileIndex : 2;
+    byte spare : 3;
   };
   byte byteVal;
 };
@@ -217,6 +218,7 @@ static void saveEEPROMSettings()
 
   sb2.byteVal = 0;
   sb2.serialSpeed = serialSpeed;
+  sb2.activeProfileIndex = activeProfileIndex;
   settings.save(sb2.byteVal);
 
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
@@ -266,6 +268,7 @@ static void restoreEEPROMSettings()
 
   settings.restore(sb2.byteVal);
   serialSpeed = sb2.serialSpeed;
+  activeProfileIndex = sb2.activeProfileIndex;
 
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
     settings.restore(controllerName[i]);
