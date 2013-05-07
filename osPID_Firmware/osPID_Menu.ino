@@ -632,11 +632,11 @@ static void updownKeyPress(bool up)
   byte decimalPointPosition = 7 - floatItemData[itemIndex].decimalPlaces();
   double increment = 1.0;
 
-  byte pow10 = menuState.editDepth - decimalPointPosition;
-  while (pow10-- > 1)
-    increment *= 10.0;
+  signed char pow10 = decimalPointPosition - menuState.editDepth;
   while (pow10++ < 0)
     increment *= 0.1;
+  while (pow10-- > 2)
+    increment *= 10.0;
 
   if (!up)
     increment = -increment;
