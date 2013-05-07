@@ -903,6 +903,10 @@ static void okKeyPress()
     clearEEPROM();
 
     // perform a software reset by jumping to 0x0000, which is the start of the application code
+    //
+    // it would be better to use a Watchdog Reset, but the bootloader on the osPID main card
+    // doesn't have the "turn off the watchdog" functionality enabled: so if you turn on the watchdog,
+    // the Controller goes into an infinite reset loop because the boot loader takes too long
     typedef void (*VoidFn)(void);
     ((VoidFn) 0x0000)();
     break;
