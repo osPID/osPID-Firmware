@@ -922,22 +922,22 @@ static bool okKeyLongPress()
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
   // only two items respond to long presses: the setpoint and the profile menu
-  switch (item)
+  if (item == ITEM_SETPOINT)
   {
-  case ITEM_SETPOINT:
     // open the setpoint menu
     menuState.currentMenu = ITEM_SETPOINT_MENU;
-    break;
-  case ITEM_PROFILE_MENU:
+    menuState.firstItemMenuIndex = 0;
+    menuState.highlightedItemMenuIndex = setpointIndex;
+  }
+  else if (item == ITEM_PROFILE_MENU)
+  {
     // open the profile menu
     menuState.currentMenu = ITEM_PROFILE_MENU;
-    break;
-  default:
-    return false;
+    menuState.highlightedItemMenuIndex = activeProfileIndex;
+    menuState.firstItemMenuIndex = (activeProfileIndex == 0 ? 0 : 1);
   }
-
-  menuState.highlightedItemMenuIndex = 0;
-  menuState.firstItemMenuIndex = 0;
+  else
+    return false;
 
   return true;
 }
