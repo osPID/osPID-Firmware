@@ -791,7 +791,7 @@ static void okKeyPress()
       menuState.highlightedItemMenuIndex = 0;
       break;
     }
-    menuState.firstItemMenuIndex = min(menuState.highlightedItemMenuIndex, menuData[menuState.currentMenu].itemCount() - 1);
+    menuState.firstItemMenuIndex = min(menuState.highlightedItemMenuIndex, menuData[menuState.currentMenu].itemCount() - 2);
     return;
   }
 
