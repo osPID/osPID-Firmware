@@ -293,26 +293,26 @@ static void cmdPeek(int address)
 {
   byte val;
 
-  if (address < 0)
+  if (address <= 0)
     ospSettingsHelper::eepromRead(-address, val);
   else
     val = * (byte *)address;
 
   byte b = val >> 4;
   if (b < 10)
-    Serial.print('0' + b);
+    Serial.print(char('0' + b));
   else
-    Serial.print('A' - 10 + b);
+    Serial.print(char('A' - 10 + b));
   b = val & 0x0F;
   if (b < 10)
-    Serial.print('0' + b);
+    serialPrintln(char('0' + b));
   else
-    Serial.print('A' - 10 + b);
+    serialPrintln(char('A' - 10 + b));
 }
 
 static void cmdPoke(int address, byte val)
 {
-  if (address < 0)
+  if (address <= 0)
     ospSettingsHelper::eepromWrite(-address, val);
   else
     *(byte *)address = val;
