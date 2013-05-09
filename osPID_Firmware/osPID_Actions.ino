@@ -130,8 +130,8 @@ static void profileLoopIteration()
       setpoint = profileState.targetSetpoint;
       break;
     }
-    delta = profileState.targetSetpoint - setpoint;
-    setpoint += delta * (profileState.stepEndMillis - now) / (double)profileState.stepDuration;
+    delta = profileState.targetSetpoint - profileState.initialSetpoint;
+    setpoint = profileState.targetSetpoint - delta * (profileState.stepEndMillis - now) / (double)profileState.stepDuration;
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
     delta = fabs(setpoint - input);
