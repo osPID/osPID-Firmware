@@ -178,6 +178,7 @@ static void stopProfile()
 {
   ospAssert(runningProfile);
 
+  digitalWrite(buzzerPin, LOW);
   recordProfileCompletion();
   runningProfile = false;
 }
