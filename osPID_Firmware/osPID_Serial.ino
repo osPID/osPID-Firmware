@@ -485,13 +485,15 @@ static void cmdExamineProfile(byte profileIndex)
 
     if (type == ospProfile::STEP_INVALID)
       break;
-    serialPrint(F("  "));
-    if (type < 10)
-      Serial.print(' ');
-    serialPrint(type);
+    if (type & ospProfile::STEP_FLAG_BUZZER)
+      serialPrint(F(" *"));
+    else
+      serialPrint(F("  "));
+    serialPrint(type & ospProfile::STEP_TYPE_MASK);
     serialPrint(' ');
     serialPrint(duration);
-    serialPrint(endpoint);
+    serialPrint(' ');
+    serialPrintln(endpoint);
   }
 }
 
