@@ -343,7 +343,10 @@ static void drawSelector(byte item, bool selected)
 static void drawProfileName(byte profileIndex)
 {
   for (byte i = 0; i < 8; i++)
-    theLCD.print(getProfileNameCharAt(profileIndex, i));
+  {
+    char ch = getProfileNameCharAt(profileIndex, i);
+    theLCD.print(ch ? ch : ' ');
+  }
 }
 
 // draw an item occupying a full 8x1 display line
