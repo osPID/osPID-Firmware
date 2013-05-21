@@ -2,6 +2,7 @@
 
 #include <avr/pgmspace.h>
 #include "ospAssert.h"
+#include "ospDecimalValue.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
@@ -93,7 +94,8 @@ enum {
   ITEM_COMM_MENU,
   ITEM_RESET_ROM_MENU,
 
-  // then double items
+  // then decimal items
+  // NOTE: these must be the first N items in the decimalValueInfo[] array!
   FIRST_FLOAT_ITEM,
   ITEM_SETPOINT = FIRST_FLOAT_ITEM,
   ITEM_INPUT,
@@ -178,6 +180,23 @@ PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
   { 'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd },
   { 'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit },
   { 'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit }
+};
+
+PROGMEM ospDecimalValueInfo decimalValueInfo[NR_VALUE_INFO_ITEMS] =
+{
+  { 'S', ospDecimalValueInfo::RANGE_M9999_P9999 | ospDecimalValueInfo::ONE_DECIMAL_PLACE, &setpoint },
+  { 'I', ospDecimalValueInfo::RANGE_M9999_P9999 | ospDecimalValueInfo::ONE_DECIMAL_PLACE | ospDecimalValueInfo::NO_EDIT, &input },
+  { 'O', ospDecimalValueInfo::RANGE_0_1000 | ospDecimalValueInfo::ONE_DECIMAL_PLACE | ospDecimalValueInfo::EDIT_MANUAL_ONLY, &output },
+  { 'P', ospDecimalValueInfo::RANGE_0_32767 | ospDecimalValueInfo::THREE_DECIMAL_PLACES, &kp },
+  { 'I', ospDecimalValueInfo::RANGE_0_32767 | ospDecimalValueInfo::THREE_DECIMAL_PLACES, &ki },
+  { 'D', ospDecimalValueInfo::RANGE_0_32767 | ospDecimalValueInfo::THREE_DECIMAL_PLACES, &kd },
+  { 'L', ospDecimalValueInfo::RANGE_M9999_P9999 | ospDecimalValueInfo::ONE_DECIMAL_PLACE, &lowerTripLimit },
+  { 'U', ospDecimalValueInfo::RANGE_M9999_P9999 | ospDecimalValueInfo::ONE_DECIMAL_PLACE, &upperTripLimit },
+
+  // these items do not appear in the menus, so they are given strange icons to make them recognizable
+  // should they ever leak into it
+  { '^', ospDecimalValueInfo::RANGE_0_1000 | ospDecimalValueInfo::ONE_DECIMAL_PLACE, &aTuneStep },
+  { '%', ospDecimalValueInfo::RANGE_0_1000 | ospDecimalValueInfo::ONE_DECIMAL_PLACE, &aTuneNoise }
 };
 
 struct MenuStateData {
