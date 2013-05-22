@@ -6,6 +6,7 @@
 #include "PID_AutoTune_v0_local.h"
 #include "ospAnalogButton.h"
 #include "ospCardSimulator.h"
+#include "ospDecimalValue.h"
 #include "ospDigitalOutputCard.h"
 #include "ospTemperatureInputCard.h"
 #include "ospProfile.h"
@@ -82,7 +83,7 @@ char controllerName[17] = { 'o', 's', 'P', 'I', 'D', ' ',
        'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
 
 // the gain coefficients of the PID controller
-double kp = 2, ki = 0.5, kd = 2;
+ospDecimalValue<3> PGain = { 2000 }, IGain = { 500 }, DGain = { 2000 };
 
 // the direction flag for the PID controller
 byte ctrlDirection = DIRECT;
@@ -92,16 +93,22 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
-double setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
+ospDecimalValue<1> setPoints[4] = { { 250 }, { 750 }, { 1500 }, { 3000 } };
+
+// the manually-commanded output value
+ospDecimalValue<1> manualOutput = { 0 };
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
 
+// temporary values during the fixed-point conversion
+ospDecimalValue<1> fakeSetpoint = { 750 }, fakeInput = { 200 }, fakeOutput = { 0 };
+
 // the variables to which the PID controller is bound
-double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0, manualOutput = 0.0;
+double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0;
 
 // the hard trip limits
-double lowerTripLimit = 0.0, upperTripLimit = 200.0;
+ospDecimalValue<1> lowerTripLimit = { 0 }, upperTripLimit = { 2000 };
 bool tripLimitsEnabled;
 bool tripped;
 bool tripAutoReset;
@@ -118,15 +125,15 @@ byte powerOnBehavior = POWERON_CONTINUE_LOOP;
 bool controllerIsBooting = true;
 
 // the paremeters for the autotuner
-double aTuneStep = 20, aTuneNoise = 1;
-unsigned int aTuneLookBack = 10;
+ospDecimalValue<1> aTuneStep = { 200 }, aTuneNoise = { 10 };
+int aTuneLookBack = 10;
 PID_ATune aTune(&pidInput, &output);
 
 // whether the autotuner is active
 bool tuning = false;
 
 // the actual PID controller
-PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
+PID myPID(&pidInput, &output, &setpoint,double(PGain),double(IGain),double(DGain), DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
 unsigned long now, lcdTime;
@@ -168,7 +175,7 @@ void setup()
   // configure the PID loop
   myPID.SetSampleTime(PID_LOOP_SAMPLE_TIME);
   myPID.SetOutputLimits(0, 100);
-  myPID.SetTunings(kp, ki, kd);
+  myPID.SetTunings(double(PGain), double(IGain), double(DGain));
   myPID.SetControllerDirection(ctrlDirection);
 
   if (powerOnBehavior == POWERON_DISABLE) {
@@ -290,21 +297,21 @@ static void checkButtons()
 static void completeAutoTune()
 {
   // We're done, set the tuning parameters
-  kp = aTune.GetKp();
-  ki = aTune.GetKi();
-  kd = aTune.GetKd();
+  PGain = (ospDecimalValue<3>){ (int)(aTune.GetKp() * 1000.0) };
+  IGain = (ospDecimalValue<3>){ (int)(aTune.GetKi() * 1000.0) };
+  DGain = (ospDecimalValue<3>){ (int)(aTune.GetKd() * 1000.0) };
 
   // set the PID controller to accept the new gain settings
   myPID.SetControllerDirection(DIRECT);
   myPID.SetMode(AUTOMATIC);
 
-  if (kp < 0)
+  if (PGain < (ospDecimalValue<3>){0})
   {
     // the auto-tuner found a negative gain sign: convert the coefficients
     // to positive with REVERSE controller action
-    kp = -kp;
-    ki = -ki;
-    kd = -kd;
+    PGain = -PGain;
+    IGain = -IGain;
+    DGain = -DGain;
     myPID.SetControllerDirection(REVERSE);
     ctrlDirection = REVERSE;
   }
@@ -313,7 +320,7 @@ static void completeAutoTune()
     ctrlDirection = DIRECT;
   }
 
-  myPID.SetTunings(kp, ki, kd);
+  myPID.SetTunings(double(PGain), double(IGain), double(DGain));
 
   // this will restore the user-requested PID controller mode
   stopAutoTune();
@@ -330,7 +337,7 @@ static void markSettingsDirty()
 {
   // capture any possible changes to the output value if we're in MANUAL mode
   if (modeIndex == MANUAL && !tuning && !tripped)
-    manualOutput = output;
+    manualOutput = fakeOutput;
 
   settingsWritebackNeeded = true;
 
