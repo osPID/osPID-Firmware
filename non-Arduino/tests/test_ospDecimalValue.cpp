@@ -7,6 +7,7 @@
 #undef NDEBUG
 #include <cassert>
 #include <iostream>
+#include <boost/type_traits.hpp>
 #include <inttypes.h>
 
 using std::cout;
@@ -18,13 +19,16 @@ using std::endl;
 #define long int32_t
 #include "../../osPID_Firmware/ospDecimalValue.h"
 
+// This will only work with a compiler that provides is_pod<> support for structs and classes!
+//OSP_STATIC_ASSERT(boost::is_pod< ospDecimalValue<1> >::value, ospDecimalValue_must_be_POD);
+
 void test_equality(void)
 {
-  ospDecimalValue<0> one0(1);
-  ospDecimalValue<1> one1(10);
-  ospDecimalValue<2> one2(100);
-  ospDecimalValue<3> one3(1000);
-  ospDecimalValue<4> one4(10000);
+  ospDecimalValue<0> one0 = { 1 };
+  ospDecimalValue<1> one1 = { 10 };
+  ospDecimalValue<2> one2 = { 100 };
+  ospDecimalValue<3> one3 = { 1000 };
+  ospDecimalValue<4> one4 = { 10000 };
 
   assert(one0 == one0);
   assert(one0 == one1);
@@ -65,10 +69,10 @@ void test_equality(void)
 
 void test_comparisons(void)
 {
-  ospDecimalValue<1> one1(10);
-  ospDecimalValue<2> ten2(1000);
-  ospDecimalValue<3> mTen3(-10000);
-  ospDecimalValue<0> mTen0(-10);
+  ospDecimalValue<1> one1 = { 10 };
+  ospDecimalValue<2> ten2 = { 1000 };
+  ospDecimalValue<3> mTen3 = { -10000 };
+  ospDecimalValue<0> mTen0 = { -10 };
 
   assert(one1 < ten2);
   assert(one1 > mTen0);
@@ -82,34 +86,34 @@ void test_comparisons(void)
 
 void test_basic_arithmetic(void)
 {
-  ospDecimalValue<2> one(100);
-  ospDecimalValue<2> ten(1000);
-  ospDecimalValue<1> hundred(1000);
+  ospDecimalValue<2> one = { 100 };
+  ospDecimalValue<2> ten = { 1000 };
+  ospDecimalValue<1> hundred = { 1000 };
 
   assert((ten * ten).rescale<1>() == hundred);
-  assert(one + one == ospDecimalValue<2>(200));
-  assert(one - one == ospDecimalValue<4>(0));
+  assert(one + one == (ospDecimalValue<2>){200});
+  assert(one - one == (ospDecimalValue<4>){0});
   assert(ten - ten - ten == -ten);
-  assert(one + ten == ospDecimalValue<2>(1100));
+  assert(one + ten == (ospDecimalValue<2>){1100});
   assert((hundred / hundred).rescale<0>() == one);
-  assert((ten * ten / hundred).rescale<3>() == ospDecimalValue<0>(1));
+  assert((ten * ten / hundred).rescale<3>() == (ospDecimalValue<0>){1});
 }
 
 void test_modifying_arithmetic(void)
 {
-  ospDecimalValue<2> t1(1000);
+  ospDecimalValue<2> t1 = { 1000 };
 
-  t1 *= ospDecimalValue<2>(200);
-  assert(t1 == ospDecimalValue<0>(20));
-  t1 /= ospDecimalValue<2>(400);
-  assert(t1 == ospDecimalValue<3>(5000));
+  t1 *= (ospDecimalValue<2>){200};
+  assert(t1 == (ospDecimalValue<0>){20});
+  t1 /= (ospDecimalValue<2>){400};
+  assert(t1 == (ospDecimalValue<3>){5000});
 }
 
 #undef int
 int main(int, char **)
 {
   // the following should fail to compile
-  //ospDecimalValue<5> one5(100000);
+  //ospDecimalValue<5> one5 = { 100000 };
 
   test_equality();
   test_comparisons();

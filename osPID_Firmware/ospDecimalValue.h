@@ -78,9 +78,8 @@ public:
   template<int lDEC, int rDEC> friend ospDecimalMultiplyResult<lDEC> operator / (const ospDecimalValue<lDEC>& lhs, const ospDecimalValue<rDEC>& rhs);
 };
 
-template<int DECIMALS> class ospDecimalValue
+template<int DECIMALS> struct ospDecimalValue
 {
-private:
   int value;
 
 private:
@@ -90,22 +89,12 @@ private:
   enum { SCALE = ospPow10<DECIMALS>::value };
 
 public:
+  // default constructor, copy constructor, and operator= are all trivial, since
+  // this must remain a POD class
 
-  ospDecimalValue() { }
-
-  explicit ospDecimalValue(int rawValue)
+  operator double() const
   {
-    value = rawValue;
-  }
-
-  ospDecimalValue(int wholePart, int fraction)
-  {
-    value = wholePart * SCALE + fraction % SCALE;
-  }
-
-  ospDecimalValue(const ospDecimalValue& other)
-  {
-    value = other.value;
+    return value / double(SCALE);
   }
 
   template<int newDEC> typename boost::enable_if_c<DECIMALS < newDEC, ospDecimalValue<newDEC> >::type rescale() const
@@ -186,21 +175,21 @@ template<int oldDEC> template<int newDEC> inline
 typename boost::enable_if_c<oldDEC == newDEC, ospDecimalValue<newDEC> >::type
 ospDecimalMultiplyResult<oldDEC>::rescale() const
 {
-  return ospDecimalValue<newDEC>(int(value));
+  return (ospDecimalValue<newDEC>){int(value)};
 }
 
 template<int oldDEC> template<int newDEC> inline
 typename boost::enable_if_c<oldDEC < newDEC, ospDecimalValue<newDEC> >::type
 ospDecimalMultiplyResult<oldDEC>::rescale() const
 {
-  return ospDecimalValue<newDEC>(int(value * ospPow10<newDEC - oldDEC>::value));
+  return (ospDecimalValue<newDEC>){int(value * ospPow10<newDEC - oldDEC>::value)};
 }
 
 template<int oldDEC> template<int newDEC> inline
 typename boost::enable_if_c<newDEC < oldDEC, ospDecimalValue<newDEC> >::type
 ospDecimalMultiplyResult<oldDEC>::rescale() const
 {
-  return ospDecimalValue<newDEC>(divide_rounded(value, ospPow10<oldDEC - newDEC>::value));
+  return (ospDecimalValue<newDEC>){divide_rounded(value, ospPow10<oldDEC - newDEC>::value)};
 }
 
 // ospDecimalMultiplyResult division
@@ -295,28 +284,32 @@ struct ospDecimalValueInfo {
     EDIT_MANUAL_ONLY = 0x80
   };
 
+  byte flags() const {
+    return pgm_read_byte_near(&pmemFlags);
+  }
+
   byte decimalPlaces() const
   {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & TWO_DECIMAL_PLACES)
+    byte f = flags();
+    if (f & TWO_DECIMAL_PLACES)
       return 2;
-    if (flags & THREE_DECIMAL_PLACES)
+    if (f & THREE_DECIMAL_PLACES)
       return 3;
     return 1;
   }
 
   int minimumValue() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & (RANGE_0_1000 | RANGE_0_32767))
+    byte f = flags();
+    if (f & (RANGE_0_1000 | RANGE_0_32767))
       return 0;
     return -9999;
   }
 
   int maximumValue() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & RANGE_0_1000)
+    byte f = flags();
+    if (f & RANGE_0_1000)
       return 1000;
-    if (flags & RANGE_0_32767)
+    if (f & RANGE_0_32767)
       return 32767;
     return 9999;
   }
