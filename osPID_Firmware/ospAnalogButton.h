@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include "ospAssert.h"
+
 enum ospAnalogButtonValue
 {
 	BUTTON_NONE,
@@ -67,6 +69,10 @@ public:
       }
       return activeButton;
     }
+
+    // we should never get here, but in case we do:
+    ospBugCheck(PSTR("BUTN"), __LINE__);
+    return BUTTON_NONE;
   }
 
 private:
