@@ -91,22 +91,22 @@ void test_basic_arithmetic(void)
   ospDecimalValue<1> hundred = { 1000 };
 
   assert((ten * ten).rescale<1>() == hundred);
-  assert(one + one == (ospDecimalValue<2>){200});
-  assert(one - one == (ospDecimalValue<4>){0});
+  assert(one + one == makeDecimal<2>(200));
+  assert(one - one == makeDecimal<4>(0));
   assert(ten - ten - ten == -ten);
-  assert(one + ten == (ospDecimalValue<2>){1100});
+  assert(one + ten == makeDecimal<2>(1100));
   assert((hundred / hundred).rescale<0>() == one);
-  assert((ten * ten / hundred).rescale<3>() == (ospDecimalValue<0>){1});
+  assert((ten * ten / hundred).rescale<3>() == makeDecimal<0>(1));
 }
 
 void test_modifying_arithmetic(void)
 {
   ospDecimalValue<2> t1 = { 1000 };
 
-  t1 *= (ospDecimalValue<2>){200};
-  assert(t1 == (ospDecimalValue<0>){20});
-  t1 /= (ospDecimalValue<2>){400};
-  assert(t1 == (ospDecimalValue<3>){5000});
+  t1 *= makeDecimal<2>(200);
+  assert(t1 == makeDecimal<0>(20));
+  t1 /= makeDecimal<2>(400);
+  assert(t1 == makeDecimal<3>(5000));
 }
 
 #undef int

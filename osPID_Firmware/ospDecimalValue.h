@@ -261,6 +261,11 @@ template<int lDEC, int rDEC> inline bool operator >= (const ospDecimalValue<lDEC
   return !(lhs < rhs);
 }
 
+template<int D> inline ospDecimalValue<D> makeDecimal(int val)
+{
+  return (ospDecimalValue<D>) { val };
+}
+
 // omit this code when building the test harness for ospDecimalValue
 #ifndef HOSTED_TEST
 
