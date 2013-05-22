@@ -99,12 +99,12 @@ public:
 
   template<int newDEC> typename boost::enable_if_c<DECIMALS < newDEC, ospDecimalValue<newDEC> >::type rescale() const
   {
-    return ospDecimalValue<newDEC>(value * ospPow10<newDEC - DECIMALS>::value);
+    return (ospDecimalValue<newDEC>){value * ospPow10<newDEC - DECIMALS>::value};
   }
 
   template<int newDEC> typename boost::enable_if_c<newDEC < DECIMALS, ospDecimalValue<newDEC> >::type rescale() const
   {
-    return (*this / ospDecimalValue<0>(ospPow10<DECIMALS - newDEC>::value)).rescale<newDEC>();
+    return (*this / (ospDecimalValue<DECIMALS - newDEC>){ospPow10<DECIMALS - newDEC>::value}).rescale<newDEC>();
   }
 
   template<int newDEC> typename boost::enable_if_c<newDEC == DECIMALS, ospDecimalValue<newDEC> >::type rescale() const

@@ -82,6 +82,8 @@ void test_comparisons(void)
   assert(mTen0 == mTen3);
   assert(mTen0 < one1);
   assert(ten2 > mTen3);
+  assert(mTen3 == mTen3.rescale<1>());
+  assert(ten2.rescale<3>() == -mTen3.rescale<1>());
 }
 
 void test_basic_arithmetic(void)
