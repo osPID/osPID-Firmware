@@ -907,6 +907,10 @@ static bool okKeyLongPress()
 {
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
 
+  // don't try to open menus while the user is editing a value
+  if (menuState.editing)
+    return false;
+
   // only two items respond to long presses: the setpoint and the profile menu
   if (item == ITEM_SETPOINT)
   {
