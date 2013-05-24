@@ -474,9 +474,9 @@ void loop()
     {
       // a complete command has been received
       serialCommandBuffer[serialCommandLength] = '\0';
+      drawNotificationCursor('*');
       processSerialCommand();
       serialCommandLength = 0;
-      drawNotificationCursor('*');
     }
   }
 }

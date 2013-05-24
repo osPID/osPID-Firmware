@@ -455,33 +455,35 @@ static void drawFullRowItem(byte row, bool selected, byte item)
 // flash a status indicator if appropriate
 static void drawStatusFlash()
 {
-  if (tripped && now % 4096 < 3000)
+  int mod = now % 4096;
+
+  if (tripped && mod < 3000)
   {
     char ch;
 
-    if (now % 4096 < 1000)
+    if (mod < 1000)
       ch = 'T';
-    else if (now % 4096 < 2000)
+    else if (mod < 2000)
       ch = 'R';
     else
       ch = 'P';
     drawNotificationCursor(ch);
   }
-  else if (tuning && now % 4096 < 3000)
+  else if (tuning && mod < 3000)
   {
     char ch;
 
-    if (now % 4096 < 1000)
+    if (mod < 1000)
       ch = 't';
-    else if (now % 4096 < 2000)
+    else if (mod < 2000)
       ch = 'u';
     else
       ch = 'n';
     drawNotificationCursor(ch);
   }
-  else if (runningProfile && now % 4096 < 2000)
+  else if (runningProfile && mod < 2000)
   {
-    if (now % 4096 < 1000)
+    if (mod < 1000)
       drawNotificationCursor('P');
     else
     {
