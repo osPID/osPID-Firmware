@@ -38,7 +38,7 @@ public:
   void initialize() { }
 
   // return the card identifier
-  const char *cardIdentifier();
+  const __FlashStringHelper * cardIdentifier();
 
 private:
   // actually read the thermocouple
@@ -97,20 +97,34 @@ public:
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, double val) {
+  bool writeSetting(byte index, int val) {
+    if (index == 0 && (val == INPUT_THERMOCOUPLE || val == INPUT_THERMISTOR)) {
+      inputType = val;
+    } else if (index < 5)
+      settingsBlock[index] = val;
+    else
+      return false;
+    return true;
+  }
+
+  // describe the card settings
+  const __FlashStringHelper * describeSetting(byte index, byte *decimals) {
+    if (index < 3)
+      *decimals = 0;
+    else
+      *decimals = 1;
+
     switch (index) {
     case 0:
-      THERMISTORNOMINAL = val;
-      return true;
+      return F("Use the THERMOCOUPLE (0) or THERMISTOR (1) reader");
     case 1:
-      BCOEFFICIENT = val;
-      return true;
+      return F("The thermistor nominal resistance (ohms)");
     case 2:
-      TEMPERATURENOMINAL = val;
-      return true;
+      return F("The reference resistor value (ohms)");
     case 3:
-      REFERENCE_RESISTANCE = val;
-      return true;
+      return F("The thermistor B coefficient");
+    case 4:
+      return F("The thermistor reference temperature (Celsius)");
     default:
       return false;
     }
@@ -146,8 +160,8 @@ template<> double ospTemperatureInputCard<MAX6675>::readThermocouple() {
   return thermocouple.readCelsius();
 }
 
-template<> const char *ospTemperatureInputCard<MAX6675>::cardIdentifier() {
-  return "IID1";
+template<> const __FlashStringHelper * ospTemperatureInputCard<MAX6675>::cardIdentifier() {
+  return F("IN_TEMP_V1.10");
 }
 
 template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() {
@@ -159,8 +173,8 @@ template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() {
    return val;
 }
 
-template<> const char *ospTemperatureInputCard<MAX31855>::cardIdentifier() {
-  return "IID2";
+template<> const __FlashStringHelper * ospTemperatureInputCard<MAX31855>::cardIdentifier() {
+  return F("IN_TEMP_V1.20");
 }
 
 typedef ospTemperatureInputCard<MAX6675> ospTemperatureInputCardV1_10;

@@ -25,7 +25,7 @@ public:
     pinMode(SSRPin, OUTPUT);
   }
 
-  const char *cardIdentifier() { return "OID1"; }
+  const __FlashStringHelper *cardIdentifier() { return F("OUT_DIGITAL"); }
 
   // how many settings does this card have
   byte floatSettingsCount() { return 1; }
@@ -54,12 +54,17 @@ public:
     return false;
   }
 
-  bool writeIntegerSetting(byte index, int val) {
-    if (index == 0 && (val == OUTPUT_SSR || val == OUTPUT_RELAY)) {
-      outputType = val;
-      return true;
-    }
-    return false;
+  // describe the available settings
+  const __FlashStringHelper *describeSetting(byte index, byte *decimals) {
+    *decimals = 0;
+    if (index == 0) {
+      return F("Use RELAY (0) or SSR (1)");
+    } else if (index == 1) {
+      return F("Output PWM window size in milliseconds");
+    } else if (index == 2) {
+      return F("Minimum time between PWM edges in milliseconds");
+    } else
+      return 0;
   }
 
   // save and restore settings to/from EEPROM using the settings helper

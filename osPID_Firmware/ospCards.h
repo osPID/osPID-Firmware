@@ -12,7 +12,8 @@ public:
   // setup the card
   void initialize() { }
 
-  const char *cardIdentifier() { return ""; }
+  // return an identifying name for this card, as a PSTR
+  const __FlashStringHelper *cardIdentifier() { return F(""); }
 
   // how many settings does this card have
   byte floatSettingsCount() { return 0; }
@@ -23,8 +24,11 @@ public:
   int readIntegerSetting(byte index) { return -1; }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, double val) { return false; }
-  bool writeIntegerSetting(byte index, int val) { return false; }
+  bool writeSetting(byte index, int val) { return false; }
+
+  // return a text description of the N'th setting, as a PSTR
+  // also returns the number of decimal places
+  const __FlashStringHelper *describeSetting(byte index, byte *decimals) { *decimals = 0; return 0; }
 
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) { }

@@ -426,16 +426,13 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    Serial.print(F(": "));
-    serialPrintln(theInputCard.readIntegerSetting(i));
-  }
-
-  for (byte i = 0; i < theInputCard.floatSettingsCount(); i++)
-  {
-    Serial.print(F("  F"));
-    serialPrint(i);
-    Serial.print(F(": "));
-    serialPrintln(theInputCard.readFloatSetting(i));
+    serialPrint(F(": "));
+    byte decimals;
+    const __FlashStringHelper *description = theInputCard.describeSetting(i, &decimals);
+    serialPrint(description);
+    serialPrint(F(" = "));
+    serialPrintDecimal(theInputCard.readSetting(i), decimals);
+    Serial.println();
   }
 
   serialPrint(F("Output card "));
@@ -444,16 +441,13 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    Serial.print(F(": "));
-    serialPrintln(theOutputCard.readIntegerSetting(i));
-  }
-
-  for (byte i = 0; i < theOutputCard.floatSettingsCount(); i++)
-  {
-    Serial.print(F("  F"));
-    serialPrint(i);
-    Serial.print(F(": "));
-    serialPrintln(theOutputCard.readFloatSetting(i));
+    serialPrint(F(": "));
+    byte decimals;
+    const __FlashStringHelper *description = theOutputCard.describeSetting(i, &decimals);
+    serialPrint(description);
+    serialPrint(F(" = "));
+    serialPrintDecimal(theOutputCard.readSetting(i), decimals);
+    Serial.println();
   }
 }
 
