@@ -183,6 +183,7 @@ void setup()
     if (powerOnBehavior == POWERON_RESUME_PROFILE)
     {
       drawResumeProfileBanner();
+      runningProfile = true;
       startCurrentProfileStep();
     }
     else
