@@ -419,7 +419,11 @@ static bool profileWasInterrupted()
 
     byte profileIndex = profileIndexForCrc(crc);
     if (profileIndex == 0xFF)
-      return false; // the recorded profile no longer exists
+    {
+      // the recorded profile no longer exists: erase it
+      ospSettingsHelper::eepromWrite(blockAddress + STATUS_BLOCK_CRC_OFFSET, 0xFFFF);
+      continue;
+    }
 
     // this is either the last profile fully executed or one that was interrupted
     activeProfileIndex = profileIndex;
