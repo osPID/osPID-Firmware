@@ -6,44 +6,34 @@
 #include "PID_AutoTune_v0_local.h"
 #include "ospAnalogButton.h"
 #include "ospCardSimulator.h"
-#include "ospDigitalOutputCard.h"
-#include "ospTemperatureInputCard.h"
+#include "ospDigitalOutputStripboard.h"
+#include "ospTemperatureInputStripboard.h"
 #include "ospProfile.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MAIN"), __LINE__);
 
 /*******************************************************************************
-* The osPID Kit comes with swappable IO cards which are supported by different
-* device drivers & libraries. For the osPID firmware to correctly communicate with
-* your configuration, you must specify the type of |theInputCard| and |theOutputCard|
-* below.
+* The stripboard PID Arduino shield uses firmware based on the osPID but
+* simplified hardware. Instead of swappable output cards there is a simple
+* 5V logical output that can drive an SSR. In place of output cards there
+* is a terminal block that can be used for a 1-wire bus or NTC thermistor,
+* and female pin headers that can interface a MAX31855 thermocouple amplifier
+* breakout board. Each of these inputs is supported by different
+* device drivers & libraries. The input in use is specified by a menu option.
+* This saves having to recompile the firmware when changing input sensors.
 *
-* Please note that only 1 input card and 1 output card can be used at a time. 
-* List of available IO cards:
+* Inputs
+* ======
+*    ospTemperatureInputStripboardV1_0:
+*    DS18B20+ 1-wire digital thermometer with data pin on A0, OR
+*    10K NTC thermistor with voltage divider input on pin A0, OR
+*    MAX31855KASA interface to type-K thermocouple on pins A0-A2.
 *
-* Input Cards
-* ===========
-* 1. ospTemperatureInputCardV1_10:
-*    Temperature Basic V1.10 with 1 thermistor & 1 type-K thermocouple (MAX6675)
-*    interface.
-* 2. ospTemperatureInputCardV1_20:
-*    Temperature Basic V1.20 with 1 thermistor & 1 type-K thermocouple 
-*    (MAX31855KASA) interface.
-* 3. (your subclass of ospBaseInputCard here):
-*    Generic prototype card with input specified by user. Please add necessary
-*    input processing in the section below.
-*
-* Output Cards
-* ============
-* 1. ospDigitalOutputCardV1_20: 
-*    Output card with 1 SSR & 2 relay output.
-* 2. ospDigitalOutputCardV1_50: 
-*    Output card with 1 SSR & 2 relay output. Similar to V1.20 except LED mount
-*    orientation.
-* 3. (your subclass of ospBaseOutputCard here):
-*    Generic prototype card with output specified by user. Please add necessary
-*    output processing in the section below.
+* Output
+* ======
+*    ospDigitalOutputStripboardV1_0:
+*    1 SSR output on pin A3.
 *
 * For firmware development, there is also the ospCardSimulator which acts as both
 * the input and output cards and simulates the controller being attached to a
@@ -52,22 +42,22 @@
 
 #undef USE_SIMULATOR
 #ifndef USE_SIMULATOR
-ospTemperatureInputCardV1_20 theInputCard;
-ospDigitalOutputCardV1_50 theOutputCard;
+ospTemperatureInputCardStripboardV1_0 TheInputCard;
+ospDigitalOutputCardStripboardV1_0 theOutputCard;
 #else
 ospCardSimulator theInputCard
 #define theOutputCard theInputCard
 #endif
 
 // the 7 character version tag is displayed in the startup tag and the Identify response
-#define OSPID_VERSION_TAG "v2.0bks"
+#define OSPID_VERSION_TAG "v3.0sps"
 
 // we use the LiquidCrystal library to drive the LCD screen
-LiquidCrystal theLCD(A1, A0, 4, 7, 8, 9);
+LiquidCrystal theLCD(3, 2, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
-ospAnalogButton<A3, 0, 253, 454, 657> theButtonReader;
+ospAnalogButton<A4, 0, 253, 454, 657> theButtonReader;
 
 // an in-memory buffer that we use when receiving a profile over USB
 ospProfile profileBuffer;
@@ -144,13 +134,13 @@ void setup()
   lcdTime = 25;
 
   // set up the LCD
-  theLCD.begin(8, 2);
+  theLCD.begin(16, 2);
   drawStartupBanner();
 
   now = millis();
 
   // set up the peripheral cards
-  theInputCard.initialize();
+  if (!theInputCard.initialize()) {}; 
   theOutputCard.initialize();
 
   // load the EEPROM settings

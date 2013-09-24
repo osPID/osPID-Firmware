@@ -89,6 +89,7 @@ enum {
   ITEM_CONFIG_MENU,
   ITEM_SETPOINT_MENU,
   ITEM_TRIP_MENU,
+  ITEM_INPUT_MENU,
   ITEM_POWERON_MENU,
   ITEM_COMM_MENU,
   ITEM_RESET_ROM_MENU,
@@ -119,6 +120,10 @@ enum {
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
 
+  ITEM_INPUT_THERMISTOR,
+  ITEM_INPUT_THERMOCOUPLE,
+  ITEM_INPUT_ONEWIRE,
+
   ITEM_COMM_9p6k,
   ITEM_COMM_14p4k,
   ITEM_COMM_19p2k,
@@ -144,9 +149,10 @@ enum {
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[8] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[8] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
+PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
 PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
                                         ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
 PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
@@ -162,6 +168,7 @@ PROGMEM const MenuItem menuData[MENU_COUNT] =
   { sizeof(configMenuItems), 0, configMenuItems },
   { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
   { sizeof(tripMenuItems), 0, tripMenuItems },
+  { sizeof(inputMenuItems), 0, inputMenuItems },
   { sizeof(poweronMenuItems), 0, poweronMenuItems },
   { sizeof(commMenuItems), 0, commMenuItems },
   { sizeof(resetRomMenuItems), 0, resetRomMenuItems }
@@ -384,6 +391,9 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_TRIP_MENU:
     theLCD.print(F("Trip   "));
     break;
+  case ITEM_INPUT_MENU:
+    theLCD.print(F("Input  "));
+    break;
   case ITEM_RESET_ROM_MENU:
     theLCD.print(F("RsetROM"));
     break;
@@ -404,6 +414,15 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     break;
   case ITEM_PID_DIRECTION:
     theLCD.print(ctrlDirection == DIRECT ? F("ActnFwd") : F("ActnRev"));
+    break;
+  case ITEM_INPUT_THERMISTOR:
+    theLCD.print(F("Thermistor"));
+    break;
+  case ITEM_INPUT_THERMOCOUPLE:
+    theLCD.print(F("Thermocouple")):
+    break;
+  case ITEM_INPUT_ONEWIRE:   
+    theLCD.print(F("DS18B20+"));
     break;
   case ITEM_COMM_9p6k:
     theLCD.print(F(" 9.6kbd"));
@@ -618,6 +637,7 @@ static void backKeyPress()
     menuState.firstItemMenuIndex = 0;
     break;
   case ITEM_TRIP_MENU:
+  case ITEM_INPUT_MENU:
   case ITEM_POWERON_MENU:
   case ITEM_COMM_MENU:
   case ITEM_RESET_ROM_MENU:
@@ -786,6 +806,9 @@ static void okKeyPress()
     case ITEM_SETPOINT_MENU:
       menuState.highlightedItemMenuIndex = setpointIndex;
       break;
+    case ITEM_INPUT_MENU:
+      menuState.highlightedItemMenuIndex = theInputCard.getInputType();
+      break;
     case ITEM_COMM_MENU:
       menuState.highlightedItemMenuIndex = serialSpeed;
       break;
@@ -857,6 +880,20 @@ static void okKeyPress()
   case ITEM_TRIP_ENABLED:
   case ITEM_TRIP_AUTORESET:
     startEditing(item);
+    break;
+
+  case ITEM_INPUT_THERMISTOR:
+  case ITEM_INPUT_THERMOCOUPLE:
+  case ITEM_INPUT_ONEWIRE:
+    theInputCard.setInputType(item);
+    if (!theInputCard.initialize()) {
+      // failed to locate 1-wire devices
+      // display error message
+    }
+    markSettingsDirty();
+
+    // return to the prior menu
+    backKeyPress();
     break;
 
   case ITEM_COMM_9p6k:

@@ -1,12 +1,12 @@
-#ifndef OSPDIGITALOUTPUTCARD_H
-#define OSPDIGITALOUTPUTCARD_H
+#ifndef OSPDIGITALOUTPUTSTRIPBOARD_H
+#define OSPDIGITALOUTPUTSTRIPBOARD_H
 
 #include "ospCards.h"
 
 class ospDigitalOutputCard : public ospBaseOutputCard {
 private:
-  enum { RelayPin = 5, SSRPin = 6 };
-  enum { OUTPUT_RELAY = 0, OUTPUT_SSR = 1 };
+  enum { SSRPin = A3 };
+  enum { OUTPUT_SSR = 1 };
 
   byte outputType;
   double outputWindowSeconds;
@@ -21,7 +21,6 @@ public:
   { }
 
   void initialize() {
-    pinMode(RelayPin, OUTPUT);
     pinMode(SSRPin, OUTPUT);
   }
 
@@ -58,7 +57,7 @@ public:
   const __FlashStringHelper *describeSetting(byte index, byte *decimals) {
     *decimals = 0;
     if (index == 0) {
-      return F("Use RELAY (0) or SSR (1)");
+      return F("Output type = SSR (1)");
     } else if (index == 1) {
       return F("Output PWM window size in milliseconds");
     } else if (index == 2) {
