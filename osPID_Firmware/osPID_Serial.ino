@@ -406,7 +406,7 @@ static void cmdExamineSettings()
     Serial.write('0' + i);
     Serial.print(F(": "));
     serialPrint(setPoints[i]);
-    if (i % 2 == 0)
+    if (i & 1 == 0)
       Serial.print('\t');
     else
       Serial.print('\n');

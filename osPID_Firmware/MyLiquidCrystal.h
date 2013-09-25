@@ -24,7 +24,7 @@ public:
   void println(const PROGMEM char* s)
   {
     this->print(s);
-    this->spc(16 - (int) strlen_P(s));
+    this->spc(16 - strlen_P(s));
   }
   
 private:

@@ -330,7 +330,7 @@ static void drawMenu()
       bool highlight = (i == menuState.highlightedItemMenuIndex);
       byte item = menuData[menuState.currentMenu].itemAt(i);
 
-      drawHalfRowItem(i / 2, 4 * (i % 2), highlight, item);
+      drawHalfRowItem(i / 2, 4 * (i & 1), highlight, item);
     }
   }
   else
@@ -389,8 +389,7 @@ static char *formatDecimalValue(char buffer[7], int num, byte decimals)
 static void drawDecimalValue(byte item)
 {
   char buffer[lastDigitPosition + 1];
-  for (byte i = lastDigitPosition; i > 0; i-- ) 
-    buffer[i] = ' ';
+  memset(&buffer, ' ', lastDigitPosition + 1);
   byte itemIndex = item - FIRST_DECIMAL_ITEM;
   char icon = decimalItemData[itemIndex].icon();
   int num = decimalItemData[itemIndex].currentValue();
@@ -400,14 +399,20 @@ static void drawDecimalValue(byte item)
   if (tripped && item == ITEM_SETPOINT)
   {
     theLCD.print(icon);
-    theLCD.print(now % 2048 < 1024 ? F(" Trip ") : F("       "));
+    if (now & 0x400)
+      theLCD.print(F(" Trip "));
+    else
+      theLCD.spc(6);
     return;
   }
   if (num == -10000 && item == ITEM_INPUT)
   {
     // display an error
     theLCD.print(icon);
-    theLCD.print(now % 2048 < 1024 ? F(" IOErr"):F("      "));
+    if (now & 0x400)
+      theLCD.print(F(" IOErr"));
+    else
+      theLCD.spc(6);
     return;
   }
 
@@ -700,7 +705,7 @@ static void drawNotificationCursor(char icon)
       return;
 
     byte row = menuState.highlightedItemMenuIndex / 2;
-    byte col = 4 * (menuState.highlightedItemMenuIndex % 2);
+    byte col = 4 * (menuState.highlightedItemMenuIndex & 1);
 
     theLCD.setCursor(col, row);
     theLCD.print(icon);
