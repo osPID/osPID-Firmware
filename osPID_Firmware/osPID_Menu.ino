@@ -149,7 +149,7 @@ enum {
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[8] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[9] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
@@ -419,7 +419,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     theLCD.print(F("Thermistor"));
     break;
   case ITEM_INPUT_THERMOCOUPLE:
-    theLCD.print(F("Thermocouple")):
+    theLCD.print(F("Thermocouple"));
     break;
   case ITEM_INPUT_ONEWIRE:   
     theLCD.print(F("DS18B20+"));
@@ -807,7 +807,7 @@ static void okKeyPress()
       menuState.highlightedItemMenuIndex = setpointIndex;
       break;
     case ITEM_INPUT_MENU:
-      menuState.highlightedItemMenuIndex = theInputCard.getInputType();
+      menuState.highlightedItemMenuIndex = theInputCard.inputType;
       break;
     case ITEM_COMM_MENU:
       menuState.highlightedItemMenuIndex = serialSpeed;
@@ -885,8 +885,9 @@ static void okKeyPress()
   case ITEM_INPUT_THERMISTOR:
   case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
-    theInputCard.setInputType(item);
-    if (!theInputCard.initialize()) {
+    theInputCard.inputType = item;
+    theInputCard.initialize();
+    if (!theInputCard.initialized) {
       // failed to locate 1-wire devices
       // display error message
     }

@@ -3,10 +3,13 @@
 
 #include "ospCards.h"
 
-class ospDigitalOutputCard : public ospBaseOutputCard {
+class ospDigitalOutputCard : 
+public ospBaseOutputCard {
 private:
-  enum { SSRPin = A3 };
-  enum { OUTPUT_SSR = 1 };
+  enum { 
+    SSRPin = A3   };
+  enum { 
+    OUTPUT_SSR = 1   };
 
   byte outputType;
   double outputWindowSeconds;
@@ -14,21 +17,29 @@ private:
 
 public:
   ospDigitalOutputCard() 
-    : ospBaseOutputCard(),
+: 
+    ospBaseOutputCard(),
     outputType(OUTPUT_SSR),
     outputWindowSeconds(5.0),
     outputWindowMilliseconds(5000)
-  { }
+    { 
+    }
 
   void initialize() {
     pinMode(SSRPin, OUTPUT);
   }
 
-  const __FlashStringHelper *cardIdentifier() { return F("OUT_DIGITAL"); }
+  const __FlashStringHelper *cardIdentifier() { 
+    return F("OUT_DIGITAL"); 
+  }
 
   // how many settings does this card have
-  byte floatSettingsCount() { return 1; }
-  byte integerSettingsCount() { return 1; }
+  byte floatSettingsCount() { 
+    return 1; 
+  }
+  byte integerSettingsCount() { 
+    return 1; 
+  }
 
   // read settings from the card
   double readFloatSetting(byte index) {
@@ -58,11 +69,14 @@ public:
     *decimals = 0;
     if (index == 0) {
       return F("Output type = SSR (1)");
-    } else if (index == 1) {
+    } 
+    else if (index == 1) {
       return F("Output PWM window size in milliseconds");
-    } else if (index == 2) {
+    } 
+    else if (index == 2) {
       return F("Minimum time between PWM edges in milliseconds");
-    } else
+    } 
+    else
       return 0;
   }
 
@@ -80,16 +94,12 @@ public:
   void setOutputPercent(double percent) {
     unsigned long wind = millis() % outputWindowMilliseconds;
     unsigned long oVal = (unsigned long)(percent * 0.01 * (double)outputWindowMilliseconds);
-
-    if (outputType == OUTPUT_RELAY)
-      digitalWrite(RelayPin, (oVal>wind) ? HIGH : LOW);
-    else if(outputType == OUTPUT_SSR)
-      digitalWrite(SSRPin, (oVal>wind) ? HIGH : LOW);
+    digitalWrite(SSRPin, (oVal>wind) ? HIGH : LOW);
   }
 };
 
-typedef ospDigitalOutputCard ospDigitalOutputCardV1_20;
-typedef ospDigitalOutputCard ospDigitalOutputCardV1_50;
+typedef ospDigitalOutputCard ospDigitalOutputStripboardV1_0;
 
 #endif
+
 

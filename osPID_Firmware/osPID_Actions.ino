@@ -7,7 +7,7 @@
 #define BUGCHECK() ospBugCheck(PSTR("PROF"), __LINE__);
 
 // Pin assignments on the main controller card (_not_ the I/O cards)
-enum { buzzerPin = 3, systemLEDPin = A2 };
+enum { buzzerPin = A5 };
 
 // a program invariant has been violated: suspend the controller and
 // just flash a debugging message until the unit is power cycled

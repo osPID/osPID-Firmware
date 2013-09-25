@@ -42,8 +42,8 @@
 
 #undef USE_SIMULATOR
 #ifndef USE_SIMULATOR
-ospTemperatureInputCardStripboardV1_0 TheInputCard;
-ospDigitalOutputCardStripboardV1_0 theOutputCard;
+ospTemperatureInputStripboardV1_0 theInputCard;
+ospDigitalOutputStripboardV1_0 theOutputCard;
 #else
 ospCardSimulator theInputCard
 #define theOutputCard theInputCard
@@ -53,7 +53,7 @@ ospCardSimulator theInputCard
 #define OSPID_VERSION_TAG "v3.0sps"
 
 // we use the LiquidCrystal library to drive the LCD screen
-LiquidCrystal theLCD(3, 2, 7, 6, 5, 4);
+LiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
@@ -140,7 +140,7 @@ void setup()
   now = millis();
 
   // set up the peripheral cards
-  if (!theInputCard.initialize()) {}; 
+  theInputCard.initialize(); 
   theOutputCard.initialize();
 
   // load the EEPROM settings

@@ -3,22 +3,27 @@
 
 #include "ospCards.h"
 #include "ospSettingsHelper.h"
-#include "max6675_local.h"
 #include "MAX31855_local.h"
 #include "OneWire_local.h"
 #include "DallasTemperature_local.h"
 
-template<typename TCType> class ospTemperatureInputCard : public ospBaseInputCard {
+template<typename TCType> class ospTemperatureInputCard : 
+public ospBaseInputCard {
 private:
-  enum { oneWireBus = A0 };
-  enum { thermistorPin = A0 };
-  enum { thermocoupleCS = A1 };
-  enum { thermocoupleSO = A0 };
-  enum { thermocoupleCLK = A2 };
+  enum { 
+    oneWireBus = A0         };
+  enum { 
+    thermistorPin = A0         };
+  enum { 
+    thermocoupleCS = A1         };
+  enum { 
+    thermocoupleSO = A0         };
+  enum { 
+    thermocoupleCLK = A2         };
 
-  enum { INPUT_THERMISTOR = 0, INPUT_THERMOCOUPLE = 1, INPUT_ONEWIRE = 2 };
+  enum { 
+    INPUT_THERMISTOR = 0, INPUT_THERMOCOUPLE = 1, INPUT_ONEWIRE = 2         };
 
-  byte inputType;
   double THERMISTORNOMINAL;
   double BCOEFFICIENT;
   double TEMPERATURENOMINAL;
@@ -30,40 +35,51 @@ private:
   DallasTemperature ds18b20;
   DeviceAddress oneWireDeviceAddress;
 
+
 public:
   ospTemperatureInputCard() :
-    ospBaseInputCard(),
-    inputType(INPUT_THERMISTOR),
-    THERMISTORNOMINAL(10.0f),
-    BCOEFFICIENT(1.0f),
-    TEMPERATURENOMINAL(293.15f),
-    REFERENCE_RESISTANCE(10.0f),
-    thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO)
-  { }
+  ospBaseInputCard(),
+  inputType(INPUT_THERMISTOR),
+  THERMISTORNOMINAL(10.0f),
+  BCOEFFICIENT(1.0f),
+  TEMPERATURENOMINAL(293.15f),
+  REFERENCE_RESISTANCE(10.0f),
+  thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO),
+  oneWire(oneWireBus),
+  ds18b20(&oneWire)
+  { 
+  }
+
+  byte inputType;
+  bool initialized;
 
   // setup the card
-  boolean initialize() {
+  void initialize() {
     if (inputType == INPUT_ONEWIRE) { 
-      OneWire oneWire( oneWireBus );
-      DallasTemperature ds18b20( &oneWire );
       ds18b20.begin();
-      if (!d18b20.getAddress(oneWireDeviceAddress, 0)) {
-        return false;
+      if (!ds18b20.getAddress(oneWireDeviceAddress, 0)) {
+        initialized=false;
+      } 
+      else {
+        ds18b20.setResolution(oneWireDeviceAddress, 12);
+        initialized=true;
       }
-      ds18b20.setResolution(oneWireDeviceAddress, 12);
     }
-    return true;
   }
 
+  /*
   // set input type
-  void setInputType( int val ) {
-    if ((val == INPUT_THERMISTOR) || (val == INPUT_THERMOCOUPLE) || (val == INPUT_ONEWIRE) ) {
-      inputType = val;
-    }
-  }
-
-  // get input type
-  int setInputType(void) { return inputType; }
+   void setInputType( int val ) {
+   if ((val == INPUT_THERMISTOR) || (val == INPUT_THERMOCOUPLE) || (val == INPUT_ONEWIRE) ) {
+   inputType = val;
+   }
+   }
+   
+   // get input type
+   int setInputType(void) { 
+   return inputType; 
+   }
+   */
 
   // return the card identifier
   const __FlashStringHelper * cardIdentifier();
@@ -105,15 +121,19 @@ public:
   // returns conversion time in milliseconds
   unsigned long requestInput() {
     if (inputType == INPUT_ONEWIRE) {
-       ds18b20.requestTemperatures();
-       return 750;
+      ds18b20.requestTemperatures();
+      return 750;
     }
     return 0;
   }
 
   // how many settings does this card have
-  byte floatSettingsCount() { return 4; }
-  byte integerSettingsCount() { return 1; }
+  byte floatSettingsCount() { 
+    return 4; 
+  }
+  byte integerSettingsCount() { 
+    return 1; 
+  }
 
   // read settings from the card
   double readFloatSetting(byte index) {
@@ -138,14 +158,31 @@ public:
   }
 
   // write settings to the card
-  bool writeSetting(byte index, int val) {
+  bool writeFloatSetting(byte index, double val) {
+    switch (index) {
+    case 0:  
+      THERMISTORNOMINAL = val;
+      return true;
+    case 1:
+      BCOEFFICIENT = val;
+      return true;
+    case 2:
+      TEMPERATURENOMINAL = val;
+      return true;
+    case 3:
+      REFERENCE_RESISTANCE = val;
+      return true;
+    default:
+      return false;
+    }
+  }
+
+  bool writeIntegerSetting(byte index, int val) {
     if (index == 0 && (val == INPUT_THERMOCOUPLE || val == INPUT_THERMISTOR || val == INPUT_ONEWIRE)) {
       inputType = val;
-    } else if (index < 5)
-      settingsBlock[index] = val;
-    else
-      return false;
-    return true;
+      return true;                                    
+    } 
+    return false;
   }
 
   // describe the card settings
@@ -159,9 +196,9 @@ public:
     case 0:
       return F("Use the THERMOCOUPLE (0) or THERMISTOR (1) or ONEWIRE (2) reader");
     case 1:
-      return F("The thermistor nominal resistance (ohms)");
+      return F("The thermistor nominal resistance (Kohms)");
     case 2:
-      return F("The reference resistor value (ohms)");
+      return F("The reference resistor value (Kohms)");
     case 3:
       return F("The thermistor B coefficient");
     case 4:
@@ -169,14 +206,6 @@ public:
     default:
       return false;
     }
-  }
-
-  bool writeIntegerSetting(byte index, int val) {
-    if (index == 0 && (val == INPUT_THERMOCOUPLE || val == INPUT_THERMISTOR || val == INPUT_ONEWIRE)) {
-      inputType = val;
-      return true;
-    }
-    return false;
   }
 
   // save and restore settings to/from EEPROM using the settings helper
@@ -197,24 +226,13 @@ public:
   }
 };
 
-/*
-// MAX6675 obsolete, not supported
-template<> double ospTemperatureInputCard<MAX6675>::readThermocouple() {
-  return thermocouple.readCelsius();
-}
-
-template<> const __FlashStringHelper * ospTemperatureInputCard<MAX6675>::cardIdentifier() {
-  return F("IN_TEMP_V1.1");
-}
-*/
-
 template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() {
-   double val = thermocouple.readThermocouple(CELSIUS);
- 
-   if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
-     val = NAN;
+  double val = thermocouple.readThermocouple(CELSIUS);
 
-   return val;
+  if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
+    val = NAN;
+
+  return val;
 }
 
 template<> const __FlashStringHelper * ospTemperatureInputCard<MAX31855>::cardIdentifier() {
@@ -225,4 +243,8 @@ typedef ospTemperatureInputCard<MAX31855> ospTemperatureInputStripboardV1_0;
 
 
 #endif
+
+
+
+
 

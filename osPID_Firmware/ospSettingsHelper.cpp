@@ -1,4 +1,5 @@
 #include <avr/eeprom.h>
+#include <avr/io.h>
 #include <util/crc16.h>
 
 #include "ospSettingsHelper.h"
@@ -64,14 +65,26 @@ template<size_t size> void ospSettingsHelper::eepromClearBitsSize(unsigned int a
       "   sbi %0, %11\n" // trigger write by setting EEPROM Write Enable
       "   out %9, __tmp_reg__\n" // restore flags (re-enable interrupts)
       : // no register writes
+#if defined(EEPE)      
+      : "I" (_SFR_IO_ADDR(EECR)), "I" (EEPE),
+#else      
       : "I" (_SFR_IO_ADDR(EECR)), "I" (EEWE),
+#endif      
         "I" (_SFR_IO_ADDR(EEARH)), "r" (address >> 8),
         "I" (_SFR_IO_ADDR(EEARL)), "r" (address & 0xFF),
         "I" (_SFR_IO_ADDR(EEDR)), "r" (*p),
         "I" (EEPM1),
         "I" (_SFR_IO_ADDR(SREG)),
+#if defined(EEMPE)        
+        "I" (EEMPE),
+#else      
         "I" (EEMWE),
+#endif      
+#if defined(EEPE)
+        "I" (EEPE)
+#else      
         "I" (EEWE)
+#endif      
       : // no clobbers
     );
     p++;
