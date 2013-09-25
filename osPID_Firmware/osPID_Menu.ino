@@ -6,6 +6,9 @@
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
 
+enum { 
+  firstDigitPosition = 4, lastDigitPosition = 8 };
+
 enum {
   FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
   FLOAT_FLAG_2_DECIMAL_PLACES = 0,
@@ -184,65 +187,65 @@ PROGMEM const byte resetRomMenuItems[2] = {
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { 
-    sizeof(mainMenuItems), 0, mainMenuItems     }
+    sizeof(mainMenuItems), 0, mainMenuItems       }
   ,
   { 
-    sizeof(dashMenuItems), 0, dashMenuItems     }
+    sizeof(dashMenuItems), 0, dashMenuItems       }
   ,
   { 
-    sizeof(profileMenuItems), 0, profileMenuItems     }
+    sizeof(profileMenuItems), 0, profileMenuItems       }
   ,
   { 
-    sizeof(configMenuItems), 0, configMenuItems     }
+    sizeof(configMenuItems), 0, configMenuItems       }
   ,
   { 
-    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems     }
+    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems       }
   ,
   { 
-    sizeof(tripMenuItems), 0, tripMenuItems     }
+    sizeof(tripMenuItems), 0, tripMenuItems       }
   ,
   { 
-    sizeof(inputMenuItems), 0, inputMenuItems     }
+    sizeof(inputMenuItems), 0, inputMenuItems       }
   ,
   { 
-    sizeof(poweronMenuItems), 0, poweronMenuItems     }
+    sizeof(poweronMenuItems), 0, poweronMenuItems       }
   ,
   { 
-    sizeof(commMenuItems), 0, commMenuItems     }
+    sizeof(commMenuItems), 0, commMenuItems       }
   ,
   { 
-    sizeof(resetRomMenuItems), 0, resetRomMenuItems     }
+    sizeof(resetRomMenuItems), 0, resetRomMenuItems       }
 };
 
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 
-    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint     }
+    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint       }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input     }
+    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input       }
   ,
   { 
-    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output     }
+    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output       }
   ,
   { 
-    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp     }
+    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp       }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki     }
+    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki       }
   ,
   { 
-    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd     }
+    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd       }
   ,
   { 
-    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration     }
+    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration       }
   ,
   { 
-    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit     }
+    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit       }
   ,
   { 
-    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit     }
+    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit       }
 };
 
 struct MenuStateData {
@@ -327,7 +330,9 @@ static void drawMenu()
 // draw a floating-point item's value at the current position
 static void drawFloat(byte item)
 {
-  char buffer[8];
+  char buffer[lastDigitPosition + 1];
+  for (byte i = lastDigitPosition; i > 0; i-- ) 
+    buffer[i] = ' ';
   byte itemIndex = item - FIRST_FLOAT_ITEM;
   char icon = floatItemData[itemIndex].icon();
   double val = floatItemData[itemIndex].currentValue();
@@ -351,7 +356,7 @@ static void drawFloat(byte item)
   // count how many characters the value will occupy
   byte charsNeeded = decimals + 2; // decimal places, decimal point, and ones place
   int num = (int) val;
-  if (val < -0.05)
+  if (val < 0.0)
   {
     charsNeeded++; // minus sign
     num = -num;
@@ -362,7 +367,7 @@ static void drawFloat(byte item)
     charsNeeded++; // tens place
 
   theLCD.print(icon);
-  byte spacesNeeded = 6 - charsNeeded;
+  byte spacesNeeded = lastDigitPosition - 1 - charsNeeded;
   while (spacesNeeded--)
     theLCD.print(' ');
   theLCD.print(val, decimals);
@@ -412,6 +417,7 @@ static void drawProfileName(byte profileIndex)
     char ch = getProfileNameCharAt(profileIndex, i);
     theLCD.print(ch ? ch : ' ');
   }
+  theLCD.print(F("        "));
 }
 
 // draw an item occupying a full 8x1 display line
@@ -424,39 +430,56 @@ static void drawFullRowItem(byte row, bool selected, byte item)
 
   // then draw the item
   if (item >= FIRST_FLOAT_ITEM && item < FIRST_ACTION_ITEM)
+  {
     drawFloat(item);
+    switch (item)
+    { 
+    case ITEM_SETPOINT:
+    case ITEM_INPUT:
+    case ITEM_CALIBRATION:
+    case ITEM_LOWER_TRIP_LIMIT:
+    case ITEM_UPPER_TRIP_LIMIT:
+      theLCD.print(' ');
+      theLCD.print((char)223);
+      theLCD.print('C');
+      break;
+    default:
+      theLCD.print(F("   "));
+    }
+    theLCD.print(F("    "));
+  }
   else switch (item)
   {
   case ITEM_DASHBOARD_MENU:
-    theLCD.print(F("DashBrd"));
+    theLCD.print(F("Dashboard      "));
     break;
   case ITEM_CONFIG_MENU:
-    theLCD.print(F("Config "));
+    theLCD.print(F("Configure      "));
     break;
   case ITEM_PROFILE_MENU:
     if (runningProfile)
-      theLCD.print(F("Cancel "));
+      theLCD.print(F("Cancel         "));
     else
       drawProfileName(activeProfileIndex);
     break;
     // case ITEM_SETPOINT_MENU: should not happen
   case ITEM_COMM_MENU:
-    theLCD.print(F("Comm   "));
+    theLCD.print(F("Communication  "));
     break;
   case ITEM_POWERON_MENU:
-    theLCD.print(F("PowerOn"));
+    theLCD.print(F("Power On       "));
     break;
   case ITEM_TRIP_MENU:
-    theLCD.print(F("Trip   "));
+    theLCD.print(F("Alarm          "));
     break;
   case ITEM_INPUT_MENU:
-    theLCD.print(F("Input  "));
+    theLCD.print(F("Input          "));
     break;
   case ITEM_RESET_ROM_MENU:
-    theLCD.print(F("RsetROM"));
+    theLCD.print(F("Reset Memory   "));
     break;
   case ITEM_AUTOTUNE_CMD:
-    theLCD.print(tuning ? F("Cancel ") : F("AutoTun"));
+    theLCD.print(tuning ? F("Cancel         ") : F("Auto Tuning   "));
     break;
   case ITEM_PROFILE1:
   case ITEM_PROFILE2:
@@ -468,61 +491,61 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     //case ITEM_SETPOINT3:
     //case ITEM_SETPOINT4: should not happen
   case ITEM_PID_MODE:
-    theLCD.print(modeIndex == MANUAL ? F("ManCtrl") : F("PidLoop"));
+    theLCD.print(modeIndex == MANUAL ? F("Manual Control  ") : F("PID Control     "));
     break;
   case ITEM_PID_DIRECTION:
-    theLCD.print(ctrlDirection == DIRECT ? F("ActnFwd") : F("ActnRev"));
+    theLCD.print(ctrlDirection == DIRECT ? F("Action Forward  ") : F("Action Reverse  "));
     break;
   case ITEM_INPUT_THERMISTOR:
-    theLCD.print(F("Thermistor  "));
+    theLCD.print(F("Thermistor     "));
     break;
   case ITEM_INPUT_THERMOCOUPLE:
-    theLCD.print(F("Thermocouple"));
+    theLCD.print(F("Thermocouple   "));
     break;
   case ITEM_INPUT_ONEWIRE:   
-    theLCD.print(F("DS18B20+    "));
+    theLCD.print(F("DS18B20+       "));
     break;
   case ITEM_COMM_9p6k:
-    theLCD.print(F(" 9.6kbd"));
+    theLCD.print(F("  9600 baud    "));
     break;
   case ITEM_COMM_14p4k:
-    theLCD.print(F("14.4kbd"));
+    theLCD.print(F(" 14400 baud    "));
     break;
   case ITEM_COMM_19p2k:
-    theLCD.print(F("19.2kbd"));
+    theLCD.print(F(" 19200 baud    "));
     break;
   case ITEM_COMM_28p8k:
-    theLCD.print(F("28.8kbd"));
+    theLCD.print(F(" 28800 baud    "));
     break;
   case ITEM_COMM_38p4k:
-    theLCD.print(F("38.4kbd"));
+    theLCD.print(F(" 38400 baud    "));
     break;
   case ITEM_COMM_57p6k:
-    theLCD.print(F("57.6kbd"));
+    theLCD.print(F(" 57600 baud    "));
     break;
   case ITEM_COMM_115k:
-    theLCD.print(F("115 kbd"));
+    theLCD.print(F("115200 baud    "));
     break;
   case ITEM_POWERON_DISABLE:
-    theLCD.print(F("Disable"));
+    theLCD.print(F("Disable        "));
     break;
   case ITEM_POWERON_CONTINUE:
-    theLCD.print(F("Hold   "));
+    theLCD.print(F("Continue       "));
     break;
   case ITEM_POWERON_RESUME_PROFILE:
-    theLCD.print(F("Profile"));
+    theLCD.print(F("Resume Profile "));
     break;
   case ITEM_TRIP_ENABLED:
-    theLCD.print(tripLimitsEnabled ? F("Enabled") : F("Disabld"));
+    theLCD.print(tripLimitsEnabled ? F("Alarm Enabled  ") : F("Alarm Disabled "));
     break;
   case ITEM_TRIP_AUTORESET:
-    theLCD.print(tripAutoReset ? F("AReset ") : F("MReset "));
+    theLCD.print(tripAutoReset ? F("Auto Reset     ") : F("Manual Reset   "));
     break;
   case ITEM_RESET_ROM_NO:
-    theLCD.print(F("No     "));
+    theLCD.print(F("No             "));
     break;
   case ITEM_RESET_ROM_YES:
-    theLCD.print(F("Yes    "));
+    theLCD.print(F("Yes            "));
     break;
   default:
     BUGCHECK();
@@ -538,7 +561,8 @@ static void drawStatusFlash()
   {
     char ch;
 
-    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) {
+    if ((mod < 1000) || (mod>2000)&&(mod<3000)) 
+    {
       ch = '!';
       drawNotificationCursor(ch);
     }
@@ -547,7 +571,8 @@ static void drawStatusFlash()
   {
     char ch;
 
-    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) {
+    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) 
+    {
       ch = 't';
       drawNotificationCursor(ch);
     }
@@ -634,7 +659,7 @@ static void startEditing(byte item)
 {
   menuState.editing = true;
   if (item < FIRST_ACTION_ITEM)
-    menuState.editDepth = 3;
+    menuState.editDepth = firstDigitPosition;
   else
     menuState.editDepth = 1;
 
@@ -660,11 +685,11 @@ static void backKeyPress()
     if (item < FIRST_ACTION_ITEM)
     {
       // floating-point items have a decimal point, which we want to jump over
-      if (menuState.editDepth == 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+      if (menuState.editDepth == lastDigitPosition - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
         menuState.editDepth--;
     }
 
-    if (menuState.editDepth < 3)
+    if (menuState.editDepth < firstDigitPosition)
       stopEditing();
 
     return;
@@ -688,18 +713,13 @@ static void backKeyPress()
     menuState.highlightedItemMenuIndex = 0;
     menuState.firstItemMenuIndex = 0;
     break;
-  case ITEM_INPUT_MENU:
-  // clear RHS of display
-  theLCD.setCursor(8,0);
-  theLCD.print(F("     "));
-  theLCD.setCursor(8,1);
-  theLCD.print(F("     "));
   case ITEM_TRIP_MENU:
+  case ITEM_INPUT_MENU:
   case ITEM_POWERON_MENU:
   case ITEM_COMM_MENU:
   case ITEM_RESET_ROM_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 4;
+    menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 5;
     menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex - 1;
     break;
   default:
@@ -786,7 +806,7 @@ static void updownKeyPress(bool up)
 
   // determine how much to increment or decrement
   const byte itemIndex = item - FIRST_FLOAT_ITEM;
-  byte decimalPointPosition = 7 - floatItemData[itemIndex].decimalPlaces();
+  byte decimalPointPosition = lastDigitPosition - floatItemData[itemIndex].decimalPlaces();
   double increment = 1.0;
 
   signed char pow10 = decimalPointPosition - menuState.editDepth;
@@ -829,11 +849,11 @@ static void okKeyPress()
     if (item < FIRST_ACTION_ITEM)
     {
       // floating-point items have a decimal point, which we want to jump over
-      if (menuState.editDepth == 7 - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+      if (menuState.editDepth == lastDigitPosition - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
         menuState.editDepth++;
     }
 
-    if (menuState.editDepth > 7 || item >= FIRST_ACTION_ITEM)
+    if (menuState.editDepth > lastDigitPosition || item >= FIRST_ACTION_ITEM)
       stopEditing();
 
     return;
@@ -1028,6 +1048,7 @@ static bool okKeyLongPress()
 
   return true;
 }
+
 
 
 
