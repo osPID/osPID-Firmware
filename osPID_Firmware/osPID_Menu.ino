@@ -55,11 +55,12 @@ struct FloatItem {
     byte flags = pgm_read_byte_near(&pmemFlags);
 
     return !(flags & FLOAT_FLAG_NO_EDIT) && 
-        !((flags & FLOAT_FLAG_EDIT_MANUAL_ONLY) && (modeIndex == 1));
+      !((flags & FLOAT_FLAG_EDIT_MANUAL_ONLY) && (modeIndex == 1));
   }
 };
 
-enum { MENU_FLAG_2x2_FORMAT = 0x01 };
+enum { 
+  MENU_FLAG_2x2_FORMAT = 0x01 };
 
 struct MenuItem {
   byte pmemItemCount;
@@ -147,44 +148,88 @@ enum {
   FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
 };
 
-PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
-PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[9] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
-PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
-PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
-PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
-PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
-                                        ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
-PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
-PROGMEM const byte tripMenuItems[4] = { ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
-PROGMEM const byte resetRomMenuItems[2] = { ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
+PROGMEM const byte mainMenuItems[4] = { 
+  ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
+PROGMEM const byte dashMenuItems[4] = { 
+  ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
+PROGMEM const byte configMenuItems[9] = { 
+  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte profileMenuItems[3] = { 
+  ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
+PROGMEM const byte setpointMenuItems[4] = { 
+  ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
+PROGMEM const byte inputMenuItems[3] = { 
+  ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
+PROGMEM const byte commMenuItems[7] = { 
+  ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
+  ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
+PROGMEM const byte poweronMenuItems[3] = { 
+  ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
+PROGMEM const byte tripMenuItems[4] = { 
+  ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
+PROGMEM const byte resetRomMenuItems[2] = { 
+  ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
 
 // This must be in the same order as the ITEM_*_MENU enumeration values
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
-  { sizeof(mainMenuItems), 0, mainMenuItems },
-  { sizeof(dashMenuItems), 0, dashMenuItems },
-  { sizeof(profileMenuItems), 0, profileMenuItems },
-  { sizeof(configMenuItems), 0, configMenuItems },
-  { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems },
-  { sizeof(tripMenuItems), 0, tripMenuItems },
-  { sizeof(inputMenuItems), 0, inputMenuItems },
-  { sizeof(poweronMenuItems), 0, poweronMenuItems },
-  { sizeof(commMenuItems), 0, commMenuItems },
-  { sizeof(resetRomMenuItems), 0, resetRomMenuItems }
+  { 
+    sizeof(mainMenuItems), 0, mainMenuItems   }
+  ,
+  { 
+    sizeof(dashMenuItems), 0, dashMenuItems   }
+  ,
+  { 
+    sizeof(profileMenuItems), 0, profileMenuItems   }
+  ,
+  { 
+    sizeof(configMenuItems), 0, configMenuItems   }
+  ,
+  { 
+    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems   }
+  ,
+  { 
+    sizeof(tripMenuItems), 0, tripMenuItems   }
+  ,
+  { 
+    sizeof(inputMenuItems), 0, inputMenuItems   }
+  ,
+  { 
+    sizeof(poweronMenuItems), 0, poweronMenuItems   }
+  ,
+  { 
+    sizeof(commMenuItems), 0, commMenuItems   }
+  ,
+  { 
+    sizeof(resetRomMenuItems), 0, resetRomMenuItems   }
 };
 
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
-  { 'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint },
-  { 'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input },
-  { 'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output },
-  { 'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp },
-  { 'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki },
-  { 'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd },
-  { 'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit },
-  { 'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit }
+  { 
+    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint   }
+  ,
+  { 
+    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input   }
+  ,
+  { 
+    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output   }
+  ,
+  { 
+    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp   }
+  ,
+  { 
+    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki   }
+  ,
+  { 
+    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd   }
+  ,
+  { 
+    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit   }
+  ,
+  { 
+    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit   }
 };
 
 struct MenuStateData {
@@ -381,7 +426,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     else
       drawProfileName(activeProfileIndex);
     break;
-  // case ITEM_SETPOINT_MENU: should not happen
+    // case ITEM_SETPOINT_MENU: should not happen
   case ITEM_COMM_MENU:
     theLCD.print(F("Comm   "));
     break;
@@ -405,10 +450,10 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_PROFILE3:
     drawProfileName(item - ITEM_PROFILE1);
     break;
-  //case ITEM_SETPOINT1:
-  //case ITEM_SETPOINT2:
-  //case ITEM_SETPOINT3:
-  //case ITEM_SETPOINT4: should not happen
+    //case ITEM_SETPOINT1:
+    //case ITEM_SETPOINT2:
+    //case ITEM_SETPOINT3:
+    //case ITEM_SETPOINT4: should not happen
   case ITEM_PID_MODE:
     theLCD.print(modeIndex == MANUAL ? F("ManCtrl") : F("PidLoop"));
     break;
@@ -480,25 +525,19 @@ static void drawStatusFlash()
   {
     char ch;
 
-    if (mod < 1000)
-      ch = 'T';
-    else if (mod < 2000)
-      ch = 'R';
-    else
-      ch = 'P';
-    drawNotificationCursor(ch);
+    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) {
+      ch = '!';
+      drawNotificationCursor(ch);
+    }
   }
   else if (tuning && mod < 3000)
   {
     char ch;
 
-    if (mod < 1000)
+    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) {
       ch = 't';
-    else if (mod < 2000)
-      ch = 'u';
-    else
-      ch = 'n';
     drawNotificationCursor(ch);
+    }
   }
   else if (runningProfile && mod < 2000)
   {
@@ -971,4 +1010,5 @@ static bool okKeyLongPress()
 
   return true;
 }
+
 
