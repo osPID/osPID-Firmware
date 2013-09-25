@@ -174,62 +174,62 @@ PROGMEM const byte resetRomMenuItems[2] = {
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { 
-    sizeof(mainMenuItems), 0, mainMenuItems   }
+    sizeof(mainMenuItems), 0, mainMenuItems     }
   ,
   { 
-    sizeof(dashMenuItems), 0, dashMenuItems   }
+    sizeof(dashMenuItems), 0, dashMenuItems     }
   ,
   { 
-    sizeof(profileMenuItems), 0, profileMenuItems   }
+    sizeof(profileMenuItems), 0, profileMenuItems     }
   ,
   { 
-    sizeof(configMenuItems), 0, configMenuItems   }
+    sizeof(configMenuItems), 0, configMenuItems     }
   ,
   { 
-    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems   }
+    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems     }
   ,
   { 
-    sizeof(tripMenuItems), 0, tripMenuItems   }
+    sizeof(tripMenuItems), 0, tripMenuItems     }
   ,
   { 
-    sizeof(inputMenuItems), 0, inputMenuItems   }
+    sizeof(inputMenuItems), 0, inputMenuItems     }
   ,
   { 
-    sizeof(poweronMenuItems), 0, poweronMenuItems   }
+    sizeof(poweronMenuItems), 0, poweronMenuItems     }
   ,
   { 
-    sizeof(commMenuItems), 0, commMenuItems   }
+    sizeof(commMenuItems), 0, commMenuItems     }
   ,
   { 
-    sizeof(resetRomMenuItems), 0, resetRomMenuItems   }
+    sizeof(resetRomMenuItems), 0, resetRomMenuItems     }
 };
 
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 
-    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint   }
+    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint     }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input   }
+    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input     }
   ,
   { 
-    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output   }
+    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output     }
   ,
   { 
-    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp   }
+    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp     }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki   }
+    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki     }
   ,
   { 
-    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd   }
+    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd     }
   ,
   { 
-    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit   }
+    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit     }
   ,
   { 
-    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit   }
+    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit     }
 };
 
 struct MenuStateData {
@@ -461,13 +461,13 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     theLCD.print(ctrlDirection == DIRECT ? F("ActnFwd") : F("ActnRev"));
     break;
   case ITEM_INPUT_THERMISTOR:
-    theLCD.print(F("Thermistor"));
+    theLCD.print(F("Thermistor  "));
     break;
   case ITEM_INPUT_THERMOCOUPLE:
     theLCD.print(F("Thermocouple"));
     break;
   case ITEM_INPUT_ONEWIRE:   
-    theLCD.print(F("DS18B20+"));
+    theLCD.print(F("DS18B20+    "));
     break;
   case ITEM_COMM_9p6k:
     theLCD.print(F(" 9.6kbd"));
@@ -536,7 +536,7 @@ static void drawStatusFlash()
 
     if ((mod < 1000) || ((mod>2000)&&(mod<3000))) {
       ch = 't';
-    drawNotificationCursor(ch);
+      drawNotificationCursor(ch);
     }
   }
   else if (runningProfile && mod < 2000)
@@ -675,8 +675,13 @@ static void backKeyPress()
     menuState.highlightedItemMenuIndex = 0;
     menuState.firstItemMenuIndex = 0;
     break;
-  case ITEM_TRIP_MENU:
   case ITEM_INPUT_MENU:
+  // clear RHS of display
+  theLCD.setCursor(8,0);
+  theLCD.print(F("     "));
+  theLCD.setCursor(8,1);
+  theLCD.print(F("     "));
+  case ITEM_TRIP_MENU:
   case ITEM_POWERON_MENU:
   case ITEM_COMM_MENU:
   case ITEM_RESET_ROM_MENU:
@@ -924,7 +929,7 @@ static void okKeyPress()
   case ITEM_INPUT_THERMISTOR:
   case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
-    theInputCard.inputType = item;
+    theInputCard.inputType = item - ITEM_INPUT_THERMISTOR;
     theInputCard.initialize();
     if (!theInputCard.initialized) {
       // failed to locate 1-wire devices
@@ -1010,5 +1015,6 @@ static bool okKeyLongPress()
 
   return true;
 }
+
 
 
