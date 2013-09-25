@@ -1,7 +1,8 @@
 /* This file contains the setup() and loop() logic for the controller. */
 
-#include <LiquidCrystal.h>
 #include <Arduino.h>
+#include <LiquidCrystal.h>
+#include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
 #include "ospAnalogButton.h"
@@ -54,7 +55,7 @@ ospCardSimulator theInputCard
 #define OSPID_VERSION_TAG "v3.0sps"
 
 // we use the LiquidCrystal library to drive the LCD screen
-LiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
+MyLiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel

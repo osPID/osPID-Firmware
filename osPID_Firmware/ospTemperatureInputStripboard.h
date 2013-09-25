@@ -1,4 +1,4 @@
-#ifndef OSPTEMPERATUREINPUTSTRIPBOARD_H
+  #ifndef OSPTEMPERATUREINPUTSTRIPBOARD_H
 #define OSPTEMPERATUREINPUTSTRIPBOARD_H
 
 #include "ospCards.h"
@@ -28,6 +28,8 @@ private:
   double BCOEFFICIENT;
   double TEMPERATURENOMINAL;
   double REFERENCE_RESISTANCE;
+  
+  double calibration;
 
   TCType thermocouple;
 
@@ -115,7 +117,7 @@ public:
 
   // how many settings does this card have
   byte floatSettingsCount() { 
-    return 4; 
+    return 5; 
   }
   byte integerSettingsCount() { 
     return 1; 
@@ -132,6 +134,8 @@ public:
       return TEMPERATURENOMINAL;
     case 3:
       return REFERENCE_RESISTANCE;
+    case 4:
+      return calibration;
     default:
       return -1.0f;
     }
@@ -157,6 +161,9 @@ public:
       return true;
     case 3:
       REFERENCE_RESISTANCE = val;
+      return true;
+    case 4:
+      calibration = val;
       return true;
     default:
       return false;
@@ -201,6 +208,7 @@ public:
     settings.save(TEMPERATURENOMINAL);
     settings.save(REFERENCE_RESISTANCE);
     settings.save(inputType);
+    settings.save(calibration);
   }
 
   void restoreSettings(ospSettingsHelper& settings) {
@@ -209,6 +217,7 @@ public:
     settings.restore(TEMPERATURENOMINAL);
     settings.restore(REFERENCE_RESISTANCE);
     settings.restore(inputType);
+    settings.restore(calibration);
   }
 };
 

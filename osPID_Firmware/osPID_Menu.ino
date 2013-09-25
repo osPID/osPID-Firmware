@@ -1,6 +1,8 @@
 /* This file contains the implementation of the on-screen menu system of the controller */
 
+#include <avr/io.h>
 #include <avr/pgmspace.h>
+#include "MyLiquidCrystal.h"
 #include "ospAssert.h"
 #include "ospDecimalValue.h"
 
@@ -260,14 +262,30 @@ struct MenuStateData {
 
 struct MenuStateData menuState;
 
+/*
+// print n blanks to LCD
+static void LCDspc( LiquidCrystal lcd, byte n ) 
+{
+  for (byte i = n; i > 0; i--)
+    lcd.print(' ');
+}
+
+// print text from PROGMEM to LCD and fill in with blanks to the end of the line
+static void LCDprintln( LiquidCrystal lcd, const PROGMEM char* s )
+{
+  lcd.print( s );
+  LCDspc( lcd, 16 - (int) strlen_P( s ) );
+}
+*/
+
 // draw the initial startup banner
 static void drawStartupBanner()
 {
   // display a startup message
   theLCD.setCursor(0, 0);
-  theLCD.print(F(" osPID   "));
+  theLCD.println(PSTR(" osPID"));
   theLCD.setCursor(0, 1);
-  theLCD.print(F(" " OSPID_VERSION_TAG));
+  theLCD.println(PSTR(" " OSPID_VERSION_TAG));
 }
 
 // draw a banner reporting a bad EEPROM checksum
@@ -276,14 +294,15 @@ static void drawBadCsum(byte profile)
   delay(500);
   theLCD.setCursor(0, 0);
   if (profile == 0xFF)
-    theLCD.print(F("Config  "));
+    theLCD.println(PSTR("Config"));
   else
   {
-    theLCD.print(F("Profile"));
+    theLCD.println(PSTR("ProfileX"));
+    theLCD.setCursor(7, 0);
     theLCD.print(profile + 1);
   }
   theLCD.setCursor(0, 1);
-  theLCD.print(F("Cleared "));
+  theLCD.println(PSTR("Cleared"));
   delay(2000);
 }
 
@@ -291,7 +310,7 @@ static void drawBadCsum(byte profile)
 static void drawResumeProfileBanner()
 {
   theLCD.setCursor(0, 0);
-  theLCD.print(F("Resuming"));
+  theLCD.println(PSTR("Resuming"));
   theLCD.setCursor(0, 1);
   drawProfileName(activeProfileIndex);
   delay(1000);
@@ -450,7 +469,7 @@ static void drawProfileName(byte profileIndex)
     char ch = getProfileNameCharAt(profileIndex, i);
     theLCD.print(ch ? ch : ' ');
   }
-  theLCD.print(F("        "));
+  theLCD.spc(8);
 }
 
 // draw an item occupying a full 8x1 display line
@@ -472,49 +491,50 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     case ITEM_CALIBRATION:
     case ITEM_LOWER_TRIP_LIMIT:
     case ITEM_UPPER_TRIP_LIMIT:
-      theLCD.print(' ');
-      theLCD.print((char)223);
-      theLCD.print('C');
+      theLCD.print(F(" \337C"));
       break;
     case ITEM_WINDOW_LENGTH:
       theLCD.print(F(" s "));
     default:
-      theLCD.print(F("   "));
+      theLCD.spc(3);
     }
-    theLCD.print(F("    "));
+      theLCD.spc(4);
   }
   else switch (item)
   {
   case ITEM_DASHBOARD_MENU:
-    theLCD.print(F("Dashboard      "));
+    theLCD.println(PSTR("Dashboard"));
     break;
   case ITEM_CONFIG_MENU:
-    theLCD.print(F("Configure      "));
+    theLCD.println(PSTR("Configure"));
     break;
   case ITEM_PROFILE_MENU:
     if (runningProfile)
-      theLCD.print(F("Cancel         "));
+      theLCD.println(PSTR("Cancel"));
     else
       drawProfileName(activeProfileIndex);
     break;
     // case ITEM_SETPOINT_MENU: should not happen
   case ITEM_COMM_MENU:
-    theLCD.print(F("Communication  "));
+    theLCD.println(PSTR("Communication"));
     break;
   case ITEM_POWERON_MENU:
-    theLCD.print(F("Power On       "));
+    theLCD.println(PSTR("Power On"));
     break;
   case ITEM_TRIP_MENU:
-    theLCD.print(F("Alarm          "));
+    theLCD.println(PSTR("Alarm"));
     break;
   case ITEM_INPUT_MENU:
-    theLCD.print(F("Input          "));
+    theLCD.println(PSTR("Input"));
     break;
   case ITEM_RESET_ROM_MENU:
-    theLCD.print(F("Reset Memory   "));
+    theLCD.println(PSTR("Reset Memory"));
     break;
   case ITEM_AUTOTUNE_CMD:
-    theLCD.print(tuning ? F("Cancel         ") : F("Auto Tuning   "));
+    if (tuning)
+      theLCD.println(PSTR("Cancel"));
+    else
+      theLCD.println(PSTR("Auto Tuning"));
     break;
   case ITEM_PROFILE1:
   case ITEM_PROFILE2:
@@ -526,61 +546,73 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     //case ITEM_SETPOINT3:
     //case ITEM_SETPOINT4: should not happen
   case ITEM_PID_MODE:
-    theLCD.print(modeIndex == MANUAL ? F("Manual Control  ") : F("PID Control     "));
+    if (modeIndex == MANUAL)
+      theLCD.println(PSTR("Manual Control"));
+    else
+      theLCD.println(PSTR("PID Control"));
     break;
   case ITEM_PID_DIRECTION:
-    theLCD.print(ctrlDirection == DIRECT ? F("Action Forward  ") : F("Action Reverse  "));
+    if (ctrlDirection == DIRECT)
+      theLCD.println(PSTR("Action Forward"));
+    else
+      theLCD.println(PSTR("Action Reverse"));
     break;
   case ITEM_INPUT_THERMISTOR:
-    theLCD.print(F("Thermistor     "));
+    theLCD.println(PSTR("Thermistor"));
     break;
   case ITEM_INPUT_THERMOCOUPLE:
-    theLCD.print(F("Thermocouple   "));
+    theLCD.println(PSTR("Thermocouple"));
     break;
   case ITEM_INPUT_ONEWIRE:   
-    theLCD.print(F("DS18B20+       "));
+    theLCD.println(PSTR("DS18B20+"));
     break;
   case ITEM_COMM_9p6k:
-    theLCD.print(F("  9600 baud    "));
+    theLCD.println(PSTR("9600 baud"));
     break;
   case ITEM_COMM_14p4k:
-    theLCD.print(F(" 14400 baud    "));
+    theLCD.println(PSTR("14400 baud"));
     break;
   case ITEM_COMM_19p2k:
-    theLCD.print(F(" 19200 baud    "));
+    theLCD.println(PSTR("19200 baud"));
     break;
   case ITEM_COMM_28p8k:
-    theLCD.print(F(" 28800 baud    "));
+    theLCD.println(PSTR("28800 baud"));
     break;
   case ITEM_COMM_38p4k:
-    theLCD.print(F(" 38400 baud    "));
+    theLCD.println(PSTR("38400 baud"));
     break;
   case ITEM_COMM_57p6k:
-    theLCD.print(F(" 57600 baud    "));
+    theLCD.println(PSTR("57600 baud"));
     break;
   case ITEM_COMM_115k:
-    theLCD.print(F("115200 baud    "));
+    theLCD.println(PSTR("115200 baud"));
     break;
   case ITEM_POWERON_DISABLE:
-    theLCD.print(F("Disable        "));
+    theLCD.println(PSTR("Disable"));
     break;
   case ITEM_POWERON_CONTINUE:
-    theLCD.print(F("Continue       "));
+    theLCD.println(PSTR("Continue"));
     break;
   case ITEM_POWERON_RESUME_PROFILE:
-    theLCD.print(F("Resume Profile "));
+    theLCD.println(PSTR("Resume Profile"));
     break;
   case ITEM_TRIP_ENABLED:
-    theLCD.print(tripLimitsEnabled ? F("Alarm Enabled  ") : F("Alarm Disabled "));
+    if (tripLimitsEnabled)
+      theLCD.println(PSTR("Alarm Enabled")); 
+    else
+      theLCD.println(PSTR("Alarm Disabled"));
     break;
   case ITEM_TRIP_AUTORESET:
-    theLCD.print(tripAutoReset ? F("Auto Reset     ") : F("Manual Reset   "));
+    if (tripAutoReset)
+      theLCD.println(PSTR("Auto Reset"));
+    else
+      theLCD.println(PSTR("Manual Reset"));
     break;
   case ITEM_RESET_ROM_NO:
-    theLCD.print(F("No             "));
+    theLCD.println(PSTR("No"));
     break;
   case ITEM_RESET_ROM_YES:
-    theLCD.print(F("Yes            "));
+    theLCD.println(PSTR("Yes"));
     break;
   default:
     BUGCHECK();
@@ -914,7 +946,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      window = theOutputCard.readFloatSetting(0); // outputWindowSeconds
+      DWindow = makeDecimal<1>(theOutputCard.readFloatSetting(0)); // outputWindowSeconds
     }
 
     // it's a menu: open that menu
