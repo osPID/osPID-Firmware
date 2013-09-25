@@ -43,9 +43,9 @@ static void startAutoTune()
   ATuneModeRemember = myPID.GetMode();
   myPID.SetMode(MANUAL);
 
-  aTune.SetNoiseBand(aTuneNoise);
-  aTune.SetOutputStep(aTuneStep);
-  aTune.SetLookbackSec((int)aTuneLookBack);
+  aTune.SetNoiseBand(double(aTuneNoise));
+  aTune.SetOutputStep(double(aTuneStep));
+  aTune.SetLookbackSec(aTuneLookBack);
   tuning = true;
 }
 
@@ -58,7 +58,7 @@ static void stopAutoTune()
 
   // restore the output to the last manual command; it will be overwritten by the PID
   // if the loop is active
-  output = manualOutput;
+  output = double(manualOutput);
   myPID.SetMode(modeIndex);
 }
 
@@ -66,15 +66,17 @@ struct ProfileState {
   unsigned long stepEndMillis;
   unsigned long stepDuration;
   union {
-    double targetSetpoint;
-    double maximumError;
+    ospDecimalValue<1> targetSetpoint;
+    ospDecimalValue<1> maximumError;
   };
-  double initialSetpoint;
+  ospDecimalValue<1> initialSetpoint;
   byte stepType;
   bool temperatureRising;
 };
 
 ProfileState profileState;
+
+static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, ospDecimalValue<1> *endpoint);
 
 static bool startCurrentProfileStep()
 {
@@ -96,7 +98,7 @@ static bool startCurrentProfileStep()
   switch (profileState.stepType)
   {
   case ospProfile::STEP_RAMP_TO_SETPOINT:
-    profileState.initialSetpoint = setpoint;
+    profileState.initialSetpoint = fakeSetpoint;
     break;
   case ospProfile::STEP_SOAK_AT_VALUE:
     // targetSetpoint is actually maximumError
@@ -105,7 +107,7 @@ static bool startCurrentProfileStep()
     setpoint = profileState.targetSetpoint;
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    profileState.temperatureRising = (input < profileState.targetSetpoint);
+    profileState.temperatureRising = (fakeInput < profileState.targetSetpoint);
     break;
   default:
     return false;
@@ -118,7 +120,7 @@ static bool startCurrentProfileStep()
 // running
 static void profileLoopIteration()
 {
-  double delta;
+  ospDecimalValue<1> delta;
   ospAssert(!tuning);
   ospAssert(runningProfile);
 
@@ -131,10 +133,12 @@ static void profileLoopIteration()
       break;
     }
     delta = profileState.targetSetpoint - profileState.initialSetpoint;
-    setpoint = profileState.targetSetpoint - delta * (profileState.stepEndMillis - now) / (double)profileState.stepDuration;
+    // FIXME: does this handle rounding correctly?
+    fakeSetpoint = profileState.targetSetpoint - makeDecimal<1>(
+        int(long(delta.rawValue()) * (profileState.stepEndMillis - now) / profileState.stepDuration));
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
-    delta = fabs(setpoint - input);
+    delta = abs(fakeSetpoint - fakeInput);
     if (delta > profileState.maximumError)
       profileState.stepEndMillis = now + profileState.stepDuration;
     // fall through

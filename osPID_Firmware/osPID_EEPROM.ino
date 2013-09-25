@@ -22,20 +22,22 @@
 *      2 |    1 | settings byte 1
 *      3 |    1 | settings byte 2
 *      4 |   16 | Controller name
-*     20 |    4 | P gain
-*     24 |    4 | I gain
-*     28 |    4 | D gain
-*     32 |   16 | 4 setpoints
-*     48 |    4 | Autotune step parameter
-*     52 |    4 | Autotune noise parameter
-*     56 |    4 | Autotune look-back parameter
-*     60 |    4 | Manual output setting
-*     64 |    4 | Lower trip limit
-*     68 |    4 | Upper trip limit
+*     20 |    2 | P gain
+*     22 |    2 | I gain
+*     24 |    2 | D gain
+*     26 |    8 | 4 setpoints
+*     34 |    2 | Autotune step parameter
+*     36 |    2 | Autotune noise parameter
+*     38 |    2 | Autotune look-back parameter
+*     40 |    2 | Manual output setting
+*     42 |    2 | Lower trip limit
+*     44 |    2 | Upper trip limit
+*     46 |    1 | EEPROM version identifier
+*     47 |   25 | (free)
 *     72 |   64 | Input card setting space
 *    136 |   64 | Output card setting space
 *
-* This block is followed by 3 profile blocks, each 154 B long:
+* This block is followed by 3 profile blocks, each 122 B long:
 *
 * Offset | Size | Item
 * --------------------
@@ -43,7 +45,7 @@
 *      2 |    8 | profile name
 *     10 |   16 | Step types (16 x 1 byte each)
 *     26 |   64 | Step durations (16 x 4 bytes each)
-*     90 |   64 | Step endpoints (16 x 4 bytes each)
+*     90 |   32 | Step endpoints (16 x 2 bytes each)
 *
 * The 5th block does not have a CRC-16 of its own, because it is a ring buffer
 * for recording the controllers progress through an executing profile. The buffer
@@ -69,6 +71,9 @@
 * execution logging by changing the startup mode of the controller.
 *******************************************************************************/
 
+// UPDATE THIS VALUE EVERY TIME THE EEPROM LAYOUT CHANGES IN AN INCOMPATIBLE WAY
+enum { EEPROM_STORAGE_VERSION = 0 };
+
 enum {
   SETTINGS_CRC_OFFSET = 0,
   SETTINGS_SBYTE1_OFFSET = 2,
@@ -76,14 +81,18 @@ enum {
   SETTINGS_NAME_OFFSET = 4,
   SETTINGS_NAME_LENGTH = 16,
   SETTINGS_P_OFFSET = 20,
-  SETTINGS_I_OFFSET = 24,
-  SETTINGS_D_OFFSET = 28,
-  SETTINGS_SP_OFFSET = 32,
+  SETTINGS_I_OFFSET = 22,
+  SETTINGS_D_OFFSET = 24,
+  SETTINGS_SP_OFFSET = 26,
   NR_SETPOINTS = 4,
-  SETTINGS_AT_STEP_OFFSET = 48,
-  SETTINGS_AT_NOISE_OFFSET = 52,
-  SETTINGS_AT_LOOKBACK_OFFSET = 56,
-  SETTINGS_OUTPUT_OFFSET = 60,
+  SETTINGS_AT_STEP_OFFSET = 34,
+  SETTINGS_AT_NOISE_OFFSET = 36,
+  SETTINGS_AT_LOOKBACK_OFFSET = 38,
+  SETTINGS_OUTPUT_OFFSET = 40,
+  SETTINGS_LOWER_TRIP_OFFSET = 42,
+  SETTINGS_UPPER_TRIP_OFFSET = 44,
+  SETTINGS_VERSION_OFFSET = 46,
+  // free space from 47 to 71
   INPUT_CARD_SETTINGS_OFFSET = 72,
   OUTPUT_CARD_SETTINGS_OFFSET = 136,
   SETTINGS_CRC_LENGTH = 198
@@ -92,17 +101,17 @@ enum {
 enum {
   NR_PROFILES = 3,
   PROFILE_BLOCK_START_OFFSET = 200,
-  PROFILE_BLOCK_LENGTH = 154,
+  PROFILE_BLOCK_LENGTH = 122,
   PROFILE_CRC_OFFSET = 0,
   PROFILE_NAME_OFFSET = 2,
   PROFILE_STEP_TYPES_OFFSET = 10,
   PROFILE_STEP_DURATIONS_OFFSET = 26,
   PROFILE_STEP_ENDPOINTS_OFFSET = 90,
-  PROFILE_CRC_LENGTH = 152
+  PROFILE_CRC_LENGTH = 120
 };
 
 enum {
-  STATUS_BUFFER_START_OFFSET = 200+462,
+  STATUS_BUFFER_START_OFFSET = PROFILE_BLOCK_START_OFFSET + NR_PROFILES * PROFILE_BLOCK_LENGTH,
   STATUS_BUFFER_LENGTH = 128,
   STATUS_BUFFER_BLOCK_LENGTH = 4,
   STATUS_BLOCK_CRC_OFFSET = 0,
@@ -175,7 +184,12 @@ static bool checkEEPROMSettings()
   calculatedCrc = checkEEPROMBlockCrc(SETTINGS_SBYTE1_OFFSET, SETTINGS_CRC_LENGTH);
   ospSettingsHelper::eepromRead(SETTINGS_CRC_OFFSET, storedCrc);
 
-  return (calculatedCrc == storedCrc);
+  if (calculatedCrc != storedCrc)
+    return false;
+
+  byte storedVersion;
+  ospSettingsHelper::eepromRead(SETTINGS_VERSION_OFFSET, storedVersion);
+  return (storedVersion == EEPROM_STORAGE_VERSION);
 }
 
 union SettingsByte1 {
@@ -224,9 +238,9 @@ static void saveEEPROMSettings()
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
     settings.save(controllerName[i]);
 
-  settings.save(kp);
-  settings.save(ki);
-  settings.save(kd);
+  settings.save(PGain);
+  settings.save(IGain);
+  settings.save(DGain);
 
   for (byte i = 0; i < NR_SETPOINTS; i++)
     settings.save(setPoints[i]);
@@ -239,6 +253,8 @@ static void saveEEPROMSettings()
 
   settings.save(lowerTripLimit);
   settings.save(upperTripLimit);
+
+  settings.save((byte) EEPROM_STORAGE_VERSION);
 
   settings.fillUpTo(INPUT_CARD_SETTINGS_OFFSET);
   theInputCard.saveSettings(settings);
@@ -273,14 +289,15 @@ static void restoreEEPROMSettings()
   for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
     settings.restore(controllerName[i]);
 
-  settings.restore(kp);
-  settings.restore(ki);
-  settings.restore(kd);
+  settings.restore(PGain);
+  settings.restore(IGain);
+  settings.restore(DGain);
 
   for (byte i = 0; i < NR_SETPOINTS; i++)
     settings.restore(setPoints[i]);
 
-  setpoint = setPoints[setpointIndex];
+  setpoint = double(setPoints[setpointIndex]);
+  fakeSetpoint = setPoints[0];
 
   settings.restore(aTuneStep);
   settings.restore(aTuneNoise);
@@ -359,7 +376,7 @@ static char getProfileNameCharAt(byte profileIndex, byte i)
   return ch;
 }
 
-static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, double *endpoint)
+static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned long *duration, ospDecimalValue<1> *endpoint)
 {
   const int base = PROFILE_BLOCK_START_OFFSET
                     + profileIndex * PROFILE_BLOCK_LENGTH;
@@ -370,7 +387,7 @@ static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned l
   *type &= ospProfile::STEP_CONTENT_MASK;
 
   ospSettingsHelper::eepromRead(base + PROFILE_STEP_DURATIONS_OFFSET + i*sizeof(unsigned long), *duration);
-  ospSettingsHelper::eepromRead(base + PROFILE_STEP_ENDPOINTS_OFFSET + i*sizeof(double), *endpoint);
+  ospSettingsHelper::eepromRead(base + PROFILE_STEP_ENDPOINTS_OFFSET + i*sizeof(ospDecimalValue<1>), *endpoint);
 }
 
 static unsigned int getProfileCrc(byte profileIndex)

@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <avr/pgmspace.h>
 
+#include "ospDecimalValue.h"
+
 // an ospProfile encapsulates the information for a setpoint profile
 class ospProfile {
 public:
@@ -30,13 +32,13 @@ public:
   byte nextStep;
   byte stepTypes[NR_STEPS];
   unsigned long stepDurations[NR_STEPS];
-  double stepEndpoints[NR_STEPS];
+  ospDecimalValue<1> stepEndpoints[NR_STEPS];
 
   ospProfile() {
     clear();
   }
 
-  bool addStep(byte type, unsigned long duration, double endpoint)
+  bool addStep(byte type, unsigned long duration, ospDecimalValue<1> endpoint)
   {
     if (nextStep == NR_STEPS)
       return false;

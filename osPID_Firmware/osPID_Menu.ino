@@ -2,81 +2,16 @@
 
 #include <avr/pgmspace.h>
 #include "ospAssert.h"
+#include "ospDecimalValue.h"
 
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
 
-enum { 
-  firstDigitPosition = 4, lastDigitPosition = 8 };
+enum { MENU_FLAG_2x2_FORMAT = 0x01 };
 
-enum {
-  FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
-  FLOAT_FLAG_2_DECIMAL_PLACES = 0,
-  FLOAT_FLAG_RANGE_0_999 = 0x02,
-  FLOAT_FLAG_RANGE_0_100 = 0x04,
-  FLOAT_FLAG_RANGE_0_99 = 0x20,
-  FLOAT_FLAG_RANGE_M999_P999 = 0,
-  FLOAT_FLAG_RANGE_M99_P99 = 0x08,
-  FLOAT_FLAG_NO_EDIT = 0x40,
-  FLOAT_FLAG_EDIT_MANUAL_ONLY = 0x80
-};
-
-struct FloatItem {
-  char pmemIcon;
-  byte pmemFlags;
-  double *pmemFPtr;
-
-  byte decimalPlaces() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & FLOAT_FLAG_1_DECIMAL_PLACE)
-      return 1;
-    return 2;
-  }
-
-  double minimumValue() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_999 | FLOAT_FLAG_RANGE_0_100))
-      return 0;
-    if (flags & FLOAT_FLAG_RANGE_M99_P99)
-      return -99.9;
-    return -999.9;
-  }
-
-  double maximumValue() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & FLOAT_FLAG_RANGE_0_100)
-      return 100.0;
-    if (flags & FLOAT_FLAG_RANGE_0_99)
-      return 99.99;
-    if (flags & FLOAT_FLAG_RANGE_M99_P99)
-      return 99.9;
-    return 999.9;
-  }
-
-  double currentValue() const {
-    double *fp = (double *)pgm_read_word_near(&pmemFPtr);
-    return *fp;
-  }
-
-  double *valuePtr() const {
-    return (double *)pgm_read_word_near(&pmemFPtr);
-  }
-
-  char icon() const {
-    return pgm_read_byte_near(&pmemIcon);
-  }
-
-  bool canEdit() const {
-    byte flags = pgm_read_byte_near(&pmemFlags);
-
-    return !(flags & FLOAT_FLAG_NO_EDIT) && 
-      !((flags & FLOAT_FLAG_EDIT_MANUAL_ONLY) && (modeIndex == 1));
-  }
-};
-
-enum { 
-  MENU_FLAG_2x2_FORMAT = 0x01 };
-
+/*
+ * This class encapsulates the PROGMEM tables which define the menu system.
+ */
 struct MenuItem {
   byte pmemItemCount;
   byte pmemFlags;
@@ -112,9 +47,10 @@ enum {
   ITEM_COMM_MENU,
   ITEM_RESET_ROM_MENU,
 
-  // then double items
-  FIRST_FLOAT_ITEM,
-  ITEM_SETPOINT = FIRST_FLOAT_ITEM,
+  // then decimal items
+  // NOTE: these must be the first N items in the decimalItemData[] array!
+  FIRST_DECIMAL_ITEM,
+  ITEM_SETPOINT = FIRST_DECIMAL_ITEM,
   ITEM_INPUT,
   ITEM_OUTPUT,
   ITEM_KP,
@@ -163,8 +99,8 @@ enum {
   ITEM_RESET_ROM_YES,
 
   ITEM_COUNT,
-  MENU_COUNT = FIRST_FLOAT_ITEM,
-  FLOAT_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_FLOAT_ITEM
+  MENU_COUNT = FIRST_DECIMAL_ITEM,
+  DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM
 };
 
 PROGMEM const byte mainMenuItems[4] = { 
@@ -224,38 +160,81 @@ PROGMEM const MenuItem menuData[MENU_COUNT] =
     sizeof(resetRomMenuItems), 0, resetRomMenuItems               }
 };
 
+/*
+ * This class encapsulates the PROGMEM tables which describe how the various decimal
+ * values are to be formatted.
+ */
+struct DecimalItem {
+  char pmemIcon;
+  byte pmemFlags;
+  void *pmemValPtr;
+
+  enum {
+    ONE_DECIMAL_PLACE = 0,
+    TWO_DECIMAL_PLACES = 0x01,
+    THREE_DECIMAL_PLACES = 0x02,
+    RANGE_M9999_P9999 = 0,
+    RANGE_0_1000 = 0x04,
+    RANGE_0_32767 = 0x08,
+    NO_EDIT = 0x40,
+    EDIT_MANUAL_ONLY = 0x80
+  };
+
+  byte flags() const {
+    return pgm_read_byte_near(&pmemFlags);
+  }
+
+  byte decimalPlaces() const
+  {
+    byte f = flags();
+    if (f & TWO_DECIMAL_PLACES)
+      return 2;
+    if (f & THREE_DECIMAL_PLACES)
+      return 3;
+    return 1;
+  }
+
+  int minimumValue() const {
+    byte f = flags();
+    if (f & (RANGE_0_1000 | RANGE_0_32767))
+      return 0;
+    return -9999;
+  }
+
+  int maximumValue() const {
+    byte f = flags();
+    if (f & RANGE_0_1000)
+      return 1000;
+    if (f & RANGE_0_32767)
+      return 32767;
+    return 9999;
+  }
+
+  int currentValue() const {
+    int *p = (int *)pgm_read_word_near(&pmemValPtr);
+    return *p;
+  }
+
+  int *valuePtr() const {
+    return (int *)pgm_read_word_near(&pmemValPtr);
+  }
+
+  char icon() const {
+    return pgm_read_byte_near(&pmemIcon);
+  }
+};
+
 // This must be in the same order as the ITEM_* enumeration
-PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
+PROGMEM DecimalItem decimalItemData[DECIMAL_ITEM_COUNT] =
 {
-  { 
-    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint               }
-  ,
-  { 
-    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input               }
-  ,
-  { 
-    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output               }
-  ,
-  { 
-    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp               }
-  ,
-  { 
-    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki               }
-  ,
-  { 
-    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd               }
-  ,
-  { 
-    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration               }
-  ,
-  { 
-    'W', FLOAT_FLAG_RANGE_0_999 | FLOAT_FLAG_1_DECIMAL_PLACE, &window               }
-  ,
-  { 
-    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit               }
-  ,
-  { 
-    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit               }
+  { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &fakeSetpoint },
+  { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, &fakeInput },
+  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &fakeOutput },
+  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
+  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
+  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
+  { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit },
+  { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit }
 };
 
 struct MenuStateData {
@@ -337,16 +316,54 @@ static void drawMenu()
   drawStatusFlash();
 }
 
+// This function converts a decimal fixed-point integer to a string,
+// using the requested number of decimals. The string value is
+// right-justified in the buffer, and the return value is a pointer
+// to the first character in the formatted value. Characters between
+// the start of the buffer and the return value are left unchanged.
+static char *formatDecimalValue(char buffer[7], int num, byte decimals)
+{
+  byte decimalPos = (decimals == 0) ? 255 : 5 - decimals;
+  bool isNegative = (num < 0);
+  num = abs(num);
+
+  buffer[6] = '\0';
+  for (byte i = 5; i >= 0; i--)
+  {
+    if (i == decimalPos)
+    {
+      buffer[i] = '.';
+      continue;
+    }
+    if (num == 0)
+    {
+      if (i >= decimalPos - 1)
+        buffer[i] = '0';
+      else if (isNegative)
+      {
+        buffer[i] = '-';
+        return &buffer[i];
+      }
+      else
+        return &buffer[i+1];
+    }
+    byte digit = num % 10;
+    num /= 10;
+    buffer[i] = digit + '0';
+  }
+  return buffer;
+}
+
 // draw a floating-point item's value at the current position
-static void drawFloat(byte item)
+static void drawDecimalValue(byte item)
 {
   char buffer[lastDigitPosition + 1];
   for (byte i = lastDigitPosition; i > 0; i-- ) 
     buffer[i] = ' ';
-  byte itemIndex = item - FIRST_FLOAT_ITEM;
-  char icon = floatItemData[itemIndex].icon();
-  double val = floatItemData[itemIndex].currentValue();
-  byte decimals = floatItemData[itemIndex].decimalPlaces();
+  byte itemIndex = item - FIRST_DECIMAL_ITEM;
+  char icon = decimalItemData[itemIndex].icon();
+  int num = decimalItemData[itemIndex].currentValue();
+  const byte decimals = decimalItemData[itemIndex].decimalPlaces();
 
   // flash "Trip" for the setpoint if the controller has hit a limit trip
   if (tripped && item == ITEM_SETPOINT)
@@ -355,7 +372,7 @@ static void drawFloat(byte item)
     theLCD.print(now % 2048 < 1024 ? F(" Trip ") : F("       "));
     return;
   }
-  if (isnan(val))
+  if (num == -10000 && item == ITEM_INPUT)
   {
     // display an error
     theLCD.print(icon);
@@ -363,35 +380,29 @@ static void drawFloat(byte item)
     return;
   }
 
-  // count how many characters the value will occupy
-  byte charsNeeded = decimals + 2; // decimal places, decimal point, and ones place
-  int num = (int) val;
-  if (val < 0.0)
-  {
-    charsNeeded++; // minus sign
-    num = -num;
-  }
-  if (num > 99)
-    charsNeeded++; // hundreds place
-  if (num > 9)
-    charsNeeded++; // tens place
-
-  theLCD.print(icon);
-  byte spacesNeeded = lastDigitPosition - 1 - charsNeeded;
-  while (spacesNeeded--)
-    theLCD.print(' ');
-  theLCD.print(val, decimals);
+  buffer[0] = icon;
+  memset(&buffer[1], ' ', 6);
+  formatDecimalValue(&buffer[1], num, decimals);
+  theLCD.print(buffer);
 }
 
 // can a given item be edited
+static bool canEditDecimalItem(const byte index)
+{
+  byte flags = decimalItemData[index].flags();
+
+  return !(flags & DecimalItem::NO_EDIT) &&
+    !((flags & DecimalItem::EDIT_MANUAL_ONLY) && (modeIndex == 1));
+}
+
 static bool canEditItem(byte item)
 {
   bool canEdit = !tuning;
 
-  if (item < FIRST_FLOAT_ITEM)
+  if (item < FIRST_DECIMAL_ITEM)
     canEdit = true; // menus always get a '>' selector
   else if (item < FIRST_ACTION_ITEM)
-    canEdit = canEdit && floatItemData[item - FIRST_FLOAT_ITEM].canEdit();
+    canEdit = canEdit && canEditDecimalItem(item - FIRST_DECIMAL_ITEM);
 
   return canEdit;
 }
@@ -439,9 +450,9 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   drawSelector(item, selected);
 
   // then draw the item
-  if (item >= FIRST_FLOAT_ITEM && item < FIRST_ACTION_ITEM)
+  if (item >= FIRST_DECIMAL_ITEM && item < FIRST_ACTION_ITEM)
   {
-    drawFloat(item);
+    drawDecimalValue(item);
     switch (item)
     { 
     case ITEM_SETPOINT:
@@ -694,7 +705,7 @@ static void backKeyPress()
     if (item < FIRST_ACTION_ITEM)
     {
       // floating-point items have a decimal point, which we want to jump over
-      if (menuState.editDepth == lastDigitPosition - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+      if (menuState.editDepth == lastDigitPosition - decimalItemData[item - FIRST_DECIMAL_ITEM].decimalPlaces())
         menuState.editDepth--;
     }
 
@@ -799,7 +810,7 @@ static void updownKeyPress(bool up)
       modeIndex = (modeIndex == 0 ? 1 : 0);
       // use the manual output value
       if (modeIndex == MANUAL)
-        output = manualOutput;
+        output = double(manualOutput);
       myPID.SetMode(modeIndex);
       break;
     case ITEM_PID_DIRECTION:
@@ -821,36 +832,30 @@ static void updownKeyPress(bool up)
   // not a setting: must be a number
 
   // determine how much to increment or decrement
-  const byte itemIndex = item - FIRST_FLOAT_ITEM;
-  byte decimalPointPosition = lastDigitPosition - floatItemData[itemIndex].decimalPlaces();
-  double increment = 1.0;
-
-  signed char pow10 = decimalPointPosition - menuState.editDepth;
-  while (pow10++ < 0)
-    increment *= 0.1;
-  while (pow10-- > 2)
-    increment *= 10.0;
+  const byte itemIndex = item - FIRST_DECIMAL_ITEM;
+  byte decimalPointPosition = lastDigitPosition - decimalItemData[itemIndex].decimalPlaces();
+  int increment = pow10(lastDigitPosition - menuState.editDepth - (menuState.editDepth < decimalPointPosition ? 1 : 0));
 
   if (!up)
     increment = -increment;
 
   // do the in/decrement and clamp it
-  double val = floatItemData[itemIndex].currentValue();
+  int val = decimalItemData[itemIndex].currentValue();
   val += increment;
 
-  double min = floatItemData[itemIndex].minimumValue();
+  int min = decimalItemData[itemIndex].minimumValue();
   if (val < min)
     val = min;
 
-  double max = floatItemData[itemIndex].maximumValue();
+  int max = decimalItemData[itemIndex].maximumValue();
   if (val > max)
     val = max;
 
-  double *valPtr = floatItemData[itemIndex].valuePtr();
+  int *valPtr = decimalItemData[itemIndex].valuePtr();
   *valPtr = val;
 
   if (item == ITEM_SETPOINT)
-    setPoints[setpointIndex] = setpoint;
+    setPoints[setpointIndex] = fakeSetpoint;
 }
 
 static void okKeyPress()
@@ -865,7 +870,7 @@ static void okKeyPress()
     if (item < FIRST_ACTION_ITEM)
     {
       // floating-point items have a decimal point, which we want to jump over
-      if (menuState.editDepth == lastDigitPosition - floatItemData[item - FIRST_FLOAT_ITEM].decimalPlaces())
+      if (menuState.editDepth == lastDigitPosition - decimalItemData[item - FIRST_DECIMAL_ITEM].decimalPlaces())
         menuState.editDepth++;
     }
 
@@ -882,7 +887,7 @@ static void okKeyPress()
     return;
   }
 
-  if (item < FIRST_FLOAT_ITEM)
+  if (item < FIRST_DECIMAL_ITEM)
   {
     // the profile menu is special: a short-press on it triggers the
     // profile or cancels one that's in progress
@@ -934,7 +939,7 @@ static void okKeyPress()
     if (tripped && item == ITEM_SETPOINT)
     {
       tripped = false;
-      output = manualOutput;
+      output = double(manualOutput);
       return;
     }
     // it's a numeric value: mark that the user wants to edit it
