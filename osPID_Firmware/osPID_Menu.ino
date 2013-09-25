@@ -12,6 +12,7 @@ enum {
   FLOAT_FLAG_RANGE_0_100 = 0x04,
   FLOAT_FLAG_RANGE_0_99 = 0x20,
   FLOAT_FLAG_RANGE_M999_P999 = 0,
+  FLOAT_FLAG_RANGE_M99_P99 = 0x08,
   FLOAT_FLAG_NO_EDIT = 0x40,
   FLOAT_FLAG_EDIT_MANUAL_ONLY = 0x80
 };
@@ -26,7 +27,12 @@ struct FloatItem {
   }
 
   double minimumValue() const {
-    return (pgm_read_byte_near(&pmemFlags) & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_100) ? 0 : -999.9);
+    byte flags = pgm_read_byte_near(&pmemFlags);
+    if (flags & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_100))
+      return 0;
+    if (flags & FLOAT_FLAG_RANGE_M99_P99)
+      return -99.9;
+    return -999.9;
   }
 
   double maximumValue() const {
@@ -35,6 +41,8 @@ struct FloatItem {
       return 100.0;
     if (flags & FLOAT_FLAG_RANGE_0_99)
       return 99.99;
+    if (flags & FLOAT_FLAG_RANGE_M99_P99)
+      return 99.9;
     return 999.9;
   }
 
@@ -103,6 +111,7 @@ enum {
   ITEM_KP,
   ITEM_KI,
   ITEM_KD,
+  ITEM_CALIBRATION,
   ITEM_LOWER_TRIP_LIMIT,
   ITEM_UPPER_TRIP_LIMIT,
 
@@ -152,8 +161,9 @@ PROGMEM const byte mainMenuItems[4] = {
   ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { 
   ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[9] = { 
-  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_PID_DIRECTION, ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[10] = { 
+  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_PID_DIRECTION, ITEM_TRIP_MENU,
+  ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { 
   ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { 
@@ -224,6 +234,9 @@ PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
   ,
   { 
     'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd     }
+  ,
+  { 
+    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration     }
   ,
   { 
     'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit     }

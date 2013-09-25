@@ -88,7 +88,7 @@ double setPoints[4] = { 25.0f, 75.0f, 150.0f, 300.0f };
 byte setpointIndex = 0;
 
 // the variables to which the PID controller is bound
-double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0, manualOutput = 0.0;
+double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0, manualOutput = 0.0, calibration = 0.0;
 
 // the hard trip limits
 double lowerTripLimit = 0.0, upperTripLimit = 200.0;
@@ -376,7 +376,7 @@ void loop()
   now = millis();
 
   // read in the input
-  input = theInputCard.readInput();
+  input = theInputCard.readInput() + calibration;
 
   if (!isnan(input))
     pidInput = input;
