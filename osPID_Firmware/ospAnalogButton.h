@@ -12,8 +12,7 @@ enum ospAnalogButtonValue
 	BUTTON_OK
 };
 
-template<byte analogPin, int buttonValueReturn,
-  int buttonValueUp, int buttonValueDown, int buttonValueOk>
+template<byte analogPin, int buttonValueOk, int buttonValueDown, int buttonValueUp, int buttonValueReturn>
 class ospAnalogButton {
 public:
   ospAnalogButton()
@@ -76,14 +75,14 @@ private:
     
     if (buttonValue >= BUTTON_NONE_THRESHOLD)
       return BUTTON_NONE;
-    if (buttonValue <= threshold(buttonValueReturn))
-      return BUTTON_RETURN;
-    if (buttonValue <= threshold(buttonValueUp))
-      return BUTTON_UP;
-    if (buttonValue <= threshold(buttonValueDown))
-      return BUTTON_DOWN;
     if (buttonValue <= threshold(buttonValueOk))
       return BUTTON_OK;
+    if (buttonValue <= threshold(buttonValueDown))
+      return BUTTON_DOWN;
+    if (buttonValue <= threshold(buttonValueUp))
+      return BUTTON_UP;
+    if (buttonValue <= threshold(buttonValueReturn))
+      return BUTTON_RETURN;
     
     return BUTTON_NONE;
   }
