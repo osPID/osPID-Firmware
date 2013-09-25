@@ -351,7 +351,7 @@ static void drawFloat(byte item)
   // count how many characters the value will occupy
   byte charsNeeded = decimals + 2; // decimal places, decimal point, and ones place
   int num = (int) val;
-  if (num < 0)
+  if (val < -0.05)
   {
     charsNeeded++; // minus sign
     num = -num;
