@@ -187,65 +187,65 @@ PROGMEM const byte resetRomMenuItems[2] = {
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { 
-    sizeof(mainMenuItems), 0, mainMenuItems       }
+    sizeof(mainMenuItems), 0, mainMenuItems           }
   ,
   { 
-    sizeof(dashMenuItems), 0, dashMenuItems       }
+    sizeof(dashMenuItems), 0, dashMenuItems           }
   ,
   { 
-    sizeof(profileMenuItems), 0, profileMenuItems       }
+    sizeof(profileMenuItems), 0, profileMenuItems           }
   ,
   { 
-    sizeof(configMenuItems), 0, configMenuItems       }
+    sizeof(configMenuItems), 0, configMenuItems           }
   ,
   { 
-    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems       }
+    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems           }
   ,
   { 
-    sizeof(tripMenuItems), 0, tripMenuItems       }
+    sizeof(tripMenuItems), 0, tripMenuItems           }
   ,
   { 
-    sizeof(inputMenuItems), 0, inputMenuItems       }
+    sizeof(inputMenuItems), 0, inputMenuItems           }
   ,
   { 
-    sizeof(poweronMenuItems), 0, poweronMenuItems       }
+    sizeof(poweronMenuItems), 0, poweronMenuItems           }
   ,
   { 
-    sizeof(commMenuItems), 0, commMenuItems       }
+    sizeof(commMenuItems), 0, commMenuItems           }
   ,
   { 
-    sizeof(resetRomMenuItems), 0, resetRomMenuItems       }
+    sizeof(resetRomMenuItems), 0, resetRomMenuItems           }
 };
 
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 
-    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint       }
+    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint           }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input       }
+    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input           }
   ,
   { 
-    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output       }
+    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output           }
   ,
   { 
-    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp       }
+    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp           }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki       }
+    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki           }
   ,
   { 
-    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd       }
+    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd           }
   ,
   { 
-    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration       }
+    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration           }
   ,
   { 
-    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit       }
+    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit           }
   ,
   { 
-    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit       }
+    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit           }
 };
 
 struct MenuStateData {
@@ -552,43 +552,40 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   }
 }
 
+
 // flash a status indicator if appropriate
 static void drawStatusFlash()
 {
-  int mod = now % 4096;
+  byte flashState = (( millis() & 0xC00 ) >> 10);
 
-  if (tripped && mod < 3000)
-  {
-    char ch;
-
-    if ((mod < 1000) || (mod>2000)&&(mod<3000)) 
+  char ch;
+  if (tripped && (flashState < 3))
+  {   
+    if ((flashState & 1) == 0) 
     {
       ch = '!';
       drawNotificationCursor(ch);
     }
   }
-  else if (tuning && mod < 3000)
+  else if (tuning && (flashState < 3))
   {
-    char ch;
-
-    if ((mod < 1000) || ((mod>2000)&&(mod<3000))) 
+    if ((flashState & 1) == 0) 
     {
       ch = 't';
       drawNotificationCursor(ch);
     }
   }
-  else if (runningProfile && mod < 2000)
+  else if (runningProfile && (flashState < 2))
   {
-    if (mod < 1000)
+    if (flashState == 0)
       drawNotificationCursor('P');
     else
     {
-      char c;
       if (currentProfileStep < 10)
-        c = currentProfileStep + '0';
+        ch = currentProfileStep + '0';
       else
-        c = currentProfileStep + 'A' - 10;
-      drawNotificationCursor(c);
+        ch = currentProfileStep + 'A' - 10;
+      drawNotificationCursor(ch);
     }
   }
   else
@@ -1048,6 +1045,8 @@ static bool okKeyLongPress()
 
   return true;
 }
+
+
 
 
 
