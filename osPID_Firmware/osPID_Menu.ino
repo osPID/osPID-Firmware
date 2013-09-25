@@ -7,6 +7,8 @@
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
 
+enum { firstDigitPosition = 4, lastDigitPosition = 8 };
+
 enum { MENU_FLAG_2x2_FORMAT = 0x01 };
 
 /*
@@ -176,6 +178,8 @@ struct DecimalItem {
     RANGE_M9999_P9999 = 0,
     RANGE_0_1000 = 0x04,
     RANGE_0_32767 = 0x08,
+    RANGE_1_32767 = 0x10,
+    RANGE_M999_P999 = 0x20,
     NO_EDIT = 0x40,
     EDIT_MANUAL_ONLY = 0x80
   };
@@ -196,16 +200,22 @@ struct DecimalItem {
 
   int minimumValue() const {
     byte f = flags();
+    if (f & RANGE_1_32767)
+      return 1;
     if (f & (RANGE_0_1000 | RANGE_0_32767))
       return 0;
+    if (f & RANGE_M999_P999)
+      return -999;
     return -9999;
   }
 
   int maximumValue() const {
     byte f = flags();
+    if (f & RANGE_M999_P999)
+      return 999;
     if (f & RANGE_0_1000)
       return 1000;
-    if (f & RANGE_0_32767)
+    if (f & (RANGE_0_32767 | RANGE_1_32767))
       return 32767;
     return 9999;
   }
@@ -233,6 +243,8 @@ PROGMEM DecimalItem decimalItemData[DECIMAL_ITEM_COUNT] =
   { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
   { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
   { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
+  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &DCalibration },
+  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &DWindow },
   { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit },
   { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit }
 };
@@ -714,7 +726,7 @@ static void backKeyPress()
       stopEditing();   
       if (item == ITEM_WINDOW_LENGTH)
       {
-        if (theOutputCard.writeFloatSetting( 0, window))
+        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
           ;
       }
     }
@@ -879,7 +891,7 @@ static void okKeyPress()
       stopEditing();
       if (item == ITEM_WINDOW_LENGTH)
       {
-        if (theOutputCard.writeFloatSetting( 0, window))
+        if (theOutputCard.writeFloatSetting(0, double(DWindow)))
           ;
       }
     }

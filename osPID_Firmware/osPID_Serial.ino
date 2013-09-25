@@ -252,13 +252,6 @@ static void serialPrintDecimal(int val, byte decimals)
   serialPrint(p);
 }
 
-static void serialPrintDecimal(int val, byte decimals)
-{
-  char buffer[8];
-  char *p = formatDecimalValue(buffer, val, decimals);
-  serialPrint(p);
-}
-
 template<int D> static void serialPrint(ospDecimalValue<D> val)
 {
   serialPrintDecimal(val.rawValue(), D);
@@ -480,7 +473,6 @@ static void cmdExamineSettings()
     serialPrintln(theOutputCard.readIntegerSetting(i));
     Serial.println();
   }
-#endif
 }
 
 static void cmdExamineProfile(byte profileIndex)

@@ -94,8 +94,14 @@ byte setpointIndex = 0;
 // temporary values during the fixed-point conversion
 ospDecimalValue<1> fakeSetpoint = { 750 }, fakeInput = { 200 }, fakeOutput = { 0 };
 
+// input calibration value
+ospDecimalValue<1> DCalibration = { 0 };
+
+// temporary value of output window length in seconds
+ospDecimalValue<1> DWindow = { 50 };
+
 // the variables to which the PID controller is bound
-double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0, manualOutput = 0.0, calibration = 0.0;
+double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0;
 
 // the hard trip limits
 ospDecimalValue<1> lowerTripLimit = { 0 }, upperTripLimit = { 2000 };
@@ -390,7 +396,7 @@ void loop()
     theInputCard.initialize();
   } else    
   
-  input = theInputCard.readInput() + calibration;
+  input = theInputCard.readInput() + double( DCalibration );
 
   if (!isnan(input))
     pidInput = input;
