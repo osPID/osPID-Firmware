@@ -12,6 +12,7 @@ enum {
 enum {
   FLOAT_FLAG_1_DECIMAL_PLACE = 0x10,
   FLOAT_FLAG_2_DECIMAL_PLACES = 0,
+  FLOAT_FLAG_RANGE_0_999 = 0x02,
   FLOAT_FLAG_RANGE_0_100 = 0x04,
   FLOAT_FLAG_RANGE_0_99 = 0x20,
   FLOAT_FLAG_RANGE_M999_P999 = 0,
@@ -26,12 +27,15 @@ struct FloatItem {
   double *pmemFPtr;
 
   byte decimalPlaces() const {
-    return (pgm_read_byte_near(&pmemFlags) & FLOAT_FLAG_1_DECIMAL_PLACE ? 1 : 2);
+    byte flags = pgm_read_byte_near(&pmemFlags);
+    if (flags & FLOAT_FLAG_1_DECIMAL_PLACE)
+      return 1;
+    return 2;
   }
 
   double minimumValue() const {
     byte flags = pgm_read_byte_near(&pmemFlags);
-    if (flags & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_100))
+    if (flags & (FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_RANGE_0_999 | FLOAT_FLAG_RANGE_0_100))
       return 0;
     if (flags & FLOAT_FLAG_RANGE_M99_P99)
       return -99.9;
@@ -92,6 +96,8 @@ struct MenuItem {
   }
 };
 
+double window;
+
 // all of the items which might be displayed on the screen
 enum {
   // all menus must be first
@@ -115,6 +121,7 @@ enum {
   ITEM_KI,
   ITEM_KD,
   ITEM_CALIBRATION,
+  ITEM_WINDOW_LENGTH,
   ITEM_LOWER_TRIP_LIMIT,
   ITEM_UPPER_TRIP_LIMIT,
 
@@ -164,9 +171,9 @@ PROGMEM const byte mainMenuItems[4] = {
   ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { 
   ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[10] = { 
-  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_PID_DIRECTION, ITEM_TRIP_MENU,
-  ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[11] = { 
+  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
+  ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { 
   ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { 
@@ -187,65 +194,68 @@ PROGMEM const byte resetRomMenuItems[2] = {
 PROGMEM const MenuItem menuData[MENU_COUNT] =
 {
   { 
-    sizeof(mainMenuItems), 0, mainMenuItems           }
+    sizeof(mainMenuItems), 0, mainMenuItems               }
   ,
   { 
-    sizeof(dashMenuItems), 0, dashMenuItems           }
+    sizeof(dashMenuItems), 0, dashMenuItems               }
   ,
   { 
-    sizeof(profileMenuItems), 0, profileMenuItems           }
+    sizeof(profileMenuItems), 0, profileMenuItems               }
   ,
   { 
-    sizeof(configMenuItems), 0, configMenuItems           }
+    sizeof(configMenuItems), 0, configMenuItems               }
   ,
   { 
-    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems           }
+    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems               }
   ,
   { 
-    sizeof(tripMenuItems), 0, tripMenuItems           }
+    sizeof(tripMenuItems), 0, tripMenuItems               }
   ,
   { 
-    sizeof(inputMenuItems), 0, inputMenuItems           }
+    sizeof(inputMenuItems), 0, inputMenuItems               }
   ,
   { 
-    sizeof(poweronMenuItems), 0, poweronMenuItems           }
+    sizeof(poweronMenuItems), 0, poweronMenuItems               }
   ,
   { 
-    sizeof(commMenuItems), 0, commMenuItems           }
+    sizeof(commMenuItems), 0, commMenuItems               }
   ,
   { 
-    sizeof(resetRomMenuItems), 0, resetRomMenuItems           }
+    sizeof(resetRomMenuItems), 0, resetRomMenuItems               }
 };
 
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM const FloatItem floatItemData[FLOAT_ITEM_COUNT] =
 {
   { 
-    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint           }
+    'S', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &setpoint               }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input           }
+    'I', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_NO_EDIT, &input               }
   ,
   { 
-    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output           }
+    'O', FLOAT_FLAG_RANGE_0_100 | FLOAT_FLAG_1_DECIMAL_PLACE | FLOAT_FLAG_EDIT_MANUAL_ONLY, &output               }
   ,
   { 
-    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp           }
+    'P', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kp               }
   ,
   { 
-    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki           }
+    'I', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &ki               }
   ,
   { 
-    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd           }
+    'D', FLOAT_FLAG_RANGE_0_99 | FLOAT_FLAG_2_DECIMAL_PLACES, &kd               }
   ,
   { 
-    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration           }
+    'C', FLOAT_FLAG_RANGE_M99_P99 | FLOAT_FLAG_1_DECIMAL_PLACE, &calibration               }
   ,
   { 
-    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit           }
+    'W', FLOAT_FLAG_RANGE_0_999 | FLOAT_FLAG_1_DECIMAL_PLACE, &window               }
   ,
   { 
-    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit           }
+    'L', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &lowerTripLimit               }
+  ,
+  { 
+    'U', FLOAT_FLAG_RANGE_M999_P999 | FLOAT_FLAG_1_DECIMAL_PLACE, &upperTripLimit               }
 };
 
 struct MenuStateData {
@@ -443,6 +453,8 @@ static void drawFullRowItem(byte row, bool selected, byte item)
       theLCD.print((char)223);
       theLCD.print('C');
       break;
+    case ITEM_WINDOW_LENGTH:
+      theLCD.print(F(" s "));
     default:
       theLCD.print(F("   "));
     }
@@ -687,7 +699,14 @@ static void backKeyPress()
     }
 
     if (menuState.editDepth < firstDigitPosition)
-      stopEditing();
+    {
+      stopEditing();   
+      if (item == ITEM_WINDOW_LENGTH)
+      {
+        if (theOutputCard.writeFloatSetting( 0, window))
+          ;
+      }
+    }
 
     return;
   }
@@ -716,7 +735,7 @@ static void backKeyPress()
   case ITEM_COMM_MENU:
   case ITEM_RESET_ROM_MENU:
     menuState.currentMenu = ITEM_CONFIG_MENU;
-    menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 5;
+    menuState.highlightedItemMenuIndex = prevMenu - ITEM_TRIP_MENU + 6;
     menuState.firstItemMenuIndex = menuState.highlightedItemMenuIndex - 1;
     break;
   default:
@@ -851,7 +870,14 @@ static void okKeyPress()
     }
 
     if (menuState.editDepth > lastDigitPosition || item >= FIRST_ACTION_ITEM)
+    {
       stopEditing();
+      if (item == ITEM_WINDOW_LENGTH)
+      {
+        if (theOutputCard.writeFloatSetting( 0, window))
+          ;
+      }
+    }
 
     return;
   }
@@ -869,6 +895,11 @@ static void okKeyPress()
       return;
     }
 
+    if (item == ITEM_DASHBOARD_MENU)
+    {
+      window = theOutputCard.readFloatSetting(0); // outputWindowSeconds
+    }
+
     // it's a menu: open that menu
     menuState.currentMenu = item;
 
@@ -881,7 +912,7 @@ static void okKeyPress()
       menuState.highlightedItemMenuIndex = setpointIndex;
       break;
     case ITEM_INPUT_MENU:
-      menuState.highlightedItemMenuIndex = theInputCard.inputType;
+      menuState.highlightedItemMenuIndex = theInputCard.readIntegerSetting(0); // inputType
       break;
     case ITEM_COMM_MENU:
       menuState.highlightedItemMenuIndex = serialSpeed;
@@ -959,7 +990,8 @@ static void okKeyPress()
   case ITEM_INPUT_THERMISTOR:
   case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
-    theInputCard.inputType = item - ITEM_INPUT_THERMISTOR;
+    if (theInputCard.writeIntegerSetting(0, item - ITEM_INPUT_THERMISTOR))
+      ;
     theInputCard.initialize();
     if (!theInputCard.initialized) {
       // failed to locate 1-wire devices
@@ -1045,6 +1077,8 @@ static bool okKeyLongPress()
 
   return true;
 }
+
+
 
 
 

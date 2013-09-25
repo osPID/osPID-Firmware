@@ -67,20 +67,6 @@ public:
     }
   }
 
-  /*
-  // set input type
-   void setInputType( int val ) {
-   if ((val == INPUT_THERMISTOR) || (val == INPUT_THERMOCOUPLE) || (val == INPUT_ONEWIRE) ) {
-   inputType = val;
-   }
-   }
-   
-   // get input type
-   int setInputType(void) { 
-   return inputType; 
-   }
-   */
-
   // return the card identifier
   const __FlashStringHelper * cardIdentifier();
 

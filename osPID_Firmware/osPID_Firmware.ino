@@ -376,6 +376,13 @@ void loop()
   now = millis();
 
   // read in the input
+  // first check that sensor is initialized
+  if ( !theInputCard.initialized )
+  {
+    input = NAN;
+    theInputCard.initialize();
+  } else    
+  
   input = theInputCard.readInput() + calibration;
 
   if (!isnan(input))
@@ -428,7 +435,7 @@ void loop()
 
   // we want to monitor the buttons as often as possible
   checkButtons();
-
+  
   // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
   // a button is pressed
   now = millis();
