@@ -55,7 +55,7 @@ ospCardSimulator theInputCard
 #define OSPID_VERSION_TAG "v3.0sps"
 
 // we use the LiquidCrystal library to drive the LCD screen
-MyLiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
+MyLiquidCrystal theLCD(3, 2, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
@@ -75,12 +75,7 @@ char controllerName[17] = {
   'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
 
 // the gain coefficients of the PID controller
-ospDecimalValue<3> PGain = { 
-  2000 }
-, IGain = { 
-  500 }
-, DGain = { 
-  2000 };
+ospDecimalValue<3> PGain = { 2000 } , IGain = { 500 } , DGain = { 2000 };
 
 // the direction flag for the PID controller
 byte ctrlDirection = DIRECT;
@@ -90,54 +85,41 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
-ospDecimalValue<1> setPoints[4] = { 
-  { 
-    250   }
-  , { 
-    750   }
-  , { 
-    1500   }
-  , { 
-    3000   } 
-};
-
-// the manually-commanded output value
-ospDecimalValue<1> manualOutput = { 
-  0 };
+ospDecimalValue<1> setPoints[4] = { { 250   } , { 750   } , { 1500   } , { 3000   } };
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
 
+// the manually-commanded output value
+ospDecimalValue<1> manualOutput = { 0 };
+
 // temporary values during the fixed-point conversion
-ospDecimalValue<1> fakeSetpoint = { 
-  750 }
-, fakeInput = { 
-  200 }
-, fakeOutput = { 
-  0 };
-
-// temporary input calibration value
-ospDecimalValue<1> DCalibration = { 
-  0 };
-
-// temporary value of output window length in seconds
-ospDecimalValue<1> DWindow = { 
-  50 };
+ospDecimalValue<1> fakeSetpoint = { 250 } , fakeOutput = { 0 };
 
 // the variables to which the PID controller is bound
-double setpoint = 75.0, input = NAN, output = 0.0, pidInput = 25.0;
+double setpoint = 25.0, input = 25.0, output = 0.0, pidInput = 25.0;
+
+// all internal representations are in Celsius
+// we may wish to input/display in Fahrenheit
+/*
+bool displayCelsius = true;
+*/
+
+// temporary input calibration value
+ospDecimalValue<1> DCalibration = { 0 };
+
+// temporary value of output window length in seconds
+ospDecimalValue<1> DWindow = { 50 };
 
 // the hard trip limits
-ospDecimalValue<1> lowerTripLimit = { 
-  0 }
-, upperTripLimit = { 
-  2000 };
+ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 2000 };
 bool tripLimitsEnabled;
 bool tripped;
 bool tripAutoReset;
 
 // what to do on power-on
-enum {
+enum 
+{
   POWERON_DISABLE = 0,
   POWERON_CONTINUE_LOOP,
   POWERON_RESUME_PROFILE
@@ -147,19 +129,15 @@ byte powerOnBehavior = POWERON_CONTINUE_LOOP;
 
 bool controllerIsBooting = true;
 
-// the paremeters for the autotuner
-ospDecimalValue<1> aTuneStep = { 
-  200 }
-, aTuneNoise = { 
-  10 };
-int aTuneLookBack = 10;
+// the parameters for the autotuner
+ospDecimalValue<1> aTuneStep = { 200 } , aTuneNoise = { 10 }; int aTuneLookBack = 10;
 PID_ATune aTune(&pidInput, &output);
 
 // whether the autotuner is active
 bool tuning = false;
 
 // the actual PID controller
-PID myPID(&pidInput, &output, &setpoint,double(PGain),double(IGain),double(DGain), DIRECT);
+PID myPID(&pidInput, &output, &setpoint, double(PGain), double(IGain), double(DGain), DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
 unsigned long now, lcdTime, readInputTime;
@@ -168,8 +146,7 @@ unsigned long now, lcdTime, readInputTime;
 // to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
 // of latency, and (b) the controller needs time to handle the LCD, EEPROM, and serial
 // I/O
-enum { 
-  PID_LOOP_SAMPLE_TIME = 1000 };
+enum { PID_LOOP_SAMPLE_TIME = 1000 };
 
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
@@ -183,7 +160,7 @@ void setup()
   now = millis();
 
   // set up the peripheral cards
-  theInputCard.initialize(); 
+  theInputCard.initialize();
   theOutputCard.initialize();
 
   // load the EEPROM settings
@@ -204,9 +181,10 @@ void setup()
   myPID.SetTunings(double(PGain), double(IGain), double(DGain));
   myPID.SetControllerDirection(ctrlDirection);
 
-  if (powerOnBehavior == POWERON_DISABLE) {
+  if (powerOnBehavior == POWERON_DISABLE) 
+  {
     modeIndex = MANUAL;
-    output = manualOutput;
+    output = double(manualOutput);
   }
   myPID.SetMode(modeIndex);
 
@@ -329,20 +307,15 @@ static void checkButtons()
 static void completeAutoTune()
 {
   // We're done, set the tuning parameters
-  PGain = (ospDecimalValue<3>){ 
-    (int)(aTune.GetKp() * 1000.0)   };
-  IGain = (ospDecimalValue<3>){ 
-    (int)(aTune.GetKi() * 1000.0)   };
-  DGain = (ospDecimalValue<3>){ 
-    (int)(aTune.GetKd() * 1000.0)   };
+  PGain = (ospDecimalValue<3>){ (int)(aTune.GetKp() * 1000.0)   };
+  IGain = (ospDecimalValue<3>){ (int)(aTune.GetKi() * 1000.0)   };
+  DGain = (ospDecimalValue<3>){ (int)(aTune.GetKd() * 1000.0)   };
 
   // set the PID controller to accept the new gain settings
   myPID.SetControllerDirection(DIRECT);
   myPID.SetMode(AUTOMATIC);
 
-  if (PGain < (ospDecimalValue<3>){
-    0  }
-  )
+  if (PGain < (ospDecimalValue<3>){0})
   {
     // the auto-tuner found a negative gain sign: convert the coefficients
     // to positive with REVERSE controller action
@@ -375,6 +348,17 @@ static void markSettingsDirty()
   // capture any possible changes to the output value if we're in MANUAL mode
   if (modeIndex == MANUAL && !tuning && !tripped)
     manualOutput = fakeOutput;
+
+  // capture any changes to the setpoint
+  setpoint = double( setPoints[ setpointIndex ] );
+
+  // capture any changes to the calibration value
+        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
+          ;
+  
+  // capture any changes to the output window length
+        if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
+          ;
 
   settingsWritebackNeeded = true;
 
@@ -484,7 +468,7 @@ void loop()
 
   // we want to monitor the buttons as often as possible
   checkButtons();
-
+  
   // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
   // a button is pressed
   now = millis();

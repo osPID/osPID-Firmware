@@ -1,4 +1,4 @@
-  #ifndef OSPTEMPERATUREINPUTSTRIPBOARD_H
+#ifndef OSPTEMPERATUREINPUTSTRIPBOARD_H
 #define OSPTEMPERATUREINPUTSTRIPBOARD_H
 
 #include "ospCards.h"
@@ -11,25 +11,19 @@ template<typename TCType> class ospTemperatureInputCard :
   public ospBaseInputCard 
 {
 private:
-  enum { 
-    oneWireBus = A0         };
-  enum { 
-    thermistorPin = A0         };
-  enum { 
-    thermocoupleCS = A1         };
-  enum { 
-    thermocoupleSO = A0         };
-  enum { 
-    thermocoupleCLK = A2         };
+  enum { oneWireBus = A0           };
+  enum { thermistorPin = A0        };
+  enum { thermocoupleCS = A1       };
+  enum { thermocoupleSO = A0       };
+  enum { thermocoupleCLK = A2      };
 
-  enum { 
-    INPUT_THERMISTOR = 0, INPUT_THERMOCOUPLE = 1, INPUT_ONEWIRE = 2         };
+  enum { INPUT_THERMISTOR = 0, INPUT_THERMOCOUPLE = 1, INPUT_ONEWIRE = 2           };
 
   double THERMISTORNOMINAL;
   double BCOEFFICIENT;
   double TEMPERATURENOMINAL;
   double REFERENCE_RESISTANCE;
-  
+
   double calibration;
 
   TCType thermocouple;
@@ -269,6 +263,7 @@ typedef ospTemperatureInputCard<MAX31855> ospTemperatureInputStripboardV1_0;
 
 
 #endif
+
 
 
 

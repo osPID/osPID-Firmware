@@ -355,7 +355,7 @@ static void cmdQuery()
   Serial.print(F("S "));
   serialPrintln(fakeSetpoint);
   Serial.print(F("I "));
-  serialPrintln(fakeInput);
+  serialPrintln(input);
   Serial.print(F("O "));
   serialPrintln(fakeOutput);
 
@@ -450,10 +450,10 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    serialPrint(F(": "));
+    Serial.print(F(": "));
     const __FlashStringHelper *description = theInputCard.describeIntegerSetting(i);
     serialPrint(description);
-    serialPrint(F(" = "));
+    Serial.print(F(" = "));
     serialPrintln(theInputCard.readIntegerSetting(i));
     Serial.println();
   }
@@ -461,10 +461,10 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    serialPrint(F(": "));
+    Serial.print(F(": "));
     const __FlashStringHelper *description = theInputCard.describeFloatSetting(i);
     serialPrint(description);
-    serialPrint(F(" = "));
+    Serial.print(F(" = "));
     serialPrintln(theInputCard.readFloatSetting(i));
     Serial.println();
   }
@@ -475,10 +475,10 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    serialPrint(F(": "));
+    Serial.print(F(": "));
     const __FlashStringHelper *description = theOutputCard.describeIntegerSetting(i);
     serialPrint(description);
-    serialPrint(F(" = "));
+    Serial.print(F(" = "));
     serialPrintln(theOutputCard.readIntegerSetting(i));
     Serial.println();
   }
@@ -486,10 +486,10 @@ static void cmdExamineSettings()
   {
     Serial.print(F("  I"));
     serialPrint(i);
-    serialPrint(F(": "));
+    Serial.print(F(": "));
     const __FlashStringHelper *description = theOutputCard.describeFloatSetting(i);
     serialPrint(description);
-    serialPrint(F(" = "));
+    Serial.print(F(" = "));
     serialPrintln(theOutputCard.readFloatSetting(i));
     Serial.println();
   }

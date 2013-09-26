@@ -62,10 +62,12 @@ static void stopAutoTune()
   myPID.SetMode(modeIndex);
 }
 
-struct ProfileState {
+struct ProfileState 
+{
   unsigned long stepEndMillis;
   unsigned long stepDuration;
-  union {
+  union 
+  {
     ospDecimalValue<1> targetSetpoint;
     ospDecimalValue<1> maximumError;
   };
@@ -104,10 +106,10 @@ static bool startCurrentProfileStep()
     // targetSetpoint is actually maximumError
     break;
   case ospProfile::STEP_JUMP_TO_SETPOINT:
-    setpoint = profileState.targetSetpoint;
+    setpoint = double(profileState.targetSetpoint);
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    profileState.temperatureRising = (fakeInput < profileState.targetSetpoint);
+    profileState.temperatureRising = (input < double(profileState.targetSetpoint));
     break;
   default:
     return false;
@@ -120,7 +122,7 @@ static bool startCurrentProfileStep()
 // running
 static void profileLoopIteration()
 {
-  ospDecimalValue<1> delta;
+  ospDecimalValue<1> delta, fakeInput = makeDecimal<1>(input);
   ospAssert(!tuning);
   ospAssert(runningProfile);
 
@@ -129,7 +131,7 @@ static void profileLoopIteration()
   case ospProfile::STEP_RAMP_TO_SETPOINT:
     if (now >= profileState.stepEndMillis)
     {
-      setpoint = profileState.targetSetpoint;
+      setpoint = double(profileState.targetSetpoint);
       break;
     }
     delta = profileState.targetSetpoint - profileState.initialSetpoint;
@@ -147,16 +149,17 @@ static void profileLoopIteration()
       return;
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    if ((input < profileState.targetSetpoint) && profileState.temperatureRising)
+    if ((fakeInput < profileState.targetSetpoint) && profileState.temperatureRising)
       return; // not there yet
-    if ((input > profileState.targetSetpoint) && !profileState.temperatureRising)
+    if ((fakeInput > profileState.targetSetpoint) && !profileState.temperatureRising)
       return;
     break;
   }
 
   // this step is done: load the next one if it exists
   recordProfileStepCompletion(currentProfileStep);
-  if (currentProfileStep < ospProfile::NR_STEPS) {
+  if (currentProfileStep < ospProfile::NR_STEPS) 
+  {
     currentProfileStep++;
     if (startCurrentProfileStep()) // returns false if there are no more steps
       return;

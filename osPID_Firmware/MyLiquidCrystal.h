@@ -2,7 +2,7 @@
 #define MYLIQUIDCRYSTAL_H
 
 #include <LiquidCrystal.h>
-#include <avr/progmem.h>
+#include <avr/pgmspace.h>
 
 // include a couple of new methods
 class MyLiquidCrystal : 
@@ -40,7 +40,6 @@ private:
 
 
 #endif
-
 
 
 

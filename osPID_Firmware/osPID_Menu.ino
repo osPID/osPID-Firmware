@@ -16,21 +16,25 @@ enum { MENU_FLAG_2x2_FORMAT = 0x01 };
 /*
  * This class encapsulates the PROGMEM tables which define the menu system.
  */
-struct MenuItem {
+struct MenuItem 
+{
   byte pmemItemCount;
   byte pmemFlags;
   const byte *pmemItemPtr;
 
-  byte itemCount() const {
+  byte itemCount() const 
+  {
     return pgm_read_byte_near(&pmemItemCount);
   }
 
-  byte itemAt(byte index) const {
+  byte itemAt(byte index) const 
+  {
     const byte *itemPtr = (const byte *)pgm_read_word_near(&pmemItemPtr);
     return pgm_read_byte_near(&itemPtr[index]);
   }
 
-  bool is2x2() const {
+  bool is2x2() const 
+  {
     return (pgm_read_byte_near(&pmemFlags) & MENU_FLAG_2x2_FORMAT);
   }
 };
@@ -38,7 +42,8 @@ struct MenuItem {
 double window;
 
 // all of the items which might be displayed on the screen
-enum {
+enum 
+{
   // all menus must be first
   ITEM_MAIN_MENU = 0,
   ITEM_DASHBOARD_MENU,
@@ -107,73 +112,47 @@ enum {
   DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM
 };
 
-PROGMEM const byte mainMenuItems[4] = { 
-  ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
-PROGMEM const byte dashMenuItems[4] = { 
-  ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[11] = { 
-  ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
+PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
+PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
+PROGMEM const byte configMenuItems[11] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
   ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
-PROGMEM const byte profileMenuItems[3] = { 
-  ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
-PROGMEM const byte setpointMenuItems[4] = { 
-  ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
-PROGMEM const byte inputMenuItems[3] = { 
-  ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
-PROGMEM const byte commMenuItems[7] = { 
-  ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
+PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
+PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
+PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
+PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
   ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
-PROGMEM const byte poweronMenuItems[3] = { 
-  ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
-PROGMEM const byte tripMenuItems[4] = { 
-  ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
-PROGMEM const byte resetRomMenuItems[2] = { 
-  ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
+PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
+PROGMEM const byte tripMenuItems[4] = { ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
+PROGMEM const byte resetRomMenuItems[2] = { ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
 
 // This must be in the same order as the ITEM_*_MENU enumeration values
 PROGMEM const MenuItem menuData[MENU_COUNT] =
-{
-  { 
-    sizeof(mainMenuItems), 0, mainMenuItems               }
-  ,
-  { 
-    sizeof(dashMenuItems), 0, dashMenuItems               }
-  ,
-  { 
-    sizeof(profileMenuItems), 0, profileMenuItems               }
-  ,
-  { 
-    sizeof(configMenuItems), 0, configMenuItems               }
-  ,
-  { 
-    sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems               }
-  ,
-  { 
-    sizeof(tripMenuItems), 0, tripMenuItems               }
-  ,
-  { 
-    sizeof(inputMenuItems), 0, inputMenuItems               }
-  ,
-  { 
-    sizeof(poweronMenuItems), 0, poweronMenuItems               }
-  ,
-  { 
-    sizeof(commMenuItems), 0, commMenuItems               }
-  ,
-  { 
-    sizeof(resetRomMenuItems), 0, resetRomMenuItems               }
+{ 
+  { sizeof(mainMenuItems), 0, mainMenuItems               } ,
+  { sizeof(dashMenuItems), 0, dashMenuItems               } ,
+  { sizeof(profileMenuItems), 0, profileMenuItems         } ,
+  { sizeof(configMenuItems), 0, configMenuItems           } ,
+  { sizeof(setpointMenuItems), MENU_FLAG_2x2_FORMAT, setpointMenuItems               } ,
+  { sizeof(tripMenuItems), 0, tripMenuItems               } ,
+  { sizeof(inputMenuItems), 0, inputMenuItems             } ,
+  { sizeof(poweronMenuItems), 0, poweronMenuItems         } ,
+  { sizeof(commMenuItems), 0, commMenuItems               } ,
+  { sizeof(resetRomMenuItems), 0, resetRomMenuItems       }
 };
 
 /*
  * This class encapsulates the PROGMEM tables which describe how the various decimal
  * values are to be formatted.
  */
-struct DecimalItem {
+struct DecimalItem 
+{
   char pmemIcon;
   byte pmemFlags;
   void *pmemValPtr;
+  bool temperature;
 
-  enum {
+  enum 
+  {
     ONE_DECIMAL_PLACE = 0,
     TWO_DECIMAL_PLACES = 0x01,
     THREE_DECIMAL_PLACES = 0x02,
@@ -186,7 +165,8 @@ struct DecimalItem {
     EDIT_MANUAL_ONLY = 0x80
   };
 
-  byte flags() const {
+  byte flags() const 
+  {
     return pgm_read_byte_near(&pmemFlags);
   }
 
@@ -200,7 +180,8 @@ struct DecimalItem {
     return 1;
   }
 
-  int minimumValue() const {
+  int minimumValue() const 
+  {
     byte f = flags();
     if (f & RANGE_1_32767)
       return 1;
@@ -211,7 +192,8 @@ struct DecimalItem {
     return -9999;
   }
 
-  int maximumValue() const {
+  int maximumValue() const 
+  {
     byte f = flags();
     if (f & RANGE_M999_P999)
       return 999;
@@ -222,16 +204,23 @@ struct DecimalItem {
     return 9999;
   }
 
-  int currentValue() const {
+  int decimalCtoF()
+  {
+  }
+
+  int currentValue() const 
+  {
     int *p = (int *)pgm_read_word_near(&pmemValPtr);
     return *p;
   }
 
-  int *valuePtr() const {
+  int *valuePtr() const 
+  {
     return (int *)pgm_read_word_near(&pmemValPtr);
   }
 
-  char icon() const {
+  char icon() const 
+  {
     return pgm_read_byte_near(&pmemIcon);
   }
 };
@@ -239,19 +228,20 @@ struct DecimalItem {
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM DecimalItem decimalItemData[DECIMAL_ITEM_COUNT] =
 {
-  { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &fakeSetpoint },
-  { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, &fakeInput },
-  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &fakeOutput },
-  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
-  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
-  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
-  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &DCalibration },
-  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &DWindow },
-  { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit },
-  { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit }
+  { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &fakeSetpoint, true },
+  { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, NULL, true },
+  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &fakeOutput, false },
+  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain, false },
+  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain, false },
+  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain, false },
+  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &DCalibration, true },
+  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &DWindow, false },
+  { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit, true },
+  { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit, true }
 };
 
-struct MenuStateData {
+struct MenuStateData 
+{
   byte currentMenu;
   byte firstItemMenuIndex;
   byte highlightedItemMenuIndex;
@@ -261,22 +251,6 @@ struct MenuStateData {
 };
 
 struct MenuStateData menuState;
-
-/*
-// print n blanks to LCD
-static void LCDspc( LiquidCrystal lcd, byte n ) 
-{
-  for (byte i = n; i > 0; i--)
-    lcd.print(' ');
-}
-
-// print text from PROGMEM to LCD and fill in with blanks to the end of the line
-static void LCDprintln( LiquidCrystal lcd, const PROGMEM char* s )
-{
-  lcd.print( s );
-  LCDspc( lcd, 16 - (int) strlen_P( s ) );
-}
-*/
 
 // draw the initial startup banner
 static void drawStartupBanner()
@@ -297,8 +271,8 @@ static void drawBadCsum(byte profile)
     theLCD.println(PSTR("Config"));
   else
   {
-    theLCD.println(PSTR("ProfileX"));
-    theLCD.setCursor(7, 0);
+    theLCD.println(PSTR("Profile X"));
+    theLCD.setCursor(8, 0);
     theLCD.print(profile + 1);
   }
   theLCD.setCursor(0, 1);
@@ -326,7 +300,8 @@ static void drawMenu()
     // 2x2 menu mode
     ospAssert(itemCount <= 4);
 
-    for (byte i = 0; i < itemCount; i++) {
+    for (byte i = 0; i < itemCount; i++) 
+    {
       bool highlight = (i == menuState.highlightedItemMenuIndex);
       byte item = menuData[menuState.currentMenu].itemAt(i);
 
@@ -457,7 +432,7 @@ static void drawSelector(byte item, bool selected)
   if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
   {
     // cancel the disallowed edit
-    stopEditing(item);
+    stopEditing();
   }
 
   if (menuState.editing)
@@ -469,12 +444,11 @@ static void drawSelector(byte item, bool selected)
 // draw a profile name at the current position
 static void drawProfileName(byte profileIndex)
 {
-  for (byte i = 0; i < 8; i++)
+  for (byte i = 0; i < 15; i++)
   {
     char ch = getProfileNameCharAt(profileIndex, i);
     theLCD.print(ch ? ch : ' ');
   }
-  theLCD.spc(8);
 }
 
 // draw an item occupying a full 8x1 display line
@@ -497,6 +471,13 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     case ITEM_LOWER_TRIP_LIMIT:
     case ITEM_UPPER_TRIP_LIMIT:
       theLCD.print(F(" \337C"));
+    /*
+      theLCD.print(F(" \337"));
+      if (displayCelsius)
+        theLCD.print('C');
+      else
+        theLCD.print('F');
+    */
       break;
     case ITEM_WINDOW_LENGTH:
       theLCD.print(F(" s "));
@@ -738,20 +719,10 @@ static void startEditing(byte item)
     theLCD.cursor();
 }
 
-static void stopEditing(byte item)
+static void stopEditing()
 {
   menuState.editing = false;
   theLCD.noCursor();
-      if (item == ITEM_WINDOW_LENGTH)
-      {
-        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
-          ;
-      }
-      else if (item == ITEM_CALIBRATION)
-      {
-        if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
-          ;
-      }
 }
 
 static void backKeyPress()
@@ -769,7 +740,7 @@ static void backKeyPress()
     }
 
     if (menuState.editDepth < firstDigitPosition)
-      stopEditing(item);   
+      stopEditing();   
 
     return;
   }
@@ -927,7 +898,7 @@ static void okKeyPress()
     }
 
     if (menuState.editDepth > lastDigitPosition || item >= FIRST_ACTION_ITEM)
-      stopEditing(item);
+      stopEditing();
 
     return;
   }
@@ -1023,7 +994,7 @@ static void okKeyPress()
   case ITEM_SETPOINT3:
   case ITEM_SETPOINT4:
     setpointIndex = item - ITEM_SETPOINT1;
-    setpoint = setPoints[setpointIndex];
+    fakeSetpoint = setPoints[setpointIndex];
     markSettingsDirty();
 
     // return to the prior menu

@@ -7,7 +7,8 @@
 #include "ospDecimalValue.h"
 
 // an ospProfile encapsulates the information for a setpoint profile
-class ospProfile {
+class ospProfile 
+{
 public:
   // note that only (stepTypes[i] & 0x7F) is significant: we reserve one bit
   // which can be freely toggled to make sure that we never get a CRC-16 of
@@ -26,7 +27,7 @@ public:
     STEP_TYPE_MASK = 0x3F
   };
 
-  enum { NR_STEPS = 16, NAME_LENGTH = 7 };
+  enum { NR_STEPS = 16, NAME_LENGTH = 15 };
 
   char name[NAME_LENGTH+1];
   byte nextStep;
@@ -34,7 +35,8 @@ public:
   unsigned long stepDurations[NR_STEPS];
   ospDecimalValue<1> stepEndpoints[NR_STEPS];
 
-  ospProfile() {
+  ospProfile() 
+  {
     clear();
   }
 
@@ -54,9 +56,10 @@ public:
     return true;
   }
 
-  void clear() {
+  void clear() 
+  {
     nextStep = 0;
-    strcpy_P(name, PSTR("Profil1"));
+    strcpy_P(name, PSTR("Profile1       "));
     memset(stepTypes, STEP_INVALID, sizeof(stepTypes));
     memset(stepDurations, -1, sizeof(stepDurations));
     memset(stepEndpoints, -1, sizeof(stepEndpoints));
