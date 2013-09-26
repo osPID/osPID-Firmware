@@ -116,7 +116,7 @@ ospDecimalValue<1> fakeSetpoint = {
 , fakeOutput = { 
   0 };
 
-// input calibration value
+// temporary input calibration value
 ospDecimalValue<1> DCalibration = { 
   0 };
 
@@ -163,7 +163,6 @@ PID myPID(&pidInput, &output, &setpoint,double(PGain),double(IGain),double(DGain
 
 // timekeeping to schedule the various tasks in the main loop
 unsigned long now, lcdTime, readInputTime;
-
 
 // how often to step the PID loop, in milliseconds: it is impractical to set this
 // to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
@@ -435,7 +434,7 @@ void loop()
   // read input, if it is ready
   if (theInputCard.initialized && (now > readInputTime))
   {
-    input = theInputCard.readInput() + double( DCalibration );
+    input = theInputCard.readInput();
     if (!isnan(input))
       pidInput = input;
   }

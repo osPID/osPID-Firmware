@@ -8,7 +8,8 @@
 #include "DallasTemperature_local.h"
 
 template<typename TCType> class ospTemperatureInputCard : 
-public ospBaseInputCard {
+  public ospBaseInputCard 
+{
 private:
   enum { 
     oneWireBus = A0         };
@@ -42,10 +43,12 @@ public:
   ospTemperatureInputCard() :
   ospBaseInputCard(),
   inputType(INPUT_THERMISTOR),
+  initialized(false),
   THERMISTORNOMINAL(10.0f),
   BCOEFFICIENT(1.0f),
   TEMPERATURENOMINAL(293.15f),
   REFERENCE_RESISTANCE(10.0f),
+  calibration(0.0f),
   thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO),
   oneWire(oneWireBus),
   ds18b20(&oneWire)
@@ -56,13 +59,17 @@ public:
   bool initialized;
 
   // setup the card
-  void initialize() {
-    if (inputType == INPUT_ONEWIRE) { 
+  void initialize() 
+  {
+    if (inputType == INPUT_ONEWIRE) 
+    { 
       ds18b20.begin();
-      if (!ds18b20.getAddress(oneWireDeviceAddress, 0)) {
+      if (!ds18b20.getAddress(oneWireDeviceAddress, 0)) 
+      {
         initialized=false;
-      } 
-      else {
+      }
+      else 
+      {
         ds18b20.setResolution(oneWireDeviceAddress, 12);
         initialized=true;
       }
@@ -70,7 +77,10 @@ public:
   }
 
   // return the card identifier
-  const __FlashStringHelper * cardIdentifier();
+  const __FlashStringHelper *cardIdentifier()
+  {
+    return F("INPUT");
+  }
 
 private:
   // actually read the thermocouple
@@ -87,28 +97,30 @@ private:
     steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
     steinhart = 1.0 / steinhart;                 // Invert
     steinhart -= 273.15;                         // convert to C
-
     return steinhart;
   }
 
 public:
   // read the card
-  double readInput() {
-    if (inputType == INPUT_THERMISTOR) {
+  double readInput() 
+  {
+    if (inputType == INPUT_THERMISTOR) 
+    {
       int voltage = analogRead(thermistorPin);
-      return thermistorVoltageToTemperature(voltage);
+      return thermistorVoltageToTemperature(voltage) + calibration;
     }
-    if (inputType == INPUT_THERMOCOUPLE) {
-      return readThermocouple();
-    }
+    if (inputType == INPUT_THERMOCOUPLE) 
+      return readThermocouple() + calibration;
     // obtain temperature from 1st device on 1-wire bus
-    return ds18b20.getTempCByIndex(0); 
+    return ds18b20.getTempCByIndex(0) + calibration; 
   }
 
   // request input
   // returns conversion time in milliseconds
-  unsigned long requestInput() {
-    if (inputType == INPUT_ONEWIRE) {
+  unsigned long requestInput() 
+  {
+    if (inputType == INPUT_ONEWIRE) 
+    {
       ds18b20.requestTemperatures();
       return 750;
     }
@@ -116,16 +128,20 @@ public:
   }
 
   // how many settings does this card have
-  byte floatSettingsCount() { 
+  byte floatSettingsCount() 
+  {
     return 5; 
   }
-  byte integerSettingsCount() { 
+  byte integerSettingsCount() 
+  {
     return 1; 
   }
 
   // read settings from the card
-  double readFloatSetting(byte index) {
-    switch (index) {
+  double readFloatSetting(byte index) 
+  {
+    switch (index) 
+    {
     case 0:
       return THERMISTORNOMINAL;
     case 1:
@@ -141,15 +157,18 @@ public:
     }
   }
 
-  int readIntegerSetting(byte index) {
+  int readIntegerSetting(byte index) 
+  {
     if (index == 0)
       return inputType;
     return -1;
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, double val) {
-    switch (index) {
+  bool writeFloatSetting(byte index, double val) 
+  {
+    switch (index) 
+    {
     case 0:  
       THERMISTORNOMINAL = val;
       return true;
@@ -170,8 +189,10 @@ public:
     }
   }
 
-  bool writeIntegerSetting(byte index, int val) {
-    if (index == 0 && (val == INPUT_THERMOCOUPLE || val == INPUT_THERMISTOR || val == INPUT_ONEWIRE)) {
+  bool writeIntegerSetting(byte index, int val) 
+  {
+    if (index == 0 && (val == INPUT_THERMOCOUPLE || val == INPUT_THERMISTOR || val == INPUT_ONEWIRE)) 
+    {
       inputType = val;
       return true;                                    
     } 
@@ -179,58 +200,68 @@ public:
   }
 
   // describe the card settings
-  const __FlashStringHelper * describeSetting(byte index, byte *decimals) {
-    if (index < 3)
-      *decimals = 0;
-    else
-      *decimals = 1;
-
-    switch (index) {
+  const __FlashStringHelper *describeIntegerSetting(byte index) 
+  {
+    switch (index) 
+    {
     case 0:
       return F("Use the THERMOCOUPLE (0) or THERMISTOR (1) or ONEWIRE (2) reader");
-    case 1:
+    default:
+      return false;
+    }
+  }
+
+  const __FlashStringHelper *describeFloatSetting(byte index) 
+  {
+    switch (index) 
+    {
+    case 0:
       return F("The thermistor nominal resistance (Kohms)");
-    case 2:
+    case 1:
       return F("The reference resistor value (Kohms)");
-    case 3:
+    case 2:
       return F("The thermistor B coefficient");
-    case 4:
+    case 3:
       return F("The thermistor reference temperature (Celsius)");
+    case 4:
+      return F("The calibration temperature adjustment (Celsius)");
     default:
       return false;
     }
   }
 
   // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) {
+  void saveSettings(ospSettingsHelper& settings) 
+  {
+    settings.save(inputType);
     settings.save(THERMISTORNOMINAL);
     settings.save(BCOEFFICIENT);
     settings.save(TEMPERATURENOMINAL);
     settings.save(REFERENCE_RESISTANCE);
-    settings.save(inputType);
     settings.save(calibration);
   }
 
-  void restoreSettings(ospSettingsHelper& settings) {
+  void restoreSettings(ospSettingsHelper& settings) 
+  {
+    settings.restore(inputType);
     settings.restore(THERMISTORNOMINAL);
     settings.restore(BCOEFFICIENT);
     settings.restore(TEMPERATURENOMINAL);
     settings.restore(REFERENCE_RESISTANCE);
-    settings.restore(inputType);
     settings.restore(calibration);
   }
 };
 
-template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() {
+template<> double ospTemperatureInputCard<MAX31855>::readThermocouple() 
+{
   double val = thermocouple.readThermocouple(CELSIUS);
-
   if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
     val = NAN;
-
   return val;
 }
 
-template<> const __FlashStringHelper * ospTemperatureInputCard<MAX31855>::cardIdentifier() {
+template<> const __FlashStringHelper * ospTemperatureInputCard<MAX31855>::cardIdentifier() 
+{
   return F("IN_TEMP_V1.0");
 }
 

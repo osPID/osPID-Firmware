@@ -4,7 +4,8 @@
 #include "ospCards.h"
 
 class ospDigitalOutputCard : 
-public ospBaseOutputCard {
+public ospBaseOutputCard 
+{
 private:
   enum { 
     SSRPin = A3   };
@@ -25,38 +26,46 @@ public:
     { 
     }
 
-  void initialize() {
+  void initialize() 
+  {
     pinMode(SSRPin, OUTPUT);
   }
 
-  const __FlashStringHelper *cardIdentifier() { 
+  const __FlashStringHelper *cardIdentifier() 
+  { 
     return F("OUT_DIGITAL"); 
   }
 
   // how many settings does this card have
-  byte floatSettingsCount() { 
+  byte floatSettingsCount()
+  { 
     return 1; 
   }
-  byte integerSettingsCount() { 
+  byte integerSettingsCount() 
+  { 
     return 1; 
   }
 
   // read settings from the card
-  double readFloatSetting(byte index) {
+  double readFloatSetting(byte index) 
+  {
     if (index == 0)
       return outputWindowSeconds;
     return -1.0f;
   }
 
-  int readIntegerSetting(byte index) {
+  int readIntegerSetting(byte index) 
+  {
     if (index == 0)
       return outputType;
     return -1;
   }
 
   // write settings to the card
-  bool writeFloatSetting(byte index, double val) {
-    if (index == 0) {
+  bool writeFloatSetting(byte index, double val) 
+  {
+    if (index == 0) 
+    {
       outputWindowSeconds = val;
       outputWindowMilliseconds = round(outputWindowSeconds * 1000.0f);
       return true;
@@ -65,33 +74,35 @@ public:
   }
 
   // describe the available settings
-  const __FlashStringHelper *describeSetting(byte index, byte *decimals) {
-    *decimals = 0;
-    if (index == 0) {
+  const __FlashStringHelper *describeIntegerSetting(byte index) 
+  {
+    if (index == 0) 
       return F("Output type = SSR (1)");
-    } 
-    else if (index == 1) {
+    return 0;
+  }
+
+  const __FlashStringHelper *describeFloatSetting(byte index) 
+  {
+    if (index == 0) 
       return F("Output PWM window size in milliseconds");
-    } 
-    else if (index == 2) {
-      return F("Minimum time between PWM edges in milliseconds");
-    } 
-    else
-      return 0;
+    return 0;
   }
 
   // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) {
-    settings.save(outputWindowMilliseconds);
+  void saveSettings(ospSettingsHelper& settings) 
+  {
     settings.save(outputType);
+    settings.save(outputWindowMilliseconds);
   }
 
-  void restoreSettings(ospSettingsHelper& settings) {
-    settings.restore(outputWindowMilliseconds);
+  void restoreSettings(ospSettingsHelper& settings) 
+  {
     settings.restore(outputType);
+    settings.restore(outputWindowMilliseconds);
   }
 
-  void setOutputPercent(double percent) {
+  void setOutputPercent(double percent) 
+  {
     unsigned long wind = millis() % outputWindowMilliseconds;
     unsigned long oVal = (unsigned long)(percent * 0.01 * (double)outputWindowMilliseconds);
     digitalWrite(SSRPin, (oVal>wind) ? HIGH : LOW);

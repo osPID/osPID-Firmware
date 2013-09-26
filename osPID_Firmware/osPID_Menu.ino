@@ -457,7 +457,7 @@ static void drawSelector(byte item, bool selected)
   if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
   {
     // cancel the disallowed edit
-    stopEditing();
+    stopEditing(item);
   }
 
   if (menuState.editing)
@@ -738,10 +738,20 @@ static void startEditing(byte item)
     theLCD.cursor();
 }
 
-static void stopEditing()
+static void stopEditing(byte item)
 {
   menuState.editing = false;
   theLCD.noCursor();
+      if (item == ITEM_WINDOW_LENGTH)
+      {
+        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
+          ;
+      }
+      else if (item == ITEM_CALIBRATION)
+      {
+        if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
+          ;
+      }
 }
 
 static void backKeyPress()
@@ -759,14 +769,7 @@ static void backKeyPress()
     }
 
     if (menuState.editDepth < firstDigitPosition)
-    {
-      stopEditing();   
-      if (item == ITEM_WINDOW_LENGTH)
-      {
-        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
-          ;
-      }
-    }
+      stopEditing(item);   
 
     return;
   }
@@ -924,14 +927,7 @@ static void okKeyPress()
     }
 
     if (menuState.editDepth > lastDigitPosition || item >= FIRST_ACTION_ITEM)
-    {
-      stopEditing();
-      if (item == ITEM_WINDOW_LENGTH)
-      {
-        if (theOutputCard.writeFloatSetting(0, double(DWindow)))
-          ;
-      }
-    }
+      stopEditing(item);
 
     return;
   }
