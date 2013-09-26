@@ -16,31 +16,31 @@
 #define BUGCHECK() ospBugCheck(PSTR("MAIN"), __LINE__);
 
 /*******************************************************************************
-* The stripboard PID Arduino shield uses firmware based on the osPID but
-* simplified hardware. Instead of swappable output cards there is a simple
-* 5V logical output that can drive an SSR. In place of output cards there
-* is a terminal block that can be used for a 1-wire bus or NTC thermistor,
-* and female pin headers that can interface a MAX31855 thermocouple amplifier
-* breakout board. Each of these inputs is supported by different
-* device drivers & libraries. The input in use is specified by a menu option.
-* This saves having to recompile the firmware when changing input sensors.
-*
-* Inputs
-* ======
-*    ospTemperatureInputStripboardV1_0:
-*    DS18B20+ 1-wire digital thermometer with data pin on A0, OR
-*    10K NTC thermistor with voltage divider input on pin A0, OR
-*    MAX31855KASA interface to type-K thermocouple on pins A0-A2.
-*
-* Output
-* ======
-*    ospDigitalOutputStripboardV1_0:
-*    1 SSR output on pin A3.
-*
-* For firmware development, there is also the ospCardSimulator which acts as both
-* the input and output cards and simulates the controller being attached to a
-* simple system.
-*******************************************************************************/
+ * The stripboard PID Arduino shield uses firmware based on the osPID but
+ * simplified hardware. Instead of swappable output cards there is a simple
+ * 5V logical output that can drive an SSR. In place of output cards there
+ * is a terminal block that can be used for a 1-wire bus or NTC thermistor,
+ * and female pin headers that can interface a MAX31855 thermocouple amplifier
+ * breakout board. Each of these inputs is supported by different
+ * device drivers & libraries. The input in use is specified by a menu option.
+ * This saves having to recompile the firmware when changing input sensors.
+ *
+ * Inputs
+ * ======
+ *    ospTemperatureInputStripboardV1_0:
+ *    DS18B20+ 1-wire digital thermometer with data pin on A0, OR
+ *    10K NTC thermistor with voltage divider input on pin A0, OR
+ *    MAX31855KASA interface to type-K thermocouple on pins A0-A2.
+ *
+ * Output
+ * ======
+ *    ospDigitalOutputStripboardV1_0:
+ *    1 SSR output on pin A3.
+ *
+ * For firmware development, there is also the ospCardSimulator which acts as both
+ * the input and output cards and simulates the controller being attached to a
+ * simple system.
+ *******************************************************************************/
 
 #undef USE_SIMULATOR
 #ifndef USE_SIMULATOR
@@ -70,11 +70,17 @@ byte currentProfileStep;
 boolean runningProfile = false;
 
 // the name of this controller unit (can be queried and set over USB)
-char controllerName[17] = { 'o', 's', 'P', 'I', 'D', ' ',
-       'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
+char controllerName[17] = { 
+  'o', 's', 'P', 'I', 'D', ' ',
+  'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
 
 // the gain coefficients of the PID controller
-ospDecimalValue<3> PGain = { 2000 }, IGain = { 500 }, DGain = { 2000 };
+ospDecimalValue<3> PGain = { 
+  2000 }
+, IGain = { 
+  500 }
+, DGain = { 
+  2000 };
 
 // the direction flag for the PID controller
 byte ctrlDirection = DIRECT;
@@ -84,37 +90,57 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
-ospDecimalValue<1> setPoints[4] = { { 250 }, { 750 }, { 1500 }, { 3000 } };
+ospDecimalValue<1> setPoints[4] = { 
+  { 
+    250   }
+  , { 
+    750   }
+  , { 
+    1500   }
+  , { 
+    3000   } 
+};
 
 // the manually-commanded output value
-ospDecimalValue<1> manualOutput = { 0 };
+ospDecimalValue<1> manualOutput = { 
+  0 };
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
 
 // temporary values during the fixed-point conversion
-ospDecimalValue<1> fakeSetpoint = { 750 }, fakeInput = { 200 }, fakeOutput = { 0 };
+ospDecimalValue<1> fakeSetpoint = { 
+  750 }
+, fakeInput = { 
+  200 }
+, fakeOutput = { 
+  0 };
 
 // input calibration value
-ospDecimalValue<1> DCalibration = { 0 };
+ospDecimalValue<1> DCalibration = { 
+  0 };
 
 // temporary value of output window length in seconds
-ospDecimalValue<1> DWindow = { 50 };
+ospDecimalValue<1> DWindow = { 
+  50 };
 
 // the variables to which the PID controller is bound
-double setpoint = 75.0, input = 30.0, output = 0.0, pidInput = 30.0;
+double setpoint = 75.0, input = NAN, output = 0.0, pidInput = 25.0;
 
 // the hard trip limits
-ospDecimalValue<1> lowerTripLimit = { 0 }, upperTripLimit = { 2000 };
+ospDecimalValue<1> lowerTripLimit = { 
+  0 }
+, upperTripLimit = { 
+  2000 };
 bool tripLimitsEnabled;
 bool tripped;
 bool tripAutoReset;
 
 // what to do on power-on
 enum {
-    POWERON_DISABLE = 0,
-    POWERON_CONTINUE_LOOP,
-    POWERON_RESUME_PROFILE
+  POWERON_DISABLE = 0,
+  POWERON_CONTINUE_LOOP,
+  POWERON_RESUME_PROFILE
 };
 
 byte powerOnBehavior = POWERON_CONTINUE_LOOP;
@@ -122,7 +148,10 @@ byte powerOnBehavior = POWERON_CONTINUE_LOOP;
 bool controllerIsBooting = true;
 
 // the paremeters for the autotuner
-ospDecimalValue<1> aTuneStep = { 200 }, aTuneNoise = { 10 };
+ospDecimalValue<1> aTuneStep = { 
+  200 }
+, aTuneNoise = { 
+  10 };
 int aTuneLookBack = 10;
 PID_ATune aTune(&pidInput, &output);
 
@@ -133,14 +162,15 @@ bool tuning = false;
 PID myPID(&pidInput, &output, &setpoint,double(PGain),double(IGain),double(DGain), DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
-unsigned long now, lcdTime;
+unsigned long now, lcdTime, readInputTime;
 
 
 // how often to step the PID loop, in milliseconds: it is impractical to set this
 // to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
 // of latency, and (b) the controller needs time to handle the LCD, EEPROM, and serial
 // I/O
-enum { PID_LOOP_SAMPLE_TIME = 1000 };
+enum { 
+  PID_LOOP_SAMPLE_TIME = 1000 };
 
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
@@ -193,6 +223,11 @@ void setup()
     else
       recordProfileCompletion(); // we don't want to pick up again, so mark it completed
   }
+
+  // kick things off by requesting sensor input
+  now = millis();
+  if (theInputCard.initialized)
+    readInputTime = now + theInputCard.requestInput();
 
   controllerIsBooting = false;
 }
@@ -295,15 +330,20 @@ static void checkButtons()
 static void completeAutoTune()
 {
   // We're done, set the tuning parameters
-  PGain = (ospDecimalValue<3>){ (int)(aTune.GetKp() * 1000.0) };
-  IGain = (ospDecimalValue<3>){ (int)(aTune.GetKi() * 1000.0) };
-  DGain = (ospDecimalValue<3>){ (int)(aTune.GetKd() * 1000.0) };
+  PGain = (ospDecimalValue<3>){ 
+    (int)(aTune.GetKp() * 1000.0)   };
+  IGain = (ospDecimalValue<3>){ 
+    (int)(aTune.GetKi() * 1000.0)   };
+  DGain = (ospDecimalValue<3>){ 
+    (int)(aTune.GetKd() * 1000.0)   };
 
   // set the PID controller to accept the new gain settings
   myPID.SetControllerDirection(DIRECT);
   myPID.SetMode(AUTOMATIC);
 
-  if (PGain < (ospDecimalValue<3>){0})
+  if (PGain < (ospDecimalValue<3>){
+    0  }
+  )
   {
     // the auto-tuner found a negative gain sign: convert the coefficients
     // to positive with REVERSE controller action
@@ -389,18 +429,16 @@ void loop()
   // EEPROM writes or serial I/O
   now = millis();
 
-  // read in the input
-  // first check that sensor is initialized
-  if ( !theInputCard.initialized )
-  {
-    input = NAN;
-    theInputCard.initialize();
-  } else    
-  
-  input = theInputCard.readInput() + double( DCalibration );
+  // highest priority task is to update the output
+  theOutputCard.setOutputPercent(output);
 
-  if (!isnan(input))
-    pidInput = input;
+  // read input, if it is ready
+  if (theInputCard.initialized && (now > readInputTime))
+  {
+    input = theInputCard.readInput() + double( DCalibration );
+    if (!isnan(input))
+      pidInput = input;
+  }
 
   if (tuning)
   {
@@ -437,8 +475,6 @@ void loop()
     }
   }
 
-  theOutputCard.setOutputPercent(output);
-
   // after the realtime part comes the slow operations, which may re-enter
   // the realtime part of the loop but not the slow part
   if (blockSlowOperations)
@@ -449,7 +485,7 @@ void loop()
 
   // we want to monitor the buttons as often as possible
   checkButtons();
-  
+
   // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
   // a button is pressed
   now = millis();
@@ -459,6 +495,13 @@ void loop()
     lcdRedrawNeeded = false;
     lcdTime += 250;
   }
+
+  // can't do much without input, so initializing input is next in line 
+  if (theInputCard.initialized)
+  {
+    input = NAN;
+    theInputCard.initialize();
+  }     
 
   now = millis();
   if (settingsWritebackNeeded && now > settingsWritebackTime) {
@@ -492,4 +535,5 @@ void loop()
     }
   }
 }
+
 
