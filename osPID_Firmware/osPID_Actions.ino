@@ -13,27 +13,27 @@ enum { buzzerPin = A5 };
 // just flash a debugging message until the unit is power cycled
 void ospBugCheck(const char *block, int line)
 {
-    // note that block is expected to be PROGMEM
+  // note that block is expected to be PROGMEM
 
-    theLCD.noCursor();
+  theLCD.noCursor();
+    
+  theLCD.clear();
+  for (int i = 0; i < 4; i++)
+    theLCD.print((char) pgm_read_byte_near(&block[i]));
+  theLCD.print(F(" Err"));
 
-    theLCD.clear();
-    for (int i = 0; i < 4; i++)
-      theLCD.print((char)pgm_read_byte_near(&block[i]));
-    theLCD.print(F(" Err"));
+  theLCD.setCursor(0, 1);
+  theLCD.print(F("Lin "));
+  theLCD.print(line);
 
-    theLCD.setCursor(0, 1);
-    theLCD.print(F("Lin "));
-    theLCD.print(line);
-
-    // just lock up, flashing the error message
-    while (true)
-    {
-      theLCD.display();
-      delay(500);
-      theLCD.noDisplay();
-      delay(500);
-    }
+  // just lock up, flashing the error message
+  while (true)
+  {
+    theLCD.display();
+    delay(500);
+    theLCD.noDisplay();
+    delay(500);
+  }
 }
 
 byte ATuneModeRemember;
@@ -109,7 +109,7 @@ static bool startCurrentProfileStep()
     setpoint = double(profileState.targetSetpoint);
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    profileState.temperatureRising = (input < double(profileState.targetSetpoint));
+    profileState.temperatureRising = (fakeInput < profileState.targetSetpoint);
     break;
   default:
     return false;
@@ -122,14 +122,15 @@ static bool startCurrentProfileStep()
 // running
 static void profileLoopIteration()
 {
-  ospDecimalValue<1> delta, fakeInput = makeDecimal<1>(input);
+  ospDecimalValue<1> delta;
   ospAssert(!tuning);
   ospAssert(runningProfile);
 
+  long int stepTimeLeft = profileState.stepEndMillis - now;
   switch (profileState.stepType)
   {
   case ospProfile::STEP_RAMP_TO_SETPOINT:
-    if (now >= profileState.stepEndMillis)
+    if (stepTimeLeft >= 0)
     {
       setpoint = double(profileState.targetSetpoint);
       break;
@@ -137,7 +138,7 @@ static void profileLoopIteration()
     delta = profileState.targetSetpoint - profileState.initialSetpoint;
     // FIXME: does this handle rounding correctly?
     fakeSetpoint = profileState.targetSetpoint - makeDecimal<1>(
-        int(long(delta.rawValue()) * (profileState.stepEndMillis - now) / profileState.stepDuration));
+        int(long(delta.rawValue()) * stepTimeLeft / profileState.stepDuration));
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
     delta = abs(fakeSetpoint - fakeInput);

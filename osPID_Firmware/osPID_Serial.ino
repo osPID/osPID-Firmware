@@ -134,7 +134,6 @@ enum {
 
 byte serialSpeed = SERIAL_SPEED_28p8k;
 
-PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 28800, 38400, 57600, 115200 };
 
 static void setupSerial()
 {
@@ -227,7 +226,7 @@ static int coerceToDecimal(long val, byte currentDecimals, byte desiredDecimals)
 
 template<int D> static ospDecimalValue<D> makeDecimal(long val, byte currentDecimals)
 {
-  return makeDecimal<D>(coerceToDecimal(val, currentDecimals, D));
+  return (ospDecimalValue<D>) {coerceToDecimal(val, currentDecimals, D)};
 }
 
 // since the serial buffer is finite, we perform a realtime loop iteration
@@ -261,6 +260,16 @@ template<int D> static void serialPrintln(ospDecimalValue<D> val)
 {
   serialPrintDecimal(val.rawValue(), D);
   Serial.println();
+}
+
+void serialPrintFAutotuner()
+{
+  serialPrint(F("Auto-tuner "));
+}
+
+void serialPrintFCalibrationData()
+{
+  serialPrintln(F("calibration data:"));
 }
 
 static bool cmdSetSerialSpeed(const long& speed)
@@ -322,16 +331,8 @@ static void cmdPeek(int address)
   else
     val = * (byte *)address;
 
-  byte b = val >> 4;
-  if (b < 10)
-    Serial.print(char('0' + b));
-  else
-    Serial.print(char('A' - 10 + b));
-  b = val & 0x0F;
-  if (b < 10)
-    serialPrintln(char('0' + b));
-  else
-    serialPrintln(char('A' - 10 + b));
+  Serial.print(hex(val >> 4));  
+  serialPrintln(hex(val & 0xF));
 }
 
 static void cmdPoke(int address, byte val)
@@ -403,7 +404,7 @@ static void cmdExamineSettings()
     else
       Serial.print(' ');
     Serial.print(F("SP"));
-    Serial.write('0' + i);
+    Serial.write('1' + i);
     Serial.print(F(": "));
     serialPrint(setPoints[i]);
     if (i & 1 == 0)
@@ -434,18 +435,18 @@ static void cmdExamineSettings()
   Serial.println();
 
   // auto-tuner settings
-  serialPrint(F("Auto-tuner ")); serialPrint(F("step size: "));
+  serialPrintFAutotuner(); serialPrint(F("step size: "));
   serialPrintln(aTuneStep);
-  serialPrint(F("Auto-tuner ")); serialPrint(F("noise size: "));
+  serialPrintFAutotuner(); serialPrint(F("noise size: "));
   serialPrintln(aTuneNoise);
-  serialPrint(F("Auto-tuner ")); serialPrint(F("look-back: "));
+  serialPrintFAutotuner(); serialPrint(F("look-back: "));
   serialPrintln(aTuneLookBack);
 
   Serial.println();
 
   // peripheral card settings
   serialPrint(F("Input card "));
-  serialPrintln(F("calibration data:"));
+  serialPrintFCalibrationData();
   for (byte i = 0; i < theInputCard.integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
@@ -470,7 +471,7 @@ static void cmdExamineSettings()
   }
 
   serialPrint(F("Output card "));
-  serialPrintln(F("calibration data:"));  
+  serialPrintFCalibrationData();  
   for (byte i = 0; i < theOutputCard.integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
@@ -539,7 +540,7 @@ static bool trySetGain(ospDecimalValue<3> *p, long val, byte decimals)
 {
   ospDecimalValue<3> gain = makeDecimal<3>(val, decimals);
 
-  if (gain > makeDecimal<3>(32767) || gain < makeDecimal<3>(0))
+  if (gain > (ospDecimalValue<3>){32767} || gain < (ospDecimalValue<3>){0})
     return false;
 
   *p = gain;
@@ -563,7 +564,8 @@ enum {
   ARGS_MASK = 0x0F
 };
 
-struct SerialCommandParseData {
+struct SerialCommandParseData 
+{
   char mnemonic;
   byte args;
 };
@@ -572,7 +574,8 @@ struct SerialCommandParseData {
 // two 26-byte arrays separately for the entire upper and lowercase alphabets
 
 // this table must be sorted in ASCII order, that is A-Z then a-z
-PROGMEM SerialCommandParseData commandParseData[] = {
+PROGMEM SerialCommandParseData commandParseData[] = 
+{
   { 'A', ARGS_NONE },
   { 'B', ARGS_THREE_NUMBERS | ARGS_FLAG_QUERYABLE | ARGS_FLAG_FIRST_IS_01 },
   { 'C', ARGS_NONE },
@@ -849,8 +852,8 @@ static void processSerialCommand()
     {
       ospDecimalValue<1> lower = makeDecimal<1>(i2, d2);
       ospDecimalValue<1> upper = makeDecimal<1>(i1, d1);
-      BOUNDS_CHECK(lower, makeDecimal<1>(-9999), makeDecimal<1>(9999));
-      BOUNDS_CHECK(upper, makeDecimal<1>(-9999), makeDecimal<1>(9999));
+      BOUNDS_CHECK(lower, (ospDecimalValue<1>){-9999}, (ospDecimalValue<1>){9999});
+      BOUNDS_CHECK(upper, (ospDecimalValue<1>){-9999}, (ospDecimalValue<1>){9999});
 
       lowerTripLimit = lower;
       upperTripLimit = upper;
@@ -882,7 +885,7 @@ static void processSerialCommand()
   case 'O': // directly set the output command
     {
       ospDecimalValue<1> o = makeDecimal<1>(i1, d1);
-      if (o > makeDecimal<1>(1000))
+      if (o > (ospDecimalValue<1>){1000})
         goto out_EINV;
 
       if (tuning || runningProfile || modeIndex != MANUAL)
@@ -925,7 +928,7 @@ static void processSerialCommand()
   case 'S': // change the setpoint
     {
       ospDecimalValue<1> sp = makeDecimal<1>(i1, d1);
-      BOUNDS_CHECK(sp, makeDecimal<1>(-9999), makeDecimal<1>(9999));
+      BOUNDS_CHECK(sp, (ospDecimalValue<1>){-9999}, (ospDecimalValue<1>){9999});
 
       if (tuning)
         goto out_EMOD;

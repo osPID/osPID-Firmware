@@ -2,6 +2,7 @@
 
 #include <Arduino.h>
 #include <LiquidCrystal.h>
+#include <avr/pgmspace.h>
 #include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
@@ -94,10 +95,10 @@ byte setpointIndex = 0;
 ospDecimalValue<1> manualOutput = { 0 };
 
 // temporary values during the fixed-point conversion
-ospDecimalValue<1> fakeSetpoint = { 250 } , fakeOutput = { 0 };
+ospDecimalValue<1> fakeSetpoint = { 250 }, fakeOutput = { 0 }, fakeInput = { -19999 };
 
 // the variables to which the PID controller is bound
-double setpoint = 25.0, input = 25.0, output = 0.0, pidInput = 25.0;
+double setpoint = 25.0, input = NAN, output = 0.0, pidInput = 25.0;
 
 // all internal representations are in Celsius
 // we may wish to input/display in Fahrenheit
@@ -148,6 +149,13 @@ unsigned long now, lcdTime, readInputTime;
 // I/O
 enum { PID_LOOP_SAMPLE_TIME = 1000 };
 
+PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 28800, 38400, 57600, 115200 };
+
+char hex( byte b )
+{
+  return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
+}
+
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
 {
@@ -169,7 +177,7 @@ void setup()
   // set up the serial interface
   setupSerial();
 
-  delay(millis() < now + 1000 ? now + 1000 - millis() : 10);
+  delay((millis() < now + 1000) ? (now + 1000 - millis()) : 10);
 
   now = millis();
 
@@ -307,9 +315,9 @@ static void checkButtons()
 static void completeAutoTune()
 {
   // We're done, set the tuning parameters
-  PGain = (ospDecimalValue<3>){ (int)(aTune.GetKp() * 1000.0)   };
-  IGain = (ospDecimalValue<3>){ (int)(aTune.GetKi() * 1000.0)   };
-  DGain = (ospDecimalValue<3>){ (int)(aTune.GetKd() * 1000.0)   };
+  PGain = makeDecimal<3>(aTune.GetKp());
+  IGain = makeDecimal<3>(aTune.GetKi());
+  DGain = makeDecimal<3>(aTune.GetKd());
 
   // set the PID controller to accept the new gain settings
   myPID.SetControllerDirection(DIRECT);
@@ -353,11 +361,11 @@ static void markSettingsDirty()
   setpoint = double( setPoints[ setpointIndex ] );
 
   // capture any changes to the calibration value
-        if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
+  if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
           ;
   
   // capture any changes to the output window length
-        if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
+  if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
           ;
 
   settingsWritebackNeeded = true;
@@ -420,7 +428,10 @@ void loop()
   {
     input = theInputCard.readInput();
     if (!isnan(input))
+    {
       pidInput = input;
+      fakeInput = makeDecimal<1>(input);
+    }
   }
 
   if (tuning)
@@ -451,7 +462,7 @@ void loop()
     if (tripAutoReset)
       tripped = false;
 
-    if (isnan(input) || input < lowerTripLimit || input > upperTripLimit || tripped)
+    if (isnan(input) || (input < lowerTripLimit) || (input > upperTripLimit) || tripped)
     {
       output = 0;
       tripped = true;
@@ -480,14 +491,16 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (theInputCard.initialized)
+  if (!theInputCard.initialized)
   {
     input = NAN;
+    fakeInput = ospDecimalValue<1>{-19999}; // NAN
     theInputCard.initialize();
   }     
 
   now = millis();
-  if (settingsWritebackNeeded && now > settingsWritebackTime) {
+  if (settingsWritebackNeeded && (now > settingsWritebackTime)) 
+  {
     // clear settingsWritebackNeeded first, so that it gets re-armed if the
     // realtime loop calls markSettingsDirty()
     settingsWritebackNeeded = false;

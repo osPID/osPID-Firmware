@@ -210,15 +210,15 @@ public:
     switch (index) 
     {
     case 0:
-      return F("The thermistor nominal resistance (Kohms)");
+      return F("Thermistor nominal resistance (Kohms)");
     case 1:
-      return F("The reference resistor value (Kohms)");
+      return F("Reference resistor value (Kohms)");
     case 2:
-      return F("The thermistor B coefficient");
+      return F("Thermistor B coefficient");
     case 3:
-      return F("The thermistor reference temperature (Celsius)");
+      return F("Thermistor reference temperature (Celsius)");
     case 4:
-      return F("The calibration temperature adjustment (Celsius)");
+      return F("Calibration temperature adjustment (Celsius)");
     default:
       return false;
     }

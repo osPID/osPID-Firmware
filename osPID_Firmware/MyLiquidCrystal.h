@@ -26,7 +26,7 @@ public:
   {
     char c;
     byte i = 16;
-    while ((c = (char) pgm_read_byte(s++)) && (i > 0))
+    while ((c = (char) pgm_read_byte_near(s++)) && (i > 0))
     {
       this->print(c);
       i--;

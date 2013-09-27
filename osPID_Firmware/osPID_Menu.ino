@@ -9,6 +9,7 @@
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("MENU"), __LINE__);
 
+
 enum { firstDigitPosition = 4, lastDigitPosition = 8 };
 
 enum { MENU_FLAG_2x2_FORMAT = 0x01 };
@@ -257,9 +258,9 @@ static void drawStartupBanner()
 {
   // display a startup message
   theLCD.setCursor(0, 0);
-  theLCD.println(PSTR(" osPID"));
+  theLCD.println(" osPID");
   theLCD.setCursor(0, 1);
-  theLCD.println(PSTR(" " OSPID_VERSION_TAG));
+  theLCD.println(" " OSPID_VERSION_TAG);
 }
 
 // draw a banner reporting a bad EEPROM checksum
@@ -271,7 +272,7 @@ static void drawBadCsum(byte profile)
     theLCD.println(PSTR("Config"));
   else
   {
-    theLCD.println(PSTR("Profile X"));
+    theLCD.println(PSTR("Profile"));
     theLCD.setCursor(8, 0);
     theLCD.print(profile + 1);
   }
@@ -371,7 +372,7 @@ static void drawDecimalValue(byte item)
   const byte decimals = decimalItemData[itemIndex].decimalPlaces();
 
   // flash "Trip" for the setpoint if the controller has hit a limit trip
-  if (tripped && item == ITEM_SETPOINT)
+  if (tripped && (item == ITEM_SETPOINT))
   {
     theLCD.print(icon);
     if (now & 0x400)
@@ -380,12 +381,12 @@ static void drawDecimalValue(byte item)
       theLCD.spc(6);
     return;
   }
-  if (num == -10000 && item == ITEM_INPUT)
+  if ((num == -19999) && (item == ITEM_INPUT))
   {
     // display an error
     theLCD.print(icon);
     if (now & 0x400)
-      theLCD.print(F(" IOErr"));
+      theLCD.print(F(" Err  "));
     else
       theLCD.spc(6);
     return;
@@ -429,7 +430,7 @@ static void drawSelector(byte item, bool selected)
 
   bool canEdit = canEditItem(item);
 
-  if (menuState.editing && !canEdit && millis() > menuState.editStartMillis + 1000)
+  if (menuState.editing && !canEdit && (millis() > menuState.editStartMillis + 1000))
   {
     // cancel the disallowed edit
     stopEditing();
@@ -454,13 +455,14 @@ static void drawProfileName(byte profileIndex)
 // draw an item occupying a full 8x1 display line
 static void drawFullRowItem(byte row, bool selected, byte item)
 {
-  theLCD.setCursor(0,row);
+  long int kbps;
+  theLCD.setCursor(0, row);
 
   // first draw the selector
   drawSelector(item, selected);
 
   // then draw the item
-  if (item >= FIRST_DECIMAL_ITEM && item < FIRST_ACTION_ITEM)
+  if ((item >= FIRST_DECIMAL_ITEM) && (item < FIRST_ACTION_ITEM))
   {
     drawDecimalValue(item);
     switch (item)
@@ -484,7 +486,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     default:
       theLCD.spc(3);
     }
-      theLCD.spc(4);
+    theLCD.spc(4);
   }
   else switch (item)
   {
@@ -553,25 +555,16 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     theLCD.println(PSTR("DS18B20+"));
     break;
   case ITEM_COMM_9p6k:
-    theLCD.println(PSTR("9600 baud"));
-    break;
   case ITEM_COMM_14p4k:
-    theLCD.println(PSTR("14400 baud"));
-    break;
   case ITEM_COMM_19p2k:
-    theLCD.println(PSTR("19200 baud"));
-    break;
   case ITEM_COMM_28p8k:
-    theLCD.println(PSTR("28800 baud"));
-    break;
   case ITEM_COMM_38p4k:
-    theLCD.println(PSTR("38400 baud"));
-    break;
   case ITEM_COMM_57p6k:
-    theLCD.println(PSTR("57600 baud"));
-    break;
   case ITEM_COMM_115k:
-    theLCD.println(PSTR("115200 baud"));
+    kbps = pgm_read_dword_near(&serialSpeedTable[item - ITEM_COMM_9p6k]);
+    theLCD.print(kbps);
+    theLCD.println(PSTR(" baud"));
+    theLCD.spc(5 + (item == ITEM_COMM_9p6k) + (item < ITEM_COMM_115k));
     break;
   case ITEM_POWERON_DISABLE:
     theLCD.println(PSTR("Disable"));
@@ -611,38 +604,33 @@ static void drawStatusFlash()
 {
   byte flashState = (( millis() & 0xC00 ) >> 10);
 
-  char ch;
-  if (tripped && (flashState < 3))
+  char ch = 0;
+  if (tripped && (flashState > 0))
   {   
-    if ((flashState & 1) == 0) 
+    if ((flashState & 1) > 0) 
     {
       ch = '!';
-      drawNotificationCursor(ch);
     }
   }
-  else if (tuning && (flashState < 3))
+  else if (tuning && (flashState > 0))
   {
-    if ((flashState & 1) == 0) 
+    if ((flashState & 1) > 0) 
     {
       ch = 't';
-      drawNotificationCursor(ch);
     }
   }
-  else if (runningProfile && (flashState < 2))
+  else if (runningProfile && (flashState > 1))
   {
-    if (flashState == 0)
-      drawNotificationCursor('P');
+    if (flashState == 2)
+      ch = 'P';
     else
     {
-      if (currentProfileStep < 10)
-        ch = currentProfileStep + '0';
-      else
-        ch = currentProfileStep + 'A' - 10;
-      drawNotificationCursor(ch);
+      ch = hex(currentProfileStep);
     }
   }
   else
-    drawNotificationCursor(0);
+    ch = 0;
+  drawNotificationCursor(0);
 }
 
 // draw an item which takes up half a row (4 characters),
@@ -655,17 +643,12 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 
   switch (item)
   {
+  theLCD.print(F("SP"));  
   case ITEM_SETPOINT1:
-    theLCD.print(F("SP1"));
-    break;
   case ITEM_SETPOINT2:
-    theLCD.print(F("SP2"));
-    break;
   case ITEM_SETPOINT3:
-    theLCD.print(F("SP3"));
-    break;
   case ITEM_SETPOINT4:
-    theLCD.print(F("SP4"));
+    theLCD.print((char)'1' + item - ITEM_SETPOINT1);
     break;
   default:
     BUGCHECK();
@@ -830,14 +813,14 @@ static void updownKeyPress(bool up)
     switch (item)
     {
     case ITEM_PID_MODE:
-      modeIndex = (modeIndex == 0 ? 1 : 0);
+      modeIndex ^= 1; //= (modeIndex == 0 ? 1 : 0);
       // use the manual output value
       if (modeIndex == MANUAL)
         output = double(manualOutput);
       myPID.SetMode(modeIndex);
       break;
     case ITEM_PID_DIRECTION:
-      ctrlDirection = (ctrlDirection == 0 ? 1 : 0);
+      ctrlDirection ^= 1; //= (ctrlDirection == 0 ? 1 : 0);
       myPID.SetControllerDirection(ctrlDirection);
       break;
     case ITEM_TRIP_ENABLED:
@@ -897,7 +880,7 @@ static void okKeyPress()
         menuState.editDepth++;
     }
 
-    if (menuState.editDepth > lastDigitPosition || item >= FIRST_ACTION_ITEM)
+    if ((menuState.editDepth > lastDigitPosition) || (item >= FIRST_ACTION_ITEM))
       stopEditing();
 
     return;
@@ -952,7 +935,7 @@ static void okKeyPress()
   if (item < FIRST_ACTION_ITEM)
   {
     // the setpoint flashes "Trip" if the unit has tripped; OK clears the trip
-    if (tripped && item == ITEM_SETPOINT)
+    if (tripped && (item == ITEM_SETPOINT))
     {
       tripped = false;
       output = double(manualOutput);
@@ -1014,10 +997,6 @@ static void okKeyPress()
     if (theInputCard.writeIntegerSetting(0, item - ITEM_INPUT_THERMISTOR))
       ;
     theInputCard.initialize();
-    if (!theInputCard.initialized) {
-      // failed to locate 1-wire devices
-      // display error message
-    }
     markSettingsDirty();
 
     // return to the prior menu

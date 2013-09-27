@@ -84,7 +84,7 @@ public:
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     if (index == 0) 
-      return F("Output PWM window size in milliseconds");
+      return F("Output PWM cycle length in milliseconds");
     return 0;
   }
 
