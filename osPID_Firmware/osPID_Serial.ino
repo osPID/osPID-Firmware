@@ -447,51 +447,55 @@ static void cmdExamineSettings()
   // peripheral card settings
   serialPrint(F("Input card "));
   serialPrintFCalibrationData();
-  for (byte i = 0; i < theInputCard.integerSettingsCount(); i++)
+/*
+  for (byte i = 0; i < theInputCard->integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputCard.describeIntegerSetting(i);
+    const __FlashStringHelper *description = theInputCard->describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputCard.readIntegerSetting(i));
+    serialPrintln(theInputCard->readIntegerSetting(i));
     Serial.println();
   }
-  for (byte i = 0; i < theInputCard.floatSettingsCount(); i++)
+*/
+  for (byte i = 0; i < theInputCard->floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputCard.describeFloatSetting(i);
+    const __FlashStringHelper *description = theInputCard->describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputCard.readFloatSetting(i));
+    serialPrintln(theInputCard->readFloatSetting(i));
     Serial.println();
   }
 
   serialPrint(F("Output card "));
   serialPrintFCalibrationData();  
-  for (byte i = 0; i < theOutputCard.integerSettingsCount(); i++)
+/*
+  for (byte i = 0; i < theOutputCard->integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputCard.describeIntegerSetting(i);
+    const __FlashStringHelper *description = theOutputCard->describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputCard.readIntegerSetting(i));
+    serialPrintln(theOutputCard->readIntegerSetting(i));
     Serial.println();
   }
-  for (byte i = 0; i < theOutputCard.floatSettingsCount(); i++)
+*/
+  for (byte i = 0; i < theOutputCard->floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputCard.describeFloatSetting(i);
+    const __FlashStringHelper *description = theOutputCard->describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputCard.readFloatSetting(i));
+    serialPrintln(theOutputCard->readFloatSetting(i));
     Serial.println();
   }
 }

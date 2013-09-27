@@ -6,7 +6,8 @@
 
 // a "card" which simulates a simple plant including a proportional heating
 // term, a thermal loss rate, and some measurement noise
-class ospCardSimulator : public ospBaseInputCard, public ospBaseOutputCard {
+class ospCardSimulator : public ospBaseInputCard, public ospBaseOutputCard 
+{
 private:
   double kpmodel, taup, theta[30];
   double input;
@@ -22,7 +23,8 @@ public:
   }
 
   // setup the card
-  void initialize() {
+  void initialize() 
+  {
     input = inputStart;
 
     for(int i = 0; i < 30; i++)
@@ -34,10 +36,13 @@ public:
 
   // how many settings does this card have
   byte floatSettingsCount() { return 2; }
+/*
   byte integerSettingsCount() { return 0; }
+*/
 
   // read settings from the card
-  double readFloatSetting(byte index) {
+  double readFloatSetting(byte index) 
+  {
     switch (index) {
     case 0:
       return kpmodel;
@@ -47,14 +52,18 @@ public:
       return -1.0f;
     }
   }
-
-  int readIntegerSetting(byte index) {
+/*
+  int readIntegerSetting(byte index) 
+  {
     return -1;
   }
+*/
 
   // write settings to the card
-  bool writeFloatSetting(byte index, double val) {
-    switch (index) {
+  bool writeFloatSetting(byte index, double val) 
+  {
+    switch (index) 
+    {
     case 0:
       kpmodel = val;
       return true;
@@ -65,30 +74,36 @@ public:
       return false;
     }
   }
-
-  bool writeIntegerSetting(byte index, int val) {
+/*
+  bool writeIntegerSetting(byte index, int val) 
+  {
     return false;
   }
+*/
 
   // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) {
+  void saveSettings(ospSettingsHelper& settings) 
+  {
     settings.save(kpmodel);
     settings.save(taup);
   }
 
-  void restoreSettings(ospSettingsHelper& settings) {
+  void restoreSettings(ospSettingsHelper& settings) 
+  {
     settings.restore(kpmodel);
     settings.restore(taup);
   }
 
   // pretend to read an input from the input card
-  double readInput() {
+  double readInput() 
+  {
     updateModel();
     return input;
   }
 
   // pretend to write a control signal to the output card
-  void setOutputPercent(double percent) {
+  void setOutputPercent(double percent) 
+  {
     theta[29] = percent;
   }
 

@@ -257,9 +257,9 @@ static void saveEEPROMSettings()
   settings.save((byte) EEPROM_STORAGE_VERSION);
 
   settings.fillUpTo(INPUT_CARD_SETTINGS_OFFSET);
-  theInputCard.saveSettings(settings);
+  theInputCard->saveSettings(settings);
   settings.fillUpTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  theOutputCard.saveSettings(settings);
+  theOutputCard->saveSettings(settings);
 
   // fill any trailing unused space
   settings.fillUpTo(SETTINGS_SBYTE1_OFFSET + SETTINGS_CRC_LENGTH);
@@ -310,9 +310,9 @@ static void restoreEEPROMSettings()
   settings.restore(upperTripLimit);
 
   settings.skipTo(INPUT_CARD_SETTINGS_OFFSET);
-  theInputCard.restoreSettings(settings);
+  theInputCard->restoreSettings(settings);
   settings.skipTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  theOutputCard.restoreSettings(settings);
+  theOutputCard->restoreSettings(settings);
 }
 
 // check the CRC-16 of the i'th profile block

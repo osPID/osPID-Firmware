@@ -7,10 +7,7 @@
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
 #include "ospAnalogButton.h"
-#include "ospCardSimulator.h"
 #include "ospDecimalValue.h"
-#include "ospDigitalOutputStripboard.h"
-#include "ospTemperatureInputStripboard.h"
 #include "ospProfile.h"
 
 #undef BUGCHECK
@@ -43,14 +40,40 @@
  * simple system.
  *******************************************************************************/
 
+
 #undef USE_SIMULATOR
 #ifndef USE_SIMULATOR
-ospTemperatureInputStripboardV1_0 theInputCard;
-ospDigitalOutputStripboardV1_0 theOutputCard;
+#include "ospDigitalOutputCard.h"
+#include "ospTemperatureInputCardOneWire.h"
+#include "ospTemperatureInputCardThermocouple.h"
+#include "ospTemperatureInputCardThermistor.h"
+ospTemperatureInputCardThermistor thermistor;
+ospTemperatureInputCardThermocouple thermocouple;
+ospTemperatureInputCardOneWire ds18b20;
+enum { numInputCards = 3 };
+ospTemperatureInputCard *inputCards[numInputCards] = { &thermistor, &thermocouple, &ds18b20 };
+enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE = 1, INPUT_THERMOCOUPLE = 2 };
+byte inputType = INPUT_THERMISTOR;
+ospDigitalOutputCard ssr;
+enum { numOutputCards = 1 };
+enum { OUTPUT_SSR = 0 };
+byte outputType = OUTPUT_SSR;
+ospDigitalOutputCard *outputCards[numOutputCards] = { &ssr };
 #else
-ospCardSimulator theInputCard
+#include "ospCardSimulator.h"
+ospCardSimulator simulator;
+enum { numInputCards = 1 };
+ospTemperatureInputCard *inputCards[numInputCards] = { &simulator };
+enum { SIMULATOR = 0 };
+byte inputType = SIMULATOR;
+enum { numOutputCards = 1 };
+byte outputType = SIMULATOR;
+ospDigitalOutputCard *outputCards[numOutputCards] = { &simulator };
 #define theOutputCard theInputCard
 #endif
+
+ospTemperatureInputCard *theInputCard  = inputCards[inputType];
+ospDigitalOutputCard    *theOutputCard = outputCards[outputType];
 
 // the 7 character version tag is displayed in the startup tag and the Identify response
 #define OSPID_VERSION_TAG "v3.0sps"
@@ -168,8 +191,8 @@ void setup()
   now = millis();
 
   // set up the peripheral cards
-  theInputCard.initialize();
-  theOutputCard.initialize();
+  theInputCard->initialize();
+  theOutputCard->initialize();
 
   // load the EEPROM settings
   setupEEPROM();
@@ -211,8 +234,8 @@ void setup()
 
   // kick things off by requesting sensor input
   now = millis();
-  if (theInputCard.initialized)
-    readInputTime = now + theInputCard.requestInput();
+  if (theInputCard->initialized)
+    readInputTime = now + theInputCard->requestInput();
 
   controllerIsBooting = false;
 }
@@ -361,11 +384,11 @@ static void markSettingsDirty()
   setpoint = double( setPoints[ setpointIndex ] );
 
   // capture any changes to the calibration value
-  if (theOutputCard.writeFloatSetting( 0, double(DWindow)))
+  if (theOutputCard->writeFloatSetting( 0, double(DWindow)))
           ;
   
   // capture any changes to the output window length
-  if (theInputCard.writeFloatSetting( 4, double(DCalibration)))
+  if (theInputCard->writeFloatSetting( 4, double(DCalibration)))
           ;
 
   settingsWritebackNeeded = true;
@@ -421,12 +444,12 @@ void loop()
   now = millis();
 
   // highest priority task is to update the output
-  theOutputCard.setOutputPercent(output);
+  theOutputCard->setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputCard.initialized && (now > readInputTime))
+  if (theInputCard->initialized && (now > readInputTime))
   {
-    input = theInputCard.readInput();
+    input = theInputCard->readInput();
     if (!isnan(input))
     {
       pidInput = input;
@@ -491,11 +514,11 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (!theInputCard.initialized)
+  if (!theInputCard->initialized)
   {
     input = NAN;
-    fakeInput = ospDecimalValue<1>{-19999}; // NAN
-    theInputCard.initialize();
+    fakeInput = (ospDecimalValue<1>){-19999}; // NAN
+    theInputCard->initialize();
   }     
 
   now = millis();

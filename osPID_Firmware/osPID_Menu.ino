@@ -87,8 +87,9 @@ enum
   ITEM_PID_DIRECTION,
 
   ITEM_INPUT_THERMISTOR,
-  ITEM_INPUT_THERMOCOUPLE,
   ITEM_INPUT_ONEWIRE,
+  ITEM_INPUT_THERMOCOUPLE,
+  ITEM_INPUT_SIMULATOR,
 
   ITEM_COMM_9p6k,
   ITEM_COMM_14p4k,
@@ -119,7 +120,11 @@ PROGMEM const byte configMenuItems[11] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIB
   ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
-PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_THERMOCOUPLE, ITEM_INPUT_ONEWIRE };
+#ifndef USE_SIMULATOR
+PROGMEM const byte inputMenuItems[3] = { ITEM_INPUT_THERMISTOR, ITEM_INPUT_ONEWIRE, ITEM_INPUT_THERMOCOUPLE };
+#else
+PROGMEM const byte inputMenuItems[1] = { ITEM_SIMULATOR };
+#endif
 PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_COMM_19p2k, ITEM_COMM_28p8k,
   ITEM_COMM_38p4k, ITEM_COMM_57p6k, ITEM_COMM_115k };
 PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
@@ -548,11 +553,14 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_INPUT_THERMISTOR:
     theLCD.println(PSTR("Thermistor"));
     break;
+  case ITEM_INPUT_ONEWIRE:   
+    theLCD.println(PSTR("DS18B20+"));
+    break;
   case ITEM_INPUT_THERMOCOUPLE:
     theLCD.println(PSTR("Thermocouple"));
     break;
-  case ITEM_INPUT_ONEWIRE:   
-    theLCD.println(PSTR("DS18B20+"));
+  case ITEM_INPUT_SIMULATOR:
+    theLCD.println(PSTR("Simulation"));
     break;
   case ITEM_COMM_9p6k:
   case ITEM_COMM_14p4k:
@@ -901,7 +909,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      DWindow = makeDecimal<1>(theOutputCard.readFloatSetting(0)); // outputWindowSeconds
+      DWindow = makeDecimal<1>(theOutputCard->readFloatSetting(0)); // outputWindowSeconds
     }
 
     // it's a menu: open that menu
@@ -916,7 +924,7 @@ static void okKeyPress()
       menuState.highlightedItemMenuIndex = setpointIndex;
       break;
     case ITEM_INPUT_MENU:
-      menuState.highlightedItemMenuIndex = theInputCard.readIntegerSetting(0); // inputType
+      menuState.highlightedItemMenuIndex = inputType;
       break;
     case ITEM_COMM_MENU:
       menuState.highlightedItemMenuIndex = serialSpeed;
@@ -994,9 +1002,11 @@ static void okKeyPress()
   case ITEM_INPUT_THERMISTOR:
   case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
-    if (theInputCard.writeIntegerSetting(0, item - ITEM_INPUT_THERMISTOR))
-      ;
-    theInputCard.initialize();
+  case ITEM_INPUT_SIMULATOR:
+  // update inputType
+    inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);
+    theInputCard = inputCards[inputType];
+    theInputCard->initialize();
     markSettingsDirty();
 
     // return to the prior menu

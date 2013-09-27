@@ -1,39 +1,36 @@
-#ifndef OSPDIGITALOUTPUTSTRIPBOARD_H
-#define OSPDIGITALOUTPUTSTRIPBOARD_H
+#ifndef OSPDIGITALOUTPUTCARD_H
+#define OSPDIGITALOUTPUTCARD_H
 
 #include "ospCards.h"
+#include "ospSettingsHelper.h"
 
 class ospDigitalOutputCard : 
 public ospBaseOutputCard 
 {
 private:
-  enum { 
-    SSRPin = A3   };
-  enum { 
-    OUTPUT_SSR = 1   };
-
-  byte outputType;
+  enum { SSRPin = A3 };
+  
   double outputWindowSeconds;
   unsigned long outputWindowMilliseconds;
 
 public:
-  ospDigitalOutputCard() 
-: 
+  ospDigitalOutputCard() : 
     ospBaseOutputCard(),
-    outputType(OUTPUT_SSR),
-    outputWindowSeconds(5.0),
+    outputWindowSeconds(5.0), // 5s OK for SSR depending on the load, needs to be longer for electromechanical relay
     outputWindowMilliseconds(5000)
-    { 
-    }
+  { 
+  }
+
 
   void initialize() 
   {
     pinMode(SSRPin, OUTPUT);
   }
 
+
   const __FlashStringHelper *cardIdentifier() 
   { 
-    return F("OUT_DIGITAL"); 
+    return F("SSR Output"); 
   }
 
   // how many settings does this card have
@@ -41,10 +38,12 @@ public:
   { 
     return 1; 
   }
+/*
   byte integerSettingsCount() 
   { 
-    return 1; 
+    return 0; 
   }
+*/
 
   // read settings from the card
   double readFloatSetting(byte index) 
@@ -53,13 +52,12 @@ public:
       return outputWindowSeconds;
     return -1.0f;
   }
-
+/*
   int readIntegerSetting(byte index) 
   {
-    if (index == 0)
-      return outputType;
     return -1;
   }
+*/
 
   // write settings to the card
   bool writeFloatSetting(byte index, double val) 
@@ -72,36 +70,39 @@ public:
     }
     return false;
   }
+/*
+  bool writeIntegerSetting(byte index, int val)
+  {
+    return false;
+  } 
+*/
 
   // describe the available settings
-  const __FlashStringHelper *describeIntegerSetting(byte index) 
-  {
-    if (index == 0) 
-      return F("Output type = SSR (1)");
-    return 0;
-  }
-
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     if (index == 0) 
       return F("Output PWM cycle length in milliseconds");
     return 0;
   }
+/*
+  const __FlashStringHelper *describeIntegerSetting(byte index) 
+  {
+    return 0;
+  }
+*/
 
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    settings.save(outputType);
     settings.save(outputWindowMilliseconds);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    settings.restore(outputType);
     settings.restore(outputWindowMilliseconds);
   }
 
-  void setOutputPercent(double percent) 
+  void setOutputPercent(double percent)
   {
     unsigned long wind = millis() % outputWindowMilliseconds;
     unsigned long oVal = (unsigned long)(percent * 0.01 * (double)outputWindowMilliseconds);
@@ -109,7 +110,6 @@ public:
   }
 };
 
-typedef ospDigitalOutputCard ospDigitalOutputStripboardV1_0;
 
 #endif
 

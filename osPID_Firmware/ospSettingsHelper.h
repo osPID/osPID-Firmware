@@ -6,7 +6,8 @@
 #include <avr/eeprom.h>
 #include <util/crc16.h>
 
-class ospSettingsHelper {
+class ospSettingsHelper 
+{
 private:
   unsigned int crc16;
   int address;
@@ -26,37 +27,44 @@ public:
   {
   }
 
-  template<typename T> void save(const T& value) {
+  template<typename T> void save(const T& value) 
+  {
     const byte *p = (const byte *)&value;
     
     saveSize<sizeof(T)>(p);
   }
 
-  template<typename T> void restore(T& value) {
+  template<typename T> void restore(T& value) 
+  {
     eepromRead(address, value);
     address += sizeof(T);
   }
 
-  void fillUpTo(int endAddress) {
+  void fillUpTo(int endAddress) 
+  {
     byte ff = 0xFF;
-    while (address < endAddress) {
+    while (address < endAddress) 
+    {
       save(ff);
     }
   }
 
-  void skipTo(int newAddress) {
+  void skipTo(int newAddress) 
+  {
     address = newAddress;
   }
 
   unsigned int crcValue() const { return crc16; }
 
-  template<typename T> static void eepromRead(unsigned int address, T& value) {
+  template<typename T> static void eepromRead(unsigned int address, T& value) 
+  {
     byte *p = (byte *)&value;
 
     eepromReadSize<sizeof(T)>(address, p);
   }
 
-  template<typename T> static void eepromWrite(unsigned int address, const T& value) {
+  template<typename T> static void eepromWrite(unsigned int address, const T& value) 
+  {
     const byte *p = (const byte *)&value;
 
     eepromWriteSize<sizeof(T)>(address, p);
@@ -67,13 +75,15 @@ public:
   // it is basically a clone of the implementation of eeprom_write_byte, except that
   // we program EEPM1 to 1 to set program-only mode (rather than erase-then-program
   // mode, which is the default of 0)
-  template<typename T> static void eepromClearBits(unsigned int address, const T& value) {
+  template<typename T> static void eepromClearBits(unsigned int address, const T& value) 
+  {
     const byte *p = (const byte *)&value;
 
     eepromClearBitsSize<sizeof(T)>(address, p);
   }
 
 };
+
 
 #endif
 
