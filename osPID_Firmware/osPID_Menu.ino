@@ -85,6 +85,7 @@ enum
 
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
+  ITEM_UNITS,
 
   ITEM_INPUT_THERMISTOR,
   ITEM_INPUT_ONEWIRE,
@@ -111,13 +112,14 @@ enum
 
   ITEM_COUNT,
   MENU_COUNT = FIRST_DECIMAL_ITEM,
-  DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM
+  DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM,
+  TEMPERATURE_ITEM_COUNT = 5
 };
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[11] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
-  ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[12] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
+  ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_UNITS, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 #ifndef USE_SIMULATOR
@@ -130,6 +132,7 @@ PROGMEM const byte commMenuItems[7] = { ITEM_COMM_9p6k, ITEM_COMM_14p4k, ITEM_CO
 PROGMEM const byte poweronMenuItems[3] = { ITEM_POWERON_DISABLE, ITEM_POWERON_CONTINUE, ITEM_POWERON_RESUME_PROFILE };
 PROGMEM const byte tripMenuItems[4] = { ITEM_TRIP_ENABLED, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT, ITEM_TRIP_AUTORESET };
 PROGMEM const byte resetRomMenuItems[2] = { ITEM_RESET_ROM_NO, ITEM_RESET_ROM_YES };
+PROGMEM const byte temperatureItems[TEMPERATURE_ITEM_COUNT] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_CALIBRATION, ITEM_LOWER_TRIP_LIMIT, ITEM_UPPER_TRIP_LIMIT };
 
 // This must be in the same order as the ITEM_*_MENU enumeration values
 PROGMEM const MenuItem menuData[MENU_COUNT] =
@@ -155,7 +158,6 @@ struct DecimalItem
   char pmemIcon;
   byte pmemFlags;
   void *pmemValPtr;
-  bool temperature;
 
   enum 
   {
@@ -210,10 +212,6 @@ struct DecimalItem
     return 9999;
   }
 
-  int decimalCtoF()
-  {
-  }
-
   int currentValue() const 
   {
     int *p = (int *)pgm_read_word_near(&pmemValPtr);
@@ -234,16 +232,16 @@ struct DecimalItem
 // This must be in the same order as the ITEM_* enumeration
 PROGMEM DecimalItem decimalItemData[DECIMAL_ITEM_COUNT] =
 {
-  { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &fakeSetpoint, true },
-  { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, NULL, true },
-  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &fakeOutput, false },
-  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain, false },
-  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain, false },
-  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain, false },
-  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &DCalibration, true },
-  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &DWindow, false },
-  { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit, true },
-  { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit, true }
+  { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &fakeSetpoint },
+  { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, &fakeInput },
+  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &fakeOutput },
+  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
+  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
+  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
+  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &DCalibration },
+  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &DWindow },
+  { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit },
+  { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit }
 };
 
 struct MenuStateData 
@@ -441,7 +439,7 @@ static void drawSelector(byte item, bool selected)
   if (menuState.editing && !canEdit && (millis() > menuState.editStartMillis + 1000))
   {
     // cancel the disallowed edit
-    stopEditing();
+    stopEditing(item);
   }
 
   if (menuState.editing)
@@ -480,14 +478,11 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     case ITEM_CALIBRATION:
     case ITEM_LOWER_TRIP_LIMIT:
     case ITEM_UPPER_TRIP_LIMIT:
-      theLCD.print(F(" \337C"));
-    /*
       theLCD.print(F(" \337"));
       if (displayCelsius)
         theLCD.print('C');
       else
         theLCD.print('F');
-    */
       break;
     case ITEM_WINDOW_LENGTH:
       theLCD.print(F(" s "));
@@ -522,6 +517,12 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     break;
   case ITEM_INPUT_MENU:
     theLCD.println(PSTR("Input"));
+    break;
+  case ITEM_UNITS:
+    if (displayCelsius)
+      theLCD.println(PSTR("Celsius"));
+    else
+      theLCD.println(PSTR("Fahrenheit"));  
     break;
   case ITEM_RESET_ROM_MENU:
     theLCD.println(PSTR("Reset Memory"));
@@ -713,10 +714,28 @@ static void startEditing(byte item)
     theLCD.cursor();
 }
 
-static void stopEditing()
+static void stopEditing(byte item)
 {
   menuState.editing = false;
   theLCD.noCursor();
+  if (item == ITEM_UNITS && changeUnitsFlag)
+    switchUnits();
+}
+
+static void switchUnits()
+{
+  if (!changeUnitsFlag)
+    return; // shouldn't happen
+  // switch units for fakeSetpoint, fakeInput, calibration, and trip limits:
+  for (byte i = TEMPERATURE_ITEM_COUNT; i > 0; i--)
+  {
+    byte decimalItemIndex = temperatureItems[i] - FIRST_DECIMAL_ITEM;
+    ospDecimalValue<1> t0 = (ospDecimalValue<1>){decimalItemData[decimalItemIndex].currentValue()};
+    t0 = (displayCelsius ? convertFtoC(t0) : convertCtoF(t0));
+    *decimalItemData[decimalItemIndex].valuePtr() = bound((int) t0, decimalItemIndex);
+  }
+  // profile information will stay in Celsius
+  changeUnitsFlag = false;
 }
 
 static void backKeyPress()
@@ -734,7 +753,7 @@ static void backKeyPress()
     }
 
     if (menuState.editDepth < firstDigitPosition)
-      stopEditing();   
+      stopEditing(item);   
 
     return;
   }
@@ -840,6 +859,9 @@ static void updownKeyPress(bool up)
     case ITEM_TRIP_AUTORESET:
       tripAutoReset = !tripAutoReset;
       break;
+    case ITEM_UNITS:
+      displayCelsius = !displayCelsius;  
+      changeUnitsFlag = !changeUnitsFlag;
     default:
       BUGCHECK();
     }
@@ -859,20 +881,26 @@ static void updownKeyPress(bool up)
   // do the in/decrement and clamp it
   int val = decimalItemData[itemIndex].currentValue();
   val += increment;
-
-  int min = decimalItemData[itemIndex].minimumValue();
-  if (val < min)
-    val = min;
-
-  int max = decimalItemData[itemIndex].maximumValue();
-  if (val > max)
-    val = max;
+  val = bound(val, itemIndex);
 
   int *valPtr = decimalItemData[itemIndex].valuePtr();
   *valPtr = val;
 
   if (item == ITEM_SETPOINT)
     setPoints[setpointIndex] = fakeSetpoint;
+}
+
+static int bound(int val, byte decimalItemIndex)
+{
+  int min = decimalItemData[decimalItemIndex].minimumValue();
+  if (val < min)
+    val = min;
+
+  int max = decimalItemData[decimalItemIndex].maximumValue();
+  if (val > max)
+    val = max;
+    
+  return val;
 }
 
 static void okKeyPress()
@@ -892,7 +920,7 @@ static void okKeyPress()
     }
 
     if ((menuState.editDepth > lastDigitPosition) || (item >= FIRST_ACTION_ITEM))
-      stopEditing();
+      stopEditing(item);
 
     return;
   }
@@ -1000,6 +1028,7 @@ static void okKeyPress()
   case ITEM_PID_DIRECTION:
   case ITEM_TRIP_ENABLED:
   case ITEM_TRIP_AUTORESET:
+  case ITEM_UNITS:
     startEditing(item);
     break;
 
@@ -1007,7 +1036,7 @@ static void okKeyPress()
   case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
   case ITEM_INPUT_SIMULATOR:
-  // update inputType
+    // update inputType
     inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);
     theInputCard = inputCards[inputType];
     theInputCard->initialize();

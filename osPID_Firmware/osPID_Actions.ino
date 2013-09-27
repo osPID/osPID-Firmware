@@ -98,7 +98,7 @@ static bool startCurrentProfileStep()
   switch (profileState.stepType)
   {
   case ospProfile::STEP_RAMP_TO_SETPOINT:
-    profileState.initialSetpoint = fakeSetpoint;
+    profileState.initialSetpoint = celsius(fakeSetpoint);
     break;
   case ospProfile::STEP_SOAK_AT_VALUE:
     // targetSetpoint is actually maximumError
@@ -107,7 +107,7 @@ static bool startCurrentProfileStep()
     setpoint = double(profileState.targetSetpoint);
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    profileState.temperatureRising = (fakeInput < profileState.targetSetpoint);
+    profileState.temperatureRising = (celsius(fakeInput) < profileState.targetSetpoint);
     break;
   default:
     return false;
@@ -139,7 +139,7 @@ static void profileLoopIteration()
         int(long(delta.rawValue()) * stepTimeLeft / profileState.stepDuration));
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
-    delta = abs(fakeSetpoint - fakeInput);
+    delta = celsius(abs(fakeSetpoint - fakeInput));
     if (delta > profileState.maximumError)
       profileState.stepEndMillis = now + profileState.stepDuration;
     // fall through
@@ -148,9 +148,9 @@ static void profileLoopIteration()
       return;
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    if ((fakeInput < profileState.targetSetpoint) && profileState.temperatureRising)
+    if ((celsius(fakeInput) < profileState.targetSetpoint) && profileState.temperatureRising)
       return; // not there yet
-    if ((fakeInput > profileState.targetSetpoint) && !profileState.temperatureRising)
+    if ((celsius(fakeInput) > profileState.targetSetpoint) && !profileState.temperatureRising)
       return;
     break;
   }

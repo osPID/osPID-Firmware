@@ -81,7 +81,7 @@ ospDigitalOutputCard    *theOutputCard = outputCards[outputType];
 #define OSPID_VERSION_TAG "v3.0sps"
 
 // we use the LiquidCrystal library to drive the LCD screen
-MyLiquidCrystal theLCD(3, 2, 7, 6, 5, 4);
+MyLiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
@@ -123,24 +123,23 @@ byte setpointIndex = 0;
 ospDecimalValue<1> manualOutput = { 0 };
 
 // temporary values during the fixed-point conversion
-ospDecimalValue<1> fakeSetpoint = { 250 }, fakeOutput = { 0 }, fakeInput = { -19999 };
+// units may be Celsius or Fahrenheit
+ospDecimalValue<1> fakeSetpoint = { 250 }, fakeInput = { -19999 }, DCalibration = { 0 };
+ospDecimalValue<1> fakeOutput = { 0 }; // percentile
+
+// we may wish to display menu options in Fahrenheit
+bool displayCelsius = true;
+bool changeUnitsFlag = false;
 
 // the variables to which the PID controller is bound
+// temperatures all in Celsius
 double setpoint = 25.0, input = NAN, output = 0.0, pidInput = 25.0;
-
-// all internal representations are in Celsius
-// we may wish to input/display in Fahrenheit
-/*
-bool displayCelsius = true;
-*/
-
-// temporary input calibration value
-ospDecimalValue<1> DCalibration = { 0 };
 
 // temporary value of output window length in seconds
 ospDecimalValue<1> DWindow = { 50 };
 
 // the hard trip limits
+// units may be Fahrenheit
 ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 2000 };
 bool tripLimitsEnabled;
 bool tripped;
@@ -179,9 +178,29 @@ enum { PID_LOOP_SAMPLE_TIME = 1000 };
 
 PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 28800, 38400, 57600, 115200 };
 
-char hex( byte b )
+char hex(byte b)
 {
   return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
+}
+
+ospDecimalValue<1> convertCtoF(ospDecimalValue<1> tC)
+{
+  return (tC * (ospDecimalValue<1>){18}).rescale<1>() + (ospDecimalValue<1>){320};
+}
+
+ospDecimalValue<1> convertFtoC(ospDecimalValue<1> tF)
+{
+  return ((tF - (ospDecimalValue<1>){320}) / (ospDecimalValue<1>){18}).rescale<1>();
+}
+
+double celsius(double t)
+{
+  return (displayCelsius ? t : (t - 32.0) / 1.8);
+}
+
+ospDecimalValue<1> celsius(ospDecimalValue<1> t)
+{
+  return (displayCelsius ? t : convertFtoC(t));
 }
 
 // initialize the controller: this is called by the Arduino runtime on bootup
@@ -260,7 +279,8 @@ static void checkButtons()
   byte button = theButtonReader.get();
   byte executeButton = BUTTON_NONE;
 
-  enum {
+  enum 
+  {
     AUTOREPEAT_DELAY = 250,
     AUTOREPEAT_PERIOD = 350
   };
@@ -390,11 +410,11 @@ static void markSettingsDirty()
 
   // capture any changes to the calibration value
   if (theOutputCard->writeFloatSetting( 0, double(DWindow)))
-          ;
+    ;
   
   // capture any changes to the output window length
-  if (theInputCard->writeFloatSetting( 4, double(DCalibration)))
-          ;
+  if (theInputCard->writeFloatSetting( 4, celsius(double(DCalibration))))
+    ;
 
   settingsWritebackNeeded = true;
 
@@ -458,7 +478,7 @@ void loop()
     if (!isnan(input))
     {
       pidInput = input;
-      fakeInput = makeDecimal<1>(input);
+      fakeInput = makeDecimal<1>(celsius(input));
     }
   }
 
