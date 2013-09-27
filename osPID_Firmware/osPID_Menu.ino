@@ -266,6 +266,9 @@ static void drawStartupBanner()
   theLCD.println(" osPID");
   theLCD.setCursor(0, 1);
   theLCD.println(" " OSPID_VERSION_TAG);
+#ifndef OSPID_SILENT  
+  tone( buzzerPin, 1000, 10 );
+#endif  
 }
 
 // draw a banner reporting a bad EEPROM checksum
@@ -947,6 +950,7 @@ static void okKeyPress()
     {
       tripped = false;
       output = double(manualOutput);
+      noTone( buzzerPin );
       return;
     }
     // it's a numeric value: mark that the user wants to edit it

@@ -952,6 +952,7 @@ static void processSerialCommand()
     if (!tripped)
       goto out_EMOD;
     tripped = false;
+    noTone( buzzerPin );
     goto out_OK; // no EEPROM writeback needed
   case 't': // set trip auto-reset
     tripAutoReset = i1;

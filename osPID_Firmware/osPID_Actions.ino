@@ -6,8 +6,6 @@
 #undef BUGCHECK
 #define BUGCHECK() ospBugCheck(PSTR("PROF"), __LINE__);
 
-// Pin assignments on the main controller card (_not_ the I/O cards)
-enum { buzzerPin = A5 };
 
 // a program invariant has been violated: suspend the controller and
 // just flash a debugging message until the unit is power cycled
@@ -90,9 +88,9 @@ static bool startCurrentProfileStep()
     return false;
 
   if (stepType & ospProfile::STEP_FLAG_BUZZER)
-    digitalWrite(buzzerPin, HIGH);
+    tone(buzzerPin, 1000);
   else
-    digitalWrite(buzzerPin, LOW);
+    noTone(buzzerPin);
 
   profileState.stepType = stepType & ospProfile::STEP_TYPE_MASK;
   profileState.stepEndMillis = now + profileState.stepDuration;
@@ -186,7 +184,7 @@ static void stopProfile()
 {
   ospAssert(runningProfile);
 
-  digitalWrite(buzzerPin, LOW);
+  noTone(buzzerPin);
   recordProfileCompletion();
   runningProfile = false;
 }

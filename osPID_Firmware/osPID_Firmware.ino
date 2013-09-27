@@ -72,6 +72,8 @@ ospDigitalOutputCard *outputCards[numOutputCards] = { &simulator };
 #define theOutputCard theInputCard
 #endif
 
+#undef OSPID_SILENT
+
 ospTemperatureInputCard *theInputCard  = inputCards[inputType];
 ospDigitalOutputCard    *theOutputCard = outputCards[outputType];
 
@@ -84,6 +86,9 @@ MyLiquidCrystal theLCD(3, 2, 7, 6, 5, 4);
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
 ospAnalogButton<A4, 0, 253, 454, 657> theButtonReader;
+
+// Pin assignment for buzzer
+enum { buzzerPin = A5 };
 
 // an in-memory buffer that we use when receiving a profile over USB
 ospProfile profileBuffer;
@@ -483,12 +488,18 @@ void loop()
   if (tripLimitsEnabled)
   {
     if (tripAutoReset)
+    {
       tripped = false;
+      noTone( buzzerPin );
+    }
 
     if (isnan(input) || (input < lowerTripLimit) || (input > upperTripLimit) || tripped)
     {
       output = 0;
       tripped = true;
+#ifndef OSPID_SILENT      
+      tone( buzzerPin, 1000 ); // continuous beep - could get pretty annoying
+#endif      
     }
   }
 
