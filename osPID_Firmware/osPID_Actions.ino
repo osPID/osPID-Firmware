@@ -1,5 +1,6 @@
 /* This file contains implementations of various user-triggered actions */
 
+#include "defines.h"
 #include "ospProfile.h"
 #include "ospAssert.h"
 
@@ -87,10 +88,12 @@ static bool startCurrentProfileStep()
   if (stepType == ospProfile::STEP_INVALID)
     return false;
 
+#ifndef OSPID_SILENT
   if (stepType & ospProfile::STEP_FLAG_BUZZER)
     tone(buzzerPin, 1000);
   else
     noTone(buzzerPin);
+#endif
 
   profileState.stepType = stepType & ospProfile::STEP_TYPE_MASK;
   profileState.stepEndMillis = now + profileState.stepDuration;
@@ -98,16 +101,16 @@ static bool startCurrentProfileStep()
   switch (profileState.stepType)
   {
   case ospProfile::STEP_RAMP_TO_SETPOINT:
-    profileState.initialSetpoint = celsius(fakeSetpoint);
+    profileState.initialSetpoint = makeDecimal<1>(activeSetPoint);
     break;
   case ospProfile::STEP_SOAK_AT_VALUE:
     // targetSetpoint is actually maximumError
     break;
   case ospProfile::STEP_JUMP_TO_SETPOINT:
-    setpoint = double(profileState.targetSetpoint);
+    activeSetPoint = double(profileState.targetSetpoint);
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    profileState.temperatureRising = (celsius(fakeInput) < profileState.targetSetpoint);
+    profileState.temperatureRising = (lastGoodInput < double(profileState.targetSetpoint));
     break;
   default:
     return false;
@@ -120,7 +123,7 @@ static bool startCurrentProfileStep()
 // running
 static void profileLoopIteration()
 {
-  ospDecimalValue<1> delta;
+  double delta;
   ospAssert(!tuning);
   ospAssert(runningProfile);
 
@@ -130,17 +133,17 @@ static void profileLoopIteration()
   case ospProfile::STEP_RAMP_TO_SETPOINT:
     if (stepTimeLeft >= 0)
     {
-      setpoint = double(profileState.targetSetpoint);
+      activeSetPoint = double(profileState.targetSetpoint);
       break;
     }
-    delta = profileState.targetSetpoint - profileState.initialSetpoint;
+    delta = double(profileState.targetSetpoint - profileState.initialSetpoint);
     // FIXME: does this handle rounding correctly?
-    fakeSetpoint = profileState.targetSetpoint - makeDecimal<1>(
-        int(long(delta.rawValue()) * stepTimeLeft / profileState.stepDuration));
+    activeSetPoint = double(profileState.targetSetpoint) - 
+      (delta * stepTimeLeft / profileState.stepDuration);
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
-    delta = celsius(abs(fakeSetpoint - fakeInput));
-    if (delta > profileState.maximumError)
+    delta = abs(activeSetPoint - lastGoodInput);
+    if (delta > double(profileState.maximumError))
       profileState.stepEndMillis = now + profileState.stepDuration;
     // fall through
   case ospProfile::STEP_JUMP_TO_SETPOINT:
@@ -148,13 +151,13 @@ static void profileLoopIteration()
       return;
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    if ((celsius(fakeInput) < profileState.targetSetpoint) && profileState.temperatureRising)
+    if ((lastGoodInput < double(profileState.targetSetpoint)) && profileState.temperatureRising)
       return; // not there yet
-    if ((celsius(fakeInput) > profileState.targetSetpoint) && !profileState.temperatureRising)
+    if ((lastGoodInput > double(profileState.targetSetpoint)) && !profileState.temperatureRising)
       return;
     break;
   }
-
+  
   // this step is done: load the next one if it exists
   recordProfileStepCompletion(currentProfileStep);
   if (currentProfileStep < ospProfile::NR_STEPS) 

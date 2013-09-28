@@ -3,6 +3,7 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <avr/pgmspace.h>
+#include "defines.h"
 #include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
@@ -41,7 +42,6 @@
  *******************************************************************************/
 
 
-#undef USE_SIMULATOR
 #ifndef USE_SIMULATOR
 #include "ospDigitalOutputCard.h"
 #include "ospTemperatureInputCardOneWire.h"
@@ -51,41 +51,39 @@ ospTemperatureInputCardThermistor thermistor;
 ospTemperatureInputCardThermocouple thermocouple;
 ospTemperatureInputCardOneWire ds18b20;
 enum { numInputCards = 3 };
-ospTemperatureInputCard *inputCards[numInputCards] = { &thermistor, &thermocouple, &ds18b20 };
+ospTemperatureInputCard *inputCard[numInputCards] = { &thermistor, &thermocouple, &ds18b20 };
 enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE = 1, INPUT_THERMOCOUPLE = 2 };
 byte inputType = INPUT_THERMISTOR;
 ospDigitalOutputCard ssr;
 enum { numOutputCards = 1 };
 enum { OUTPUT_SSR = 0 };
 byte outputType = OUTPUT_SSR;
-ospDigitalOutputCard *outputCards[numOutputCards] = { &ssr };
+ospDigitalOutputCard *outputCard[numOutputCards] = { &ssr };
 #else
 #include "ospCardSimulator.h"
 ospCardSimulator simulator;
 enum { numInputCards = 1 };
-ospTemperatureInputCard *inputCards[numInputCards] = { &simulator };
+ospTemperatureInputCard *inputCard[numInputCards] = { &simulator };
 enum { SIMULATOR = 0 };
 byte inputType = SIMULATOR;
 enum { numOutputCards = 1 };
 byte outputType = SIMULATOR;
-ospDigitalOutputCard *outputCards[numOutputCards] = { &simulator };
+ospDigitalOutputCard *outputCard[numOutputCards] = { &simulator };
 #define theOutputCard theInputCard
 #endif
 
-#undef OSPID_SILENT
 
-ospTemperatureInputCard *theInputCard  = inputCards[inputType];
-ospDigitalOutputCard    *theOutputCard = outputCards[outputType];
+ospTemperatureInputCard *theInputCard  = inputCard[inputType];
+ospDigitalOutputCard    *theOutputCard = outputCard[outputType];
 
-// the 7 character version tag is displayed in the startup tag and the Identify response
-#define OSPID_VERSION_TAG "v3.0sps"
+
 
 // we use the LiquidCrystal library to drive the LCD screen
 MyLiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
-ospAnalogButton<A4, 0, 253, 454, 657> theButtonReader;
+ospAnalogButton<A4, 100, 253, 454, 657> theButtonReader;
 
 // Pin assignment for buzzer
 enum { buzzerPin = A5 };
@@ -114,7 +112,7 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
-ospDecimalValue<1> setPoints[4] = { { 250   } , { 750   } , { 1500   } , { 3000   } };
+ospDecimalValue<1> setPoints[4] = { { 250 }, { 750 }, { 1500 }, { 3000 } };
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
@@ -122,21 +120,32 @@ byte setpointIndex = 0;
 // the manually-commanded output value
 ospDecimalValue<1> manualOutput = { 0 };
 
-// temporary values during the fixed-point conversion
+// temporary fixed point decimal values for display and data entry
 // units may be Celsius or Fahrenheit
-ospDecimalValue<1> fakeSetpoint = { 250 }, fakeInput = { -19999 }, DCalibration = { 0 };
-ospDecimalValue<1> fakeOutput = { 0 }; // percentile
+ospDecimalValue<1> displaySetpoint = { 250 }, displayInput = { -19999 }, displayCalibration = { 0 };
+ospDecimalValue<1> displayOutput = { 0 }; // percentile
 
-// we may wish to display menu options in Fahrenheit
+// flag to display menu options in Fahrenheit
 bool displayCelsius = true;
+
+// flag to change units of display values between Celsius and Fahrenheit
 bool changeUnitsFlag = false;
+
+// the most recent measured input value
+double input = NAN; 
 
 // the variables to which the PID controller is bound
 // temperatures all in Celsius
-double setpoint = 25.0, input = NAN, output = 0.0, pidInput = 25.0;
+double activeSetPoint = 25.0;
+
+// last good input value
+double lastGoodInput = 25.0;
+
+// the output duty cycle calculated by PID controller
+double output = 0.0;   
 
 // temporary value of output window length in seconds
-ospDecimalValue<1> DWindow = { 50 };
+ospDecimalValue<1> displayWindow = { 50 };
 
 // the hard trip limits
 // units may be Fahrenheit
@@ -159,13 +168,13 @@ bool controllerIsBooting = true;
 
 // the parameters for the autotuner
 ospDecimalValue<1> aTuneStep = { 200 } , aTuneNoise = { 10 }; int aTuneLookBack = 10;
-PID_ATune aTune(&pidInput, &output);
+PID_ATune aTune(&lastGoodInput, &output);
 
 // whether the autotuner is active
 bool tuning = false;
 
 // the actual PID controller
-PID myPID(&pidInput, &output, &setpoint, double(PGain), double(IGain), double(DGain), DIRECT);
+PID myPID(&lastGoodInput, &output, &activeSetPoint, double(PGain), double(IGain), double(DGain), DIRECT);
 
 // timekeeping to schedule the various tasks in the main loop
 unsigned long now, lcdTime, readInputTime;
@@ -183,22 +192,30 @@ char hex(byte b)
   return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
 }
 
-ospDecimalValue<1> convertCtoF(ospDecimalValue<1> tC)
+ospDecimalValue<1> convertCtoF(ospDecimalValue<1> t)
 {
-  return (tC * (ospDecimalValue<1>){18}).rescale<1>() + (ospDecimalValue<1>){320};
+  t = (t * (ospDecimalValue<1>){18}).rescale<1>();
+  t = t + (ospDecimalValue<1>){320};
+  return t;
+  //return (tC * (ospDecimalValue<1>){180}).rescale<1>() + (ospDecimalValue<1>){3200};
 }
 
-ospDecimalValue<1> convertFtoC(ospDecimalValue<1> tF)
+double convertCtoF(double t)
 {
-  return ((tF - (ospDecimalValue<1>){320}) / (ospDecimalValue<1>){18}).rescale<1>();
+  return (t * 1.8 + 32.0);
+}
+
+ospDecimalValue<1> convertFtoC(ospDecimalValue<1> t)
+{
+  return ((t - (ospDecimalValue<1>){320}) / (ospDecimalValue<1>){18}).rescale<1>();
+}
+
+double convertFtoC(double t)
+{
+  return ((t - 32.0 ) / 1.8);
 }
 
 double celsius(double t)
-{
-  return (displayCelsius ? t : (t - 32.0) / 1.8);
-}
-
-ospDecimalValue<1> celsius(ospDecimalValue<1> t)
 {
   return (displayCelsius ? t : convertFtoC(t));
 }
@@ -208,7 +225,7 @@ void setup()
 {
   lcdTime = 25;
 
-  // set up the LCD
+  // set up the LCD,show controller name
   theLCD.begin(16, 2);
   drawStartupBanner();
 
@@ -219,6 +236,7 @@ void setup()
   theOutputCard->initialize();
 
   // load the EEPROM settings
+  //clearEEPROM();
   setupEEPROM();
 
   // set up the serial interface
@@ -227,8 +245,6 @@ void setup()
   delay((millis() < now + 1000) ? (now + 1000 - millis()) : 10);
 
   now = millis();
-
-  // show the controller name?
 
   // configure the PID loop
   myPID.SetSampleTime(PID_LOOP_SAMPLE_TIME);
@@ -403,18 +419,16 @@ static void markSettingsDirty()
 {
   // capture any possible changes to the output value if we're in MANUAL mode
   if (modeIndex == MANUAL && !tuning && !tripped)
-    manualOutput = fakeOutput;
+    manualOutput = displayOutput;
 
   // capture any changes to the setpoint
-  setpoint = double( setPoints[ setpointIndex ] );
+  activeSetPoint = celsius(double(setPoints[setpointIndex]));
 
-  // capture any changes to the calibration value
-  if (theOutputCard->writeFloatSetting( 0, double(DWindow)))
-    ;
-  
   // capture any changes to the output window length
-  if (theInputCard->writeFloatSetting( 4, celsius(double(DCalibration))))
-    ;
+  theOutputCard->outputWindowSeconds = double(displayWindow);
+  
+  // capture any changes to the calibration value
+  theInputCard->calibration = double(displayCalibration) / (displayCelsius ? 1.0 : 1.8);
 
   settingsWritebackNeeded = true;
 
@@ -477,8 +491,13 @@ void loop()
     input = theInputCard->readInput();
     if (!isnan(input))
     {
-      pidInput = input;
-      fakeInput = makeDecimal<1>(celsius(input));
+      lastGoodInput = input;
+      displayInput = makeDecimal<1>(input);
+      displayInput = makeDecimal<1>(displayCelsius ? input : convertCtoF(input));
+    }
+    else
+    {
+      displayInput = (ospDecimalValue<1>){-19999}; // display Err
     }
   }
 
@@ -548,7 +567,7 @@ void loop()
   if (!theInputCard->initialized)
   {
     input = NAN;
-    fakeInput = (ospDecimalValue<1>){-19999}; // NAN
+    displayInput = (ospDecimalValue<1>){-19999}; // Display Err
     theInputCard->initialize();
   }     
 

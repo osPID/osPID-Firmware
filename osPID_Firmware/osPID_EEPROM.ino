@@ -4,6 +4,7 @@
 #include <avr/eeprom.h>
 #include <util/crc16.h>
 #include <EEPROM.h>
+#include "defines.h"
 #include "ospCards.h"
 #include "ospSettingsHelper.h"
 
@@ -72,9 +73,10 @@
 *******************************************************************************/
 
 // UPDATE THIS VALUE EVERY TIME THE EEPROM LAYOUT CHANGES IN AN INCOMPATIBLE WAY
-enum { EEPROM_STORAGE_VERSION = 0 };
+enum { EEPROM_STORAGE_VERSION = 1 };
 
-enum {
+enum 
+{
   SETTINGS_CRC_OFFSET = 0,
   SETTINGS_SBYTE1_OFFSET = 2,
   SETTINGS_SBYTE2_OFFSET = 3,
@@ -91,26 +93,31 @@ enum {
   SETTINGS_OUTPUT_OFFSET = 40,
   SETTINGS_LOWER_TRIP_OFFSET = 42,
   SETTINGS_UPPER_TRIP_OFFSET = 44,
-  SETTINGS_VERSION_OFFSET = 46,
-  // free space from 47 to 71
+  SETTINGS_INPUT_TYPE = 46,
+  SETTINGS_OUTPUT_TYPE = 47, 
+  SETTINGS_DISPLAY_CELSIUS = 48,
+  SETTINGS_VERSION_OFFSET = 49,
+  // free space from 50 to 71
   INPUT_CARD_SETTINGS_OFFSET = 72,
-  OUTPUT_CARD_SETTINGS_OFFSET = 136,
+  OUTPUT_CARD_SETTINGS_OFFSET = 168,
   SETTINGS_CRC_LENGTH = 198
 };
 
-enum {
+enum 
+{
   NR_PROFILES = 3,
   PROFILE_BLOCK_START_OFFSET = 200,
-  PROFILE_BLOCK_LENGTH = 122,
+  PROFILE_BLOCK_LENGTH = 130,
   PROFILE_CRC_OFFSET = 0,
   PROFILE_NAME_OFFSET = 2,
-  PROFILE_STEP_TYPES_OFFSET = 10,
-  PROFILE_STEP_DURATIONS_OFFSET = 26,
-  PROFILE_STEP_ENDPOINTS_OFFSET = 90,
-  PROFILE_CRC_LENGTH = 120
+  PROFILE_STEP_TYPES_OFFSET = 18,
+  PROFILE_STEP_DURATIONS_OFFSET = 34,
+  PROFILE_STEP_ENDPOINTS_OFFSET = 98,
+  PROFILE_CRC_LENGTH = 128
 };
 
-enum {
+enum 
+{
   STATUS_BUFFER_START_OFFSET = PROFILE_BLOCK_START_OFFSET + NR_PROFILES * PROFILE_BLOCK_LENGTH,
   STATUS_BUFFER_LENGTH = 128,
   STATUS_BUFFER_BLOCK_LENGTH = 4,
@@ -129,20 +136,24 @@ byte statusBufferIndex = 0;
 static void setupEEPROM()
 {
   // first check the profiles
-  for (byte i = 0; i < NR_PROFILES; i++) {
-    if (!checkEEPROMProfile(i)) {
+  for (byte i = 0; i < NR_PROFILES; i++) 
+  {
+    if (!checkEEPROMProfile(i)) 
+    {
       // bad CRC: clear this profile by writing it using our hardcoded
       // "empty profile" defaults
       drawBadCsum(i);
-      profileBuffer.name[6] = '1' + i;
+      //profileBuffer.name[6] = '1' + i;
       saveEEPROMProfile(i);
     }
   }
 
   // then check and restore the global settings
-  if (checkEEPROMSettings()) {
+  if (checkEEPROMSettings()) 
+  {
     restoreEEPROMSettings();
-  } else {
+  } else 
+  {
     // bad CRC: save our hardcoded defaults
     drawBadCsum(0xFF);
     saveEEPROMSettings();
@@ -150,12 +161,14 @@ static void setupEEPROM()
 }
 
 // force a reset to factory defaults
-static void clearEEPROM() {
+static void clearEEPROM() 
+{
   // overwrite the CRC-16s
   unsigned int zero = 0;
   ospSettingsHelper::eepromWrite(SETTINGS_CRC_OFFSET, zero);
 
-  for (byte i = 0; i < NR_PROFILES; i++) {
+  for (byte i = 0; i < NR_PROFILES; i++) 
+  {
     ospSettingsHelper::eepromWrite(PROFILE_BLOCK_START_OFFSET + i*PROFILE_BLOCK_LENGTH + PROFILE_CRC_OFFSET, zero);
   }
 
@@ -167,7 +180,8 @@ static unsigned int checkEEPROMBlockCrc(int address, int length)
 {
   unsigned int crc = CRC16_INIT;
 
-  while (length--) {
+  while (length--) 
+  {
     byte b = eeprom_read_byte((byte *)address);
     crc = _crc16_update(crc, b);
     address++;
@@ -192,7 +206,8 @@ static bool checkEEPROMSettings()
   return (storedVersion == EEPROM_STORAGE_VERSION);
 }
 
-union SettingsByte1 {
+union SettingsByte1 
+{
   struct {
     byte pidMode : 1;
     byte pidDirection : 1;
@@ -206,8 +221,10 @@ union SettingsByte1 {
 
 extern byte serialSpeed;
 
-union SettingsByte2 {
-  struct {
+union SettingsByte2 
+{
+  struct 
+  {
     byte serialSpeed : 3;
     byte activeProfileIndex : 2;
     byte spare : 3;
@@ -253,13 +270,26 @@ static void saveEEPROMSettings()
 
   settings.save(lowerTripLimit);
   settings.save(upperTripLimit);
+  
+  settings.save(inputType);
+  settings.save(outputType);
 
+  settings.save(displayCelsius);
+  
   settings.save((byte) EEPROM_STORAGE_VERSION);
 
   settings.fillUpTo(INPUT_CARD_SETTINGS_OFFSET);
-  theInputCard->saveSettings(settings);
+#ifndef USE_SIMULATOR
+  for (byte i = 0; i < 3; i++ )
+  {
+    inputCard[i]->saveSettings(settings);
+  }
+#else
+  inputCard[0]->saveSettings(settings);
+#endif
+
   settings.fillUpTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  theOutputCard->saveSettings(settings);
+  outputCard[0]->saveSettings(settings);
 
   // fill any trailing unused space
   settings.fillUpTo(SETTINGS_SBYTE1_OFFSET + SETTINGS_CRC_LENGTH);
@@ -296,8 +326,8 @@ static void restoreEEPROMSettings()
   for (byte i = 0; i < NR_SETPOINTS; i++)
     settings.restore(setPoints[i]);
 
-  setpoint = double(setPoints[setpointIndex]);
-  fakeSetpoint = setPoints[0];
+  activeSetPoint = double(setPoints[setpointIndex]);
+  displaySetpoint = setPoints[0];
 
   settings.restore(aTuneStep);
   settings.restore(aTuneNoise);
@@ -308,11 +338,28 @@ static void restoreEEPROMSettings()
 
   settings.restore(lowerTripLimit);
   settings.restore(upperTripLimit);
+  
+  settings.restore(inputType);
+  settings.restore(outputType);
+  
+  settings.restore(displayCelsius);
 
   settings.skipTo(INPUT_CARD_SETTINGS_OFFSET);
-  theInputCard->restoreSettings(settings);
+#ifndef USE_SIMULATOR
+  for (byte i = 0; i < 3; i++ )
+  {
+    inputCard[i]->restoreSettings(settings);
+  }
+#else  
+  inputCard[0]->restoreSettings(settings);
+#endif
+  theInputCard = inputCard[inputType];
+  displayCalibration = makeDecimal<1>(theInputCard->calibration * (displayCelsius ? 1.0 : 1.8));
+
   settings.skipTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  theOutputCard->restoreSettings(settings);
+  outputCard[0]->restoreSettings(settings);
+  theOutputCard = outputCard[outputType];
+  displayWindow = makeDecimal<1>(theOutputCard->outputWindowSeconds);
 }
 
 // check the CRC-16 of the i'th profile block
@@ -369,8 +416,8 @@ static char getProfileNameCharAt(byte profileIndex, byte i)
                         + PROFILE_NAME_OFFSET
                         + i;
   char ch;
-  ospAssert(profileIndex >= 0 && profileIndex < NR_PROFILES);
-  ospAssert(i >= 0 && i < ospProfile::NAME_LENGTH+1);
+  ospAssert((profileIndex >= 0) && (profileIndex < NR_PROFILES));
+  ospAssert((i >= 0) && (i < ospProfile::NAME_LENGTH+1));
   ospSettingsHelper::eepromRead(address, ch);
 
   return ch;

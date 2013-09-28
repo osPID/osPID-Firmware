@@ -10,7 +10,6 @@ public ospBaseOutputCard
 private:
   enum { SSRPin = A3 };
   
-  double outputWindowSeconds;
   unsigned long outputWindowMilliseconds;
 
 public:
@@ -20,7 +19,8 @@ public:
     outputWindowMilliseconds(5000)
   { 
   }
-
+  
+  double outputWindowSeconds;
 
   void initialize() 
   {

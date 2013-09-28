@@ -3,6 +3,7 @@
 
 #include <math.h>
 #include <avr/pgmspace.h>
+#include "defines.h"
 #include "ospAssert.h"
 #include "ospProfile.h"
 
@@ -354,11 +355,11 @@ static void cmdIdentify()
 static void cmdQuery()
 {
   Serial.print(F("S "));
-  serialPrintln(fakeSetpoint);
+  serialPrintln(displaySetpoint);
   Serial.print(F("I "));
   serialPrintln(input);
   Serial.print(F("O "));
-  serialPrintln(fakeOutput);
+  serialPrintln(displayOutput);
 
   if (runningProfile)
   {
@@ -697,7 +698,7 @@ static void processSerialCommand()
       Serial.println();
       break;
     case 'O':
-      serialPrintln(fakeOutput);
+      serialPrintln(displayOutput);
       break;
     case 'o':
       serialPrintln(powerOnBehavior);
@@ -709,7 +710,7 @@ static void processSerialCommand()
       serialPrintln(ctrlDirection);
       break;
     case 'S':
-      serialPrintln(fakeSetpoint);
+      serialPrintln(displaySetpoint);
       break;
     case 's':
       serialPrintln(setpointIndex);
@@ -869,7 +870,7 @@ static void processSerialCommand()
   case 'M': // set the controller mode (PID or manual)
     modeIndex = i1;
     if (modeIndex == MANUAL)
-      fakeOutput = manualOutput;
+      displayOutput = manualOutput;
     myPID.SetMode(i1);
     break;
   case 'N': // set the unit name
@@ -896,7 +897,7 @@ static void processSerialCommand()
         goto out_EMOD;
 
       manualOutput = o;
-      fakeOutput = o;
+      displayOutput = o;
     }
     break;
   case 'o': // set power-on behavior
@@ -938,7 +939,7 @@ static void processSerialCommand()
         goto out_EMOD;
 
       setPoints[setpointIndex] = sp;
-      fakeSetpoint = sp;
+      displaySetpoint = sp;
     }
     break;
   case 's': // change the active setpoint
@@ -946,7 +947,7 @@ static void processSerialCommand()
       goto out_EINV;
 
     setpointIndex = i1;
-    setpoint = setPoints[setpointIndex];
+    activeSetPoint = setPoints[setpointIndex];
     break;
   case 'T': // clear a trip
     if (!tripped)

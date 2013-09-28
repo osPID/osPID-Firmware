@@ -45,8 +45,10 @@ public:
   {
     switch (index) {
     case 0:
+      return calibration;
+    case 1:  
       return kpmodel;
-    case 1:
+    case 2:
       return taup;
     default:
       return -1.0f;
@@ -84,12 +86,14 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
+    settings.save(calibration);
     settings.save(kpmodel);
     settings.save(taup);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
+    settings.restore(calibration);
     settings.restore(kpmodel);
     settings.restore(taup);
   }

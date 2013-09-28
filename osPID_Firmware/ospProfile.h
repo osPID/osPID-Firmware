@@ -60,7 +60,7 @@ public:
   void clear() 
   {
     nextStep = 0;
-    strcpy_P(name, PSTR("Profile1       "));
+    strcpy_P(name, PSTR("No Profile     "));
     memset(stepTypes, STEP_INVALID, sizeof(stepTypes));
     memset(stepDurations, -1, sizeof(stepDurations));
     memset(stepEndpoints, -1, sizeof(stepEndpoints));
