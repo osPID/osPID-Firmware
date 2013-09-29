@@ -9,9 +9,9 @@ class ospTemperatureInputCardThermocouple :
   public ospTemperatureInputCard 
 {
 private:
-  enum { thermocoupleSO = A0       };
-  enum { thermocoupleCS = A1       };
-  enum { thermocoupleCLK = A2      };
+  enum { thermocoupleSO = A0  };
+  enum { thermocoupleCS = A1  };
+  enum { thermocoupleCLK = A2 };
 
   MAX31855 thermocouple;
 
@@ -25,7 +25,7 @@ public:
   // setup the card
   void initialize() 
   {
-    initialized = true;
+    setInitialized(true);
   }
 
   // return the card identifier
@@ -40,7 +40,7 @@ public:
     double val = thermocouple.readThermocouple(CELSIUS);
     if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
       val = NAN;
-    return val = calibration;
+    return val + calibration();
   }
 
   // request input
@@ -66,7 +66,7 @@ public:
     switch (index) 
     {
     case 0:
-      return calibration;
+      return calibration();
     default:
       return -1.0f;
     }
@@ -84,7 +84,7 @@ public:
     switch (index) 
     {
     case 0:  
-      calibration = val;
+      setCalibration(val);
       return true;
     default:
       return false;
@@ -122,20 +122,17 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    settings.save(calibration);
+    double tempCalibration = calibration;
+    settings.save(tempCalibration);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    settings.restore(calibration);
+    double tempCalibration;
+    settings.restore(tempCalibration);
+    setCalibration(tempCalibration);
   }
 };
 
 
 #endif
-
-
-
-
-
-

@@ -10,7 +10,9 @@ public ospBaseOutputCard
 private:
   enum { SSRPin = A3 };
   
+  double outputWindowSeconds;
   unsigned long outputWindowMilliseconds;
+
 
 public:
   ospDigitalOutputCard() : 
@@ -20,13 +22,20 @@ public:
   { 
   }
   
-  double outputWindowSeconds;
-
   void initialize() 
   {
     pinMode(SSRPin, OUTPUT);
   }
-
+  
+  double outputWindowSeconds()
+  {
+    return outputWindowSeconds;
+  }  
+  
+  void setOutputWindowSeconds(double newOutputWindowSeconds)
+  {
+    outputWindowSeconds = newOutputWindowSeconds;
+  }  
 
   const __FlashStringHelper *cardIdentifier() 
   { 
@@ -112,5 +121,3 @@ public:
 
 
 #endif
-
-

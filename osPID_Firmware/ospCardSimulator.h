@@ -26,9 +26,9 @@ public:
   void initialize() 
   {
     input = inputStart;
-
     for(int i = 0; i < 30; i++)
       theta[i] = outputStart;
+    setInitialized(true);
   }
 
   // return the card identifier
@@ -43,9 +43,10 @@ public:
   // read settings from the card
   double readFloatSetting(byte index) 
   {
-    switch (index) {
+    switch (index) 
+    {
     case 0:
-      return calibration;
+      return calibration();
     case 1:  
       return kpmodel;
     case 2:
@@ -86,14 +87,17 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    settings.save(calibration);
+    double tempCalibration = calibration();
+    settings.save(tempCalibration);
     settings.save(kpmodel);
     settings.save(taup);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    settings.restore(calibration);
+    double tempCalibration;
+    settings.restore(tempCalibration);
+    setCalibration(tempCalibration);
     settings.restore(kpmodel);
     settings.restore(taup);
   }
@@ -120,9 +124,10 @@ private:
       theta[i] = theta[i+1];
     }
     // Compute the input
-    input = (kpmodel / taup) *(theta[0]-outputStart) + (input-inputStart)*(1-1/taup)+inputStart + ((double)random(-10,10))/100;
+    input = (kpmodel / taup) * (theta[0] - outputStart) + (input - inputStart) * (1 - 1 / taup) + inputStart + ((double) random(-10,10)) / 100;
   }
 };
 
-#endif
 
+
+#endif

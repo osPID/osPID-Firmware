@@ -736,13 +736,13 @@ static void switchUnits()
   if (!changeUnitsFlag)
     return; // shouldn't happen
     
-  // switch units for displaySetpoint, displayInput, calibration, and trip limits:
+  // switch units for displaySetpoint, displayInput, and trip limits:
   for (byte i = 0; i < menuData[TEMPERATURE_ITEMS_LIST].itemCount(); i++)
   {
     byte decimalItemIndex = menuData[TEMPERATURE_ITEMS_LIST].itemAt(i) - FIRST_DECIMAL_ITEM;
     /*
     ospDecimalValue<1> t = (ospDecimalValue<1>){decimalItemData[decimalItemIndex].currentValue()};
-    t = (displayCelsius ? convertFtoC(t) : convertCtoF(t));
+    t = (displayCelsius ? convertFtoC(t) : convertCtoF(t)); // fails for some reason
     */
     long t = decimalItemData[decimalItemIndex].currentValue();
     t = (displayCelsius ? (((t - 320) * 10) / 18) : ((t * 18) / 10) + 320);
@@ -758,6 +758,12 @@ static void switchUnits()
     displayCalibration = (displayCalibration * (ospDecimalValue<1>){18}).rescale<1>();
   decimalItemData[ITEM_CALIBRATION - FIRST_DECIMAL_ITEM].boundValue();
   
+  // change setPoint values 
+  for (byte i = 0; i < 4; i++ )
+  {
+    setPoint[i] = (displayCelsius ? convertFtoC(setPoint[i]) : convertCtoF(setPoint[i]));
+  }
+
   // profile information will stay in Celsius
   
   //reset flag
@@ -965,7 +971,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      displayWindow = makeDecimal<1>(theOutputCard->outputWindowSeconds);
+      displayWindow = makeDecimal<1>(theOutputCard->outputWindowSeconds());
     }
 
     // it's a menu: open that menu

@@ -112,6 +112,7 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
+// units may be Celsius or Fahrenheit
 ospDecimalValue<1> setPoints[4] = { { 250 }, { 750 }, { 1500 }, { 3000 } };
 
 // the index of the selected setpoint
@@ -218,6 +219,11 @@ double convertFtoC(double t)
 double celsius(double t)
 {
   return (displayCelsius ? t : convertFtoC(t));
+}
+
+double displayUnits(double t)
+{
+  return (diaplyCelsius ? t : convertCtoF(t));
 }
 
 // initialize the controller: this is called by the Arduino runtime on bootup
@@ -425,10 +431,10 @@ static void markSettingsDirty()
   activeSetPoint = celsius(double(setPoints[setpointIndex]));
 
   // capture any changes to the output window length
-  theOutputCard->outputWindowSeconds = double(displayWindow);
+  theOutputCard->setOutputWindowSeconds(double(displayWindow));
   
   // capture any changes to the calibration value
-  theInputCard->calibration = double(displayCalibration) / (displayCelsius ? 1.0 : 1.8);
+  theInputCard->setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
 
   settingsWritebackNeeded = true;
 

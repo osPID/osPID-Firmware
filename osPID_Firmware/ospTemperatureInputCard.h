@@ -9,6 +9,9 @@ class ospTemperatureInputCard :
 {
 private:
 
+  bool initialized;
+  double calibration;
+
 
 public:
   ospTemperatureInputCard() :
@@ -17,9 +20,30 @@ public:
     calibration(0.0f)
   { 
   }
+  
+  // get initialization status
+  bool initialized()
+  {
+    return initialized;
+  }
 
-  double calibration;
-  bool initialized;
+  // set initialization status
+  void setInitialized(bool newInitialized)
+  {
+    initialized = newInitialized;
+  }
+
+  // get calibration
+  double calibration()
+  {
+    return calibration;
+  }
+
+  // set calibration
+  void setCalibration(double newCalibration)
+  {
+    calibration = newCalibration;
+  }
 
   const __FlashStringHelper *cardIdentifier() { return 0; };
   double readInput() { return NAN; }; 

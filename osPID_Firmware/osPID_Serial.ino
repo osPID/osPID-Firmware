@@ -76,7 +76,7 @@ Command list:
 
   o? #Integer -- set power-On behavior
 
-  P #Integer #Integer #Number -- add a steP to the profile buffer with the
+  P #Integer #Integer #Number -- add a step to the profile buffer with the
   numbers being { type, duration, endpoint }
 
   p? #Number -- set P gain
@@ -95,9 +95,13 @@ Command list:
 
   T? -- query Trip state or clear a trip
 
+  U? #CF -- query temperature Units or set Units to Celsius or Fahrenheit
+
   t? #0-1 -- trip auto-reseT -- enable or disable automatic recovery from trips
 
   V #0-2 -- saVe the profile buffer to profile N
+
+  W? -- query output Window size in seconds or set Window size
 
   X -- eXamine: dump the unit's settings
 
@@ -123,7 +127,8 @@ or
 . Profiles _must_ be saved before they can be executed.
 */
 
-enum {
+enum 
+{
   SERIAL_SPEED_9p6k = 0,
   SERIAL_SPEED_14p4k = 1,
   SERIAL_SPEED_19p2k = 2,
@@ -263,15 +268,25 @@ template<int D> static void serialPrintln(ospDecimalValue<D> val)
   Serial.println();
 }
 
+template<int D> static void serialPrintTempln(ospDecimalValue<D> val)
+{
+  serialPrintDecimal(val.rawValue(), D);
+  Serial.print(" \337");
+  Serial.write(displayCelsius ? 'C' : 'F');
+  Serial.println();
+}
+
 void serialPrintFAutotuner()
 {
   serialPrint(F("Auto-tuner "));
 }
-
+ 
+/*
 void serialPrintFCalibrationData()
 {
   serialPrintln(F("calibration data:"));
 }
+*/
 
 static bool cmdSetSerialSpeed(const long& speed)
 {
@@ -355,11 +370,11 @@ static void cmdIdentify()
 static void cmdQuery()
 {
   Serial.print(F("S "));
-  serialPrintln(displaySetpoint);
+  serialPrintTempln(displayUnits(activeSetPoint));
   Serial.print(F("I "));
-  serialPrintln(input);
+  serialPrintTempln(displayUnits(input));
   Serial.print(F("O "));
-  serialPrintln(displayOutput);
+  serialPrintln(output);
 
   if (runningProfile)
   {
@@ -408,6 +423,8 @@ static void cmdExamineSettings()
     Serial.write('1' + i);
     Serial.print(F(": "));
     serialPrint(setPoints[i]);
+    Serial.print(" /337");
+    Serial.write(displayCelsius ? 'C' : 'F');
     if (i & 1 == 0)
       Serial.print('\t');
     else
@@ -447,7 +464,7 @@ static void cmdExamineSettings()
 
   // peripheral card settings
   serialPrint(F("Input card "));
-  serialPrintFCalibrationData();
+  //serialPrintFCalibrationData();
 /*
   for (byte i = 0; i < theInputCard->integerSettingsCount(); i++)
   {
@@ -474,7 +491,7 @@ static void cmdExamineSettings()
   }
 
   serialPrint(F("Output card "));
-  serialPrintFCalibrationData();  
+  //serialPrintFCalibrationData();  
 /*
   for (byte i = 0; i < theOutputCard->integerSettingsCount(); i++)
   {
@@ -597,7 +614,9 @@ PROGMEM SerialCommandParseData commandParseData[] =
   { 'R', ARGS_ONE_NUMBER | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
   { 'S', ARGS_ONE_NUMBER | ARGS_FLAG_QUERYABLE },
   { 'T', ARGS_NONE | ARGS_FLAG_QUERYABLE },
+  { 'U', ARGS_STRING },
   { 'V', ARGS_ONE_NUMBER | ARGS_FLAG_PROFILE_NUMBER },
+  { 'W', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'X', ARGS_NONE },
   { 'a', ARGS_THREE_NUMBERS },
   { 'b', ARGS_THREE_NUMBERS | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
@@ -684,8 +703,8 @@ static void processSerialCommand()
       serialPrintln(IGain);
       break;
     case 'L':
-      serialPrintln(lowerTripLimit);
-      serialPrintln(upperTripLimit);
+      serialPrintTempln(lowerTripLimit);
+      serialPrintTempln(upperTripLimit);
       break;
     case 'l':
       serialPrintln(tripLimitsEnabled);
@@ -698,7 +717,7 @@ static void processSerialCommand()
       Serial.println();
       break;
     case 'O':
-      serialPrintln(displayOutput);
+      serialPrintln(output);
       break;
     case 'o':
       serialPrintln(powerOnBehavior);
@@ -710,13 +729,20 @@ static void processSerialCommand()
       serialPrintln(ctrlDirection);
       break;
     case 'S':
-      serialPrintln(displaySetpoint);
+      serialPrintTempln(displayUnits(activeSetPoint));
       break;
     case 's':
       serialPrintln(setpointIndex);
       break;
     case 'T':
       serialPrintln(tripped);
+      break;
+    case 'U':
+      serialPrintln(displayCelsius ? "Celsius" : "Fahrenheit");
+    case 'W':
+      Serial.print(theOutput->outputWindowSecs());
+      Serial.print(" seconds");
+      Serial.println();
       break;
     case 't':
       serialPrintln(tripAutoReset);
@@ -870,7 +896,7 @@ static void processSerialCommand()
   case 'M': // set the controller mode (PID or manual)
     modeIndex = i1;
     if (modeIndex == MANUAL)
-      displayOutput = manualOutput;
+      output = manualOutput;
     myPID.SetMode(i1);
     break;
   case 'N': // set the unit name
@@ -896,8 +922,8 @@ static void processSerialCommand()
       if (tuning || runningProfile || modeIndex != MANUAL)
         goto out_EMOD;
 
-      manualOutput = o;
-      displayOutput = o;
+      manualOutput = double(o);
+      output = double(o);
     }
     break;
   case 'o': // set power-on behavior
@@ -939,7 +965,7 @@ static void processSerialCommand()
         goto out_EMOD;
 
       setPoints[setpointIndex] = sp;
-      displaySetpoint = sp;
+      activeSetPoint = celsius(double(sp));
     }
     break;
   case 's': // change the active setpoint
@@ -947,7 +973,7 @@ static void processSerialCommand()
       goto out_EINV;
 
     setpointIndex = i1;
-    activeSetPoint = setPoints[setpointIndex];
+    activeSetPoint = celsius(double(setPoints[setpointIndex]));
     break;
   case 'T': // clear a trip
     if (!tripped)
@@ -958,9 +984,23 @@ static void processSerialCommand()
   case 't': // set trip auto-reset
     tripAutoReset = i1;
     break;
+  case 'U': // change temperature units
+    if ((*p == 'C') || (*p == 'c'))
+      displayCelsius = true;
+    else if ((*p == 'F') || (*p == 'f'))
+      displayCelsius = false;
+    else
+      goto out_EINV;
+    break;
   case 'V': // save the profile buffer to EEPROM
     saveEEPROMProfile(i1);
     goto out_OK; // no EEPROM writeback needed
+  case 'W': // set the output window size in seconds
+    window = makeDecimal<1>(&i1, &d1);
+    BOUNDS_CHECK(lower, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
+    theOutputCard->setOutputWindowSecs(double(window));
+    displayWindow = window;
+    break;
   case 'X': // examine: dump the controller settings
     cmdExamineSettings();
     goto out_OK; // no EEPROM writeback needed

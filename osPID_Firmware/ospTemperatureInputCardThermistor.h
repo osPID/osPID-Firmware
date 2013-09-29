@@ -1,4 +1,4 @@
-#ifndef OSPTEMPERATUREINPUTCARDTHERMISTOR_H
+jifndef OSPTEMPERATUREINPUTCARDTHERMISTOR_H
 #define OSPTEMPERATUREINPUTCARDTHERMISTOR_H
 
 #include "ospTemperatureInputCard.h"
@@ -8,7 +8,7 @@ class ospTemperatureInputCardThermistor :
   public ospTemperatureInputCard
 {
 private:
-  enum { thermistorPin = A0        };
+  enum { thermistorPin = A0 };
 
   double THERMISTORNOMINAL;
   double BCOEFFICIENT;
@@ -29,7 +29,7 @@ public:
   // setup the card
   void initialize() 
   {
-    initialized = true;
+    setInitialized(true);
   }
 
   // return the card identifier
@@ -58,7 +58,7 @@ public:
   double readInput() 
   {
     int voltage = analogRead(thermistorPin);
-    return thermistorVoltageToTemperature(voltage) + calibration;
+    return thermistorVoltageToTemperature(voltage) + calibration();
   }
 
   // request input
@@ -86,15 +86,15 @@ public:
     switch (index) 
     {
     case 0:
-      return THERMISTORNOMINAL;
+      return calibration();
     case 1:
-      return BCOEFFICIENT;
+      return THERMISTORNOMINAL;
     case 2:
-      return TEMPERATURENOMINAL;
+      return BCOEFFICIENT;
     case 3:
-      return REFERENCE_RESISTANCE;
+      return TEMPERATURENOMINAL;
     case 4:
-      return calibration;
+      return REFERENCE_RESISTANCE;
     default:
       return -1.0f;
     }
@@ -112,19 +112,19 @@ public:
     switch (index) 
     {
     case 0:  
-      THERMISTORNOMINAL = val;
+      setCalibration(val);
       return true;
     case 1:
-      BCOEFFICIENT = val;
+      THERMISTORNOMINAL = val;
       return true;
     case 2:
-      TEMPERATURENOMINAL = val;
+      BCOEFFICIENT = val;
       return true;
     case 3:
-      REFERENCE_RESISTANCE = val;
+      TEMPERATURENOMINAL = val;
       return true;
     case 4:
-      calibration = val;
+      REFERENCE_RESISTANCE = val;
       return true;
     default:
       return false;
@@ -143,15 +143,15 @@ public:
     switch (index) 
     {
     case 0:
-      return F("Thermistor nominal resistance (Kohms)");
-    case 1:
-      return F("Reference resistor value (Kohms)");
-    case 2:
-      return F("Thermistor B coefficient");
-    case 3:
       return F("Thermistor reference temperature (Celsius)");
-    case 4:
+    case 1:
       return F("Calibration temperature adjustment (Celsius)");
+    case 2:
+      return F("Thermistor nominal resistance (Kohms)");
+    case 3:
+      return F("Reference resistor value (Kohms)");
+    case 4:
+      return F("Thermistor B coefficient");
     default:
       return false;
     }
@@ -170,29 +170,26 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
+    double tempCalibration = calibration;
+    settings.save(tempCalibration);
     settings.save(THERMISTORNOMINAL);
     settings.save(BCOEFFICIENT);
     settings.save(TEMPERATURENOMINAL);
     settings.save(REFERENCE_RESISTANCE);
-    settings.save(calibration);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
+    double tempCalibration;
+    settings.restore(tempCalibration);
+    setCalibration(tempCalibration);
     settings.restore(THERMISTORNOMINAL);
     settings.restore(BCOEFFICIENT);
     settings.restore(TEMPERATURENOMINAL);
     settings.restore(REFERENCE_RESISTANCE);
-    settings.restore(calibration);
   }
 };
 
 
 
 #endif
-
-
-
-
-
-

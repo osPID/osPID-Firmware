@@ -31,12 +31,13 @@ public:
     oneWireDevice.begin();
     if (!oneWireDevice.getAddress(oneWireDeviceAddress, 0)) 
     {
-      initialized = false;
+      setInitialized(false);
     }
     else 
     {
+      oneWireDevice.setWaitForConversion(false);
       oneWireDevice.setResolution(oneWireDeviceAddress, 12);
-      initialized = true;
+      setInitialized(true);
     }
   }
 
@@ -47,18 +48,18 @@ public:
   }
 
 public:
-  // read the device
-  double readInput() 
-  {
-    return oneWireDevice.getTempCByIndex(0) + calibration; 
-  }
-
   // request input
   // returns conversion time in milliseconds
   unsigned long requestInput() 
   {
     oneWireDevice.requestTemperatures();
     return 750;
+  }
+
+  // read the device
+  double readInput() 
+  {
+    return oneWireDevice.getTempCByIndex(0) + getCalibration(); 
   }
 
   // how many settings does this card have
@@ -79,7 +80,7 @@ public:
     switch (index) 
     {
     case 0:
-      return calibration;
+      return calibration();
     default:
       return -1.0f;
     }
@@ -97,7 +98,7 @@ public:
     switch (index) 
     {
     case 0:  
-      calibration = val;
+      setCalibration(val);
       return true;
     default:
       return false;
@@ -135,20 +136,17 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    settings.save(calibration);
+    double tempCalibration = calibration;
+    settings.save(tempCalibration);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    settings.restore(calibration);
+    double tempCalibration;
+    settings.restore(tempCalibration);
+    setCalibration(tempCalibration);
   }
 };
 
 
 #endif
-
-
-
-
-
-
