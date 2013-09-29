@@ -34,15 +34,7 @@ Command list:
 
   a? #Number #Number #Integer -- set Autotune parameters: step, noise, and lookback
 
-  B? #Integer #Integer #Number -- set peripheral card floating-point caliBration data:
-  the first integer is 0 for the input card and 1 for the output card, the second
-  is the parameter index, and the number is the value
-
-  b? #Integer #Integer #Integer -- set peripheral card integer caliBration data:
-  the first integer is 0 for the input card and 1 for the output card, the second
-  is the parameter index, and the third is the value
-
-  C -- Cancel any profile execution or auto-tune currently in progress
+  B? #Number -- query / set input card temperature caliBration value
 
   c? #Integer -- set the Comm speed, in kbps
 
@@ -52,7 +44,7 @@ Command list:
 
   e #0-2 -- Execute the profile of the given number
 
-  I -- Identify -- returns two lines: "osPid vX.YYtag" and "Unit {unitName}"
+  I? #0-3 -- query or set Input sensor
 
   i? #Number -- set I gain
 
@@ -106,6 +98,8 @@ Command list:
   X -- eXamine: dump the unit's settings
 
   x #0-2 -- eXamine profile: dump profile N
+
+  Y -- identifY -- returns two lines: "osPid vX.YYtag" and "Unit {unitName}"
 
 Response codes:
   OK -- success
@@ -599,7 +593,7 @@ struct SerialCommandParseData
 PROGMEM SerialCommandParseData commandParseData[] = 
 {
   { 'A', ARGS_NONE },
-  { 'B', ARGS_THREE_NUMBERS | ARGS_FLAG_QUERYABLE | ARGS_FLAG_FIRST_IS_01 },
+  { 'B', ARGS_ONE_NUMBER | ARGS_FLAG_QUERYABLE },
   { 'C', ARGS_NONE },
   { 'D', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'E', ARGS_STRING },
@@ -693,6 +687,8 @@ static void processSerialCommand()
       serialPrintln(aTuneNoise);
       serialPrintln(aTuneLookBack);
       break;
+    case 'B':
+      serialPrintTempln(theInputCard->calibration());
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
       break;
@@ -832,6 +828,12 @@ static void processSerialCommand()
     aTuneStep = makeDecimal<1>(i3, d3);
     aTuneNoise = makeDecimal<1>(i2, d2);
     aTuneLookBack = i1;
+    break;
+  case 'B':
+    ospDecimalValue<1> cal = makeDecimal<1>(i1, d1);
+    BOUNDS_CHECK(cal, (ospDecimalValue<1>){-999}, (ospDecimalValue<1>){999});
+    theInputCard->setCalibration(double(cal));
+    displayCalibration = cal;
     break;
   case 'C': // cancel an auto-tune or profile execution
     if (tuning)

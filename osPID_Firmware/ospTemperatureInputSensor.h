@@ -1,11 +1,11 @@
-#ifndef OSPTEMPERATUREINPUTCARD_H
-#define OSPTEMPERATUREINPUTCARD_H
+#ifndef OSPTEMPERATUREINPUTSENSOR_H
+#define OSPTEMPERATUREINPUTSENSOR_H
 
-#include "ospCards.h"
+#include "ospIO.h"
 #include "ospSettingsHelper.h"
 
-class ospTemperatureInputCard : 
-  public ospBaseInputCard 
+class ospTemperatureInputSensor : 
+  public ospBaseInput 
 {
 private:
 
@@ -14,8 +14,8 @@ private:
 
 
 public:
-  ospTemperatureInputCard() :
-    ospBaseInputCard(),
+  ospTemperatureInputSensor() :
+    ospBaseInput(),
     initialized(false),
     calibration(0.0f)
   { 
@@ -45,7 +45,7 @@ public:
     calibration = newCalibration;
   }
 
-  const __FlashStringHelper *cardIdentifier() { return 0; };
+  const __FlashStringHelper *IoIdentifier() { return 0; };
   double readInput() { return NAN; }; 
   unsigned long requestInput() { return 0; }; // returns conversion time in milliseconds 
   byte floatSettingsCount() { return 0; }; 
