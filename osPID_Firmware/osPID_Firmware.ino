@@ -223,7 +223,7 @@ double celsius(double t)
 
 double displayUnits(double t)
 {
-  return (diaplyCelsius ? t : convertCtoF(t));
+  return (displayCelsius ? t : convertCtoF(t));
 }
 
 // initialize the controller: this is called by the Arduino runtime on bootup
@@ -280,7 +280,7 @@ void setup()
 
   // kick things off by requesting sensor input
   now = millis();
-  if (theInputDevice->initialized)
+  if (theInputDevice->getInitialized())
     readInputTime = now + theInputDevice->requestInput();
 
   controllerIsBooting = false;
@@ -492,7 +492,7 @@ void loop()
   theOutputDevice->setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputDevice->initialized && (now > readInputTime))
+  if (theInputDevice->getInitialized() && (now > readInputTime))
   {
     input = theInputDevice->readInput();
     if (!isnan(input))
@@ -570,7 +570,7 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (!theInputDevice->initialized)
+  if (!theInputDevice->getInitialized())
   {
     input = NAN;
     displayInput = (ospDecimalValue<1>){-19999}; // Display Err

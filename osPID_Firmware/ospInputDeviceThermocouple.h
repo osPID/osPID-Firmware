@@ -39,8 +39,8 @@ public:
   {
     double val = thermocouple.readThermocouple(CELSIUS);
     if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
-      val = NAN;
-    return val + calibration();
+      return NAN;
+    return val + getCalibration();
   }
 
   // request input
@@ -66,7 +66,7 @@ public:
     switch (index) 
     {
     case 0:
-      return calibration();
+      return getCalibration();
     default:
       return -1.0f;
     }
@@ -122,7 +122,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = calibration;
+    double tempCalibration = getCalibration();
     settings.save(tempCalibration);
   }
 

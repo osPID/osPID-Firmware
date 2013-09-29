@@ -1,86 +1,72 @@
-#ifndef OSPINPUTDEVICEONEWIRE_H
-#define OSPINPUTDEVICEONEWIRE_H
+#ifndef OSPTEMPERATUREINPUTCARDTHERMOCOUPLE_H
+#define OSPTEMPERATUREINPUTCARDTHERMOCOUPLE_H
 
-#include "ospInputDevice.h"
+#include "ospTemperatureInputCard.h"
 #include "ospSettingsHelper.h"
-#include "OneWire_local.h"
-#include "DallasTemperature_local.h"
+#include "MAX31855_local.h"
 
-class ospInputDeviceOneWire : 
-  public ospInputDevice 
+class ospTemperatureInputCardThermocouple : 
+  public ospTemperatureInputCard 
 {
 private:
-  enum { oneWireBus = A0 };
+  enum { thermocoupleSO = A0  };
+  enum { thermocoupleCS = A1  };
+  enum { thermocoupleCLK = A2 };
 
-  OneWire oneWire;
-  DallasTemperature oneWireDevice;
-  DeviceAddress oneWireDeviceAddress;
-
+  MAX31855 thermocouple;
 
 public:
-  ospInputDeviceOneWire() :
-    ospInputDevice(),
-    oneWire(oneWireBus),
-    oneWireDevice(&oneWire)
+  ospTemperatureInputCardThermocouple() :
+    ospTemperatureInputCard(),
+    thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO)
   { 
   }
 
-  // setup the device
+  // setup the card
   void initialize() 
   {
-    oneWireDevice.begin();
-    if (!oneWireDevice.getAddress(oneWireDeviceAddress, 0)) 
-    {
-      setInitialized(false);
-    }
-    else 
-    {
-      oneWireDevice.setResolution(oneWireDeviceAddress, 12);
-      oneWireDevice.setWaitForConversion(false);
-      setInitialized(true);
-    }
+    setInitialized(true);
   }
 
-  // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  // return the card identifier
+  const __FlashStringHelper *cardIdentifier()
   {
-    return F("DS18B20+");
+    return F("Thermocouple K");
   }
 
-public:
+  // read the card
+  double readInput() 
+  {
+    double val = thermocouple.readThermocouple(CELSIUS);
+    if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
+      val = NAN;
+    return val + calibration();
+  }
+
   // request input
   // returns conversion time in milliseconds
   unsigned long requestInput() 
   {
-    oneWireDevice.requestTemperatures();
-    return 750;
+    return 0;
   }
 
-  // read the device
-  double readInput() 
-  {
-    return oneWireDevice.getTempCByIndex(0) + getCalibration(); 
-  }
-
-  // how many settings does this device have
+  // how many settings does this card have
   byte floatSettingsCount() 
   {
     return 1; 
   }
-/*
   byte integerSettingsCount() 
   {
     return 0; 
   }
-*/
 
-  // read settings from the device
+  // read settings from the card
   double readFloatSetting(byte index) 
   {
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return calibration();
     default:
       return -1.0f;
     }
@@ -92,7 +78,7 @@ public:
   }
 */
 
-  // write settings to the device
+  // write settings to the card
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -111,7 +97,7 @@ public:
   }
 */
 
-  // describe the device settings
+  // describe the card settings
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 
@@ -136,7 +122,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = calibration;
     settings.save(tempCalibration);
   }
 

@@ -1,11 +1,11 @@
-#ifndef OSPOUTPUTDEVICE_H
-#define OSPOUTPUTDEVICE_H
+#ifndef OSPDIGITALOUTPUTCARD_H
+#define OSPDIGITALOUTPUTCARD_H
 
-#include "ospIODevice.h"
+#include "ospCards.h"
 #include "ospSettingsHelper.h"
 
-class ospOutputDevice : 
-public ospBaseOutputDevice 
+class ospDigitalOutputCard : 
+public ospBaseOutputCard 
 {
 private:
   enum { SSRPin = A3 };
@@ -15,10 +15,10 @@ private:
 
 
 public:
-  ospOutputDevice() : 
-    ospBaseOutputDevice(),
-    //outputWindowSeconds(5.0), 
-    outputWindowMilliseconds(5000) // 5s OK for SSR depending on the load, needs to be longer for electromechanical relay
+  ospDigitalOutputCard() : 
+    ospBaseOutputCard(),
+    outputWindowSeconds(5.0), // 5s OK for SSR depending on the load, needs to be longer for electromechanical relay
+    outputWindowMilliseconds(5000)
   { 
   }
   
@@ -27,7 +27,7 @@ public:
     pinMode(SSRPin, OUTPUT);
   }
   
-  double getOutputWindowSeconds()
+  double outputWindowSeconds()
   {
     return outputWindowSeconds;
   }  
@@ -37,12 +37,12 @@ public:
     outputWindowSeconds = newOutputWindowSeconds;
   }  
 
-  const __FlashStringHelper *IODeviceIdentifier() 
+  const __FlashStringHelper *cardIdentifier() 
   { 
     return F("SSR Output"); 
   }
 
-  // how many settings does this device have
+  // how many settings does this card have
   byte floatSettingsCount()
   { 
     return 1; 
@@ -54,7 +54,7 @@ public:
   }
 */
 
-  // read settings from the device
+  // read settings from the card
   double readFloatSetting(byte index) 
   {
     if (index == 0)
@@ -68,7 +68,7 @@ public:
   }
 */
 
-  // write settings to the device
+  // write settings to the card
   bool writeFloatSetting(byte index, double val) 
   {
     if (index == 0) 

@@ -270,6 +270,14 @@ template<int D> static void serialPrintTempln(ospDecimalValue<D> val)
   Serial.println();
 }
 
+static void serialPrintFloatTempln(double val)
+{
+  Serial.print(val);
+  Serial.print(" \337");
+  Serial.write(displayCelsius ? 'C' : 'F');
+  Serial.println();
+}
+
 void serialPrintFAutotuner()
 {
   serialPrint(F("Auto-tuner "));
@@ -364,9 +372,9 @@ static void cmdIdentify()
 static void cmdQuery()
 {
   Serial.print(F("S "));
-  serialPrintTempln(displayUnits(activeSetPoint));
+  serialPrintFloatTempln(displayUnits(activeSetPoint));
   Serial.print(F("I "));
-  serialPrintTempln(displayUnits(input));
+  serialPrintFloatTempln(displayUnits(input));
   Serial.print(F("O "));
   serialPrintln(output);
 
@@ -597,7 +605,7 @@ PROGMEM SerialCommandParseData commandParseData[] =
   { 'C', ARGS_NONE },
   { 'D', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'E', ARGS_STRING },
-  { 'I', ARGS_NONE },
+  { 'I', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'K', ARGS_ONE_NUMBER },
   { 'L', ARGS_TWO_NUMBERS | ARGS_FLAG_QUERYABLE },
   { 'M', ARGS_ONE_NUMBER | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
@@ -612,6 +620,7 @@ PROGMEM SerialCommandParseData commandParseData[] =
   { 'V', ARGS_ONE_NUMBER | ARGS_FLAG_PROFILE_NUMBER },
   { 'W', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'X', ARGS_NONE },
+  { 'Y', ARGS_NONE },
   { 'a', ARGS_THREE_NUMBERS },
   { 'b', ARGS_THREE_NUMBERS | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
   { 'c', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
@@ -688,12 +697,15 @@ static void processSerialCommand()
       serialPrintln(aTuneLookBack);
       break;
     case 'B':
-      serialPrintTempln(theInputDevice->calibration());
+      serialPrintFloatTempln(theInputDevice->getCalibration() / (displayCelsius ? 1.0 : 1.8));
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
       break;
     case 'D':
       serialPrintln(DGain);
+      break;
+    case 'I':
+      serialPrintln(inputType);
       break;
     case 'i':
       serialPrintln(IGain);
@@ -725,7 +737,7 @@ static void processSerialCommand()
       serialPrintln(ctrlDirection);
       break;
     case 'S':
-      serialPrintTempln(displayUnits(activeSetPoint));
+      serialPrintFloatTempln(displayUnits(activeSetPoint));
       break;
     case 's':
       serialPrintln(setpointIndex);
@@ -736,7 +748,7 @@ static void processSerialCommand()
     case 'U':
       serialPrintln(displayCelsius ? "Celsius" : "Fahrenheit");
     case 'W':
-      Serial.print(theOutput->outputWindowSecs());
+      Serial.print(theOutputDevice->getOutputWindowSeconds());
       Serial.print(" seconds");
       Serial.println();
       break;
@@ -830,7 +842,8 @@ static void processSerialCommand()
     aTuneLookBack = i1;
     break;
   case 'B':
-    ospDecimalValue<1> cal = makeDecimal<1>(i1, d1);
+    ospDecimalValue<1> cal;
+    cal = makeDecimal<1>(i1, d1);
     BOUNDS_CHECK(cal, (ospDecimalValue<1>){-999}, (ospDecimalValue<1>){999});
     theInputDevice->setCalibration(double(cal));
     displayCalibration = cal;
@@ -864,9 +877,10 @@ static void processSerialCommand()
     activeProfileIndex = i1;
     startProfile();
     goto out_OK; // no EEPROM writeback needed
-  case 'I': // identify
-    cmdIdentify();
-    goto out_OK; // no EEPROM writeback needed
+  case 'I': // set the inputType
+    BOUNDS_CHECK(i1, 0, 2);
+    inputType = i1;
+    break;
   case 'i': // set the I gain
     if (tuning)
       goto out_EMOD;
@@ -924,7 +938,7 @@ static void processSerialCommand()
       if (tuning || runningProfile || modeIndex != MANUAL)
         goto out_EMOD;
 
-      manualOutput = double(o);
+      manualOutput = o;
       output = double(o);
     }
     break;
@@ -998,9 +1012,10 @@ static void processSerialCommand()
     saveEEPROMProfile(i1);
     goto out_OK; // no EEPROM writeback needed
   case 'W': // set the output window size in seconds
-    window = makeDecimal<1>(&i1, &d1);
-    BOUNDS_CHECK(lower, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
-    theOutputDevice->setOutputWindowSecs(double(window));
+    ospDecimalValue<1> window;
+    window = makeDecimal<1>(i1, d1);
+    BOUNDS_CHECK(window, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
+    theOutputDevice->setOutputWindowSeconds(double(window));
     displayWindow = window;
     break;
   case 'X': // examine: dump the controller settings
@@ -1008,6 +1023,9 @@ static void processSerialCommand()
     goto out_OK; // no EEPROM writeback needed
   case 'x': // examine a profile: dump a description of the give profile
     cmdExamineProfile(i1);
+    goto out_OK; // no EEPROM writeback needed
+  case 'Y': // identify
+    cmdIdentify();
     goto out_OK; // no EEPROM writeback needed
   default:
     goto out_EINV;

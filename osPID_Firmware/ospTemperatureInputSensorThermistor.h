@@ -1,11 +1,11 @@
-#ifndef OSPINPUTDEVICETHERMISTOR_H
-#define OSPINPUTDEVICETHERMISTOR_H
+jifndef OSPTEMPERATUREINPUTCARDTHERMISTOR_H
+#define OSPTEMPERATUREINPUTCARDTHERMISTOR_H
 
-#include "ospInputDevice.h"
+#include "ospTemperatureInputCard.h"
 #include "ospSettingsHelper.h"
 
-class ospInputDeviceThermistor : 
-  public ospInputDevice
+class ospTemperatureInputCardThermistor : 
+  public ospTemperatureInputCard
 {
 private:
   enum { thermistorPin = A0 };
@@ -17,8 +17,8 @@ private:
 
 
 public:
-  ospInputDeviceThermistor() :
-    ospInputDevice(),
+  ospTemperatureInputCardThermistor() :
+    ospTemperatureInputCard(),
     THERMISTORNOMINAL(10.0f),
     BCOEFFICIENT(1.0f),
     TEMPERATURENOMINAL(293.15f),
@@ -26,14 +26,14 @@ public:
   { 
   }
 
-  // setup the device
+  // setup the card
   void initialize() 
   {
     setInitialized(true);
   }
 
-  // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  // return the card identifier
+  const __FlashStringHelper *cardIdentifier()
   {
     return F("Thermistor NTC");
   }
@@ -54,11 +54,11 @@ private:
   }
 
 public:
-  // read the device
+  // read the card
   double readInput() 
   {
     int voltage = analogRead(thermistorPin);
-    return thermistorVoltageToTemperature(voltage) + getCalibration();
+    return thermistorVoltageToTemperature(voltage) + calibration();
   }
 
   // request input
@@ -68,7 +68,7 @@ public:
     return 0;
   }
 
-  // how many settings does this device have
+  // how many settings does this card have
   byte floatSettingsCount() 
   {
     return 5; 
@@ -80,13 +80,13 @@ public:
   }
 */
 
-  // read settings from the device
+  // read settings from the card
   double readFloatSetting(byte index) 
   {
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return calibration();
     case 1:
       return THERMISTORNOMINAL;
     case 2:
@@ -106,7 +106,7 @@ public:
   }
 */
 
-  // write settings to the device
+  // write settings to the card
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -137,7 +137,7 @@ public:
   }
 */
 
-  // describe the device settings
+  // describe the card settings
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 
@@ -170,7 +170,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = calibration;
     settings.save(tempCalibration);
     settings.save(THERMISTORNOMINAL);
     settings.save(BCOEFFICIENT);

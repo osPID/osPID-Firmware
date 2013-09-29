@@ -1,13 +1,13 @@
-#ifndef OSPINPUTDEVICEONEWIRE_H
-#define OSPINPUTDEVICEONEWIRE_H
+#ifndef OSPTEMPERATUREINPUTCARDONEWIRE_H
+#define OSPTEMPERATUREINPUTCARDONEWIRE_H
 
-#include "ospInputDevice.h"
+#include "ospTemperatureInputCard.h"
 #include "ospSettingsHelper.h"
 #include "OneWire_local.h"
 #include "DallasTemperature_local.h"
 
-class ospInputDeviceOneWire : 
-  public ospInputDevice 
+class ospTemperatureInputCardOneWire : 
+  public ospTemperatureInputCard 
 {
 private:
   enum { oneWireBus = A0 };
@@ -18,14 +18,14 @@ private:
 
 
 public:
-  ospInputDeviceOneWire() :
-    ospInputDevice(),
+  ospTemperatureInputCardOneWire() :
+    ospTemperatureInputCard(),
     oneWire(oneWireBus),
     oneWireDevice(&oneWire)
   { 
   }
 
-  // setup the device
+  // setup the card
   void initialize() 
   {
     oneWireDevice.begin();
@@ -35,14 +35,14 @@ public:
     }
     else 
     {
-      oneWireDevice.setResolution(oneWireDeviceAddress, 12);
       oneWireDevice.setWaitForConversion(false);
+      oneWireDevice.setResolution(oneWireDeviceAddress, 12);
       setInitialized(true);
     }
   }
 
-  // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  // return the card identifier
+  const __FlashStringHelper *cardIdentifier()
   {
     return F("DS18B20+");
   }
@@ -62,7 +62,7 @@ public:
     return oneWireDevice.getTempCByIndex(0) + getCalibration(); 
   }
 
-  // how many settings does this device have
+  // how many settings does this card have
   byte floatSettingsCount() 
   {
     return 1; 
@@ -74,13 +74,13 @@ public:
   }
 */
 
-  // read settings from the device
+  // read settings from the card
   double readFloatSetting(byte index) 
   {
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return calibration();
     default:
       return -1.0f;
     }
@@ -92,7 +92,7 @@ public:
   }
 */
 
-  // write settings to the device
+  // write settings to the card
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -111,7 +111,7 @@ public:
   }
 */
 
-  // describe the device settings
+  // describe the card settings
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 
@@ -136,7 +136,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = calibration;
     settings.save(tempCalibration);
   }
 

@@ -354,12 +354,12 @@ static void restoreEEPROMSettings()
   inputDevice[0]->restoreSettings(settings);
 #endif
   theInputDevice = inputDevice[inputType];
-  displayCalibration = makeDecimal<1>(theInputDevice->calibration() * (displayCelsius ? 1.0 : 1.8));
+  displayCalibration = makeDecimal<1>(theInputDevice->getCalibration() * (displayCelsius ? 1.0 : 1.8));
 
   settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
   outputDevice[0]->restoreSettings(settings);
   theOutputDevice = outputDevice[outputType];
-  displayWindow = makeDecimal<1>(theOutputDevice->outputWindowSeconds());
+  displayWindow = makeDecimal<1>(theOutputDevice->getOutputWindowSeconds());
 }
 
 // check the CRC-16 of the i'th profile block

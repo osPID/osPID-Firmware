@@ -1,19 +1,19 @@
 // This header defines the base and utility classes for input and output devices
-#ifndef OSPIODEVICE_H
-#define OSPIODEVICE_H
+#ifndef OSPIO_H
+#define OSPIO_H
 
 class ospSettingsHelper;
 
 // a base class for both input and output IO devices
-class ospBaseIODevice {
+class ospBaseIO {
 public:
-  ospBaseIODevice() { }
+  ospBaseIO() { }
 
   // setup the IO device 
   void initialize() { }
 
   // return an identifying name for this IO device, as a PSTR
-  const __FlashStringHelper *IODeviceIdentifier() { return F(""); }
+  const __FlashStringHelper *IoIdentifier() { return F(""); }
 
   // how many settings does this IO device have
   byte floatSettingsCount() { return 0; }
@@ -45,23 +45,18 @@ public:
   void restoreSettings(ospSettingsHelper& settings) { }
 };
 
-class ospBaseInputDevice : public ospBaseIODevice
-{
+class ospBaseInputSensor : public ospBaseIODevice
 public:
-  ospBaseInputDevice() { ospBaseIODevice(); }
+  ospBaseInputSensor() { ospBaseIO(); }
 
   double readInput() { return -1.0f; }
 };
 
-class ospBaseOutputDevice : public ospBaseIODevice 
-{
+class ospBaseOutputDevice : public ospBaseIODevice {
 public:
-  ospBaseOutputDevice() :
-   ospBaseIODevice()
- {
- }
+  ospBaseOutputCard() { ospBaseCard(); }
 
-  void setOutputPercent(double percentage) {}
+  void setOutputPercent(double percentage) { }
 };
 
 #endif

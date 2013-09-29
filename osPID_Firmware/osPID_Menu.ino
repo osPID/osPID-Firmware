@@ -761,7 +761,7 @@ static void switchUnits()
   // change setPoint values 
   for (byte i = 0; i < 4; i++ )
   {
-    setPoint[i] = (displayCelsius ? convertFtoC(setPoint[i]) : convertCtoF(setPoint[i]));
+    setPoints[i] = (displayCelsius ? convertFtoC(setPoints[i]) : convertCtoF(setPoints[i]));
   }
 
   // profile information will stay in Celsius
@@ -971,7 +971,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      displayWindow = makeDecimal<1>(theOutputDevice->outputWindowSeconds());
+      displayWindow = makeDecimal<1>(theOutputDevice->getOutputWindowSeconds());
     }
 
     // it's a menu: open that menu
