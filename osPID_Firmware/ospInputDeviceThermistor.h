@@ -1,11 +1,11 @@
-jifndef OSPTEMPERATUREINPUTCARDTHERMISTOR_H
-#define OSPTEMPERATUREINPUTCARDTHERMISTOR_H
+#ifndef OSPINPUTDEVICETHERMISTOR_H
+#define OSPINPUTDEVICETHERMISTOR_H
 
-#include "ospTemperatureInputCard.h"
+#include "ospInputDevice.h"
 #include "ospSettingsHelper.h"
 
-class ospTemperatureInputCardThermistor : 
-  public ospTemperatureInputCard
+class ospInputDeviceThermistor : 
+  public ospInputDevice
 {
 private:
   enum { thermistorPin = A0 };
@@ -17,8 +17,8 @@ private:
 
 
 public:
-  ospTemperatureInputCardThermistor() :
-    ospTemperatureInputCard(),
+  ospInputDeviceThermistor() :
+    ospInputDevice(),
     THERMISTORNOMINAL(10.0f),
     BCOEFFICIENT(1.0f),
     TEMPERATURENOMINAL(293.15f),
@@ -26,14 +26,14 @@ public:
   { 
   }
 
-  // setup the card
+  // setup the device
   void initialize() 
   {
     setInitialized(true);
   }
 
-  // return the card identifier
-  const __FlashStringHelper *cardIdentifier()
+  // return the device identifier
+  const __FlashStringHelper *deviceIdentifier()
   {
     return F("Thermistor NTC");
   }
@@ -54,7 +54,7 @@ private:
   }
 
 public:
-  // read the card
+  // read the device
   double readInput() 
   {
     int voltage = analogRead(thermistorPin);
@@ -68,7 +68,7 @@ public:
     return 0;
   }
 
-  // how many settings does this card have
+  // how many settings does this device have
   byte floatSettingsCount() 
   {
     return 5; 
@@ -80,7 +80,7 @@ public:
   }
 */
 
-  // read settings from the card
+  // read settings from the device
   double readFloatSetting(byte index) 
   {
     switch (index) 
@@ -106,7 +106,7 @@ public:
   }
 */
 
-  // write settings to the card
+  // write settings to the device
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -137,7 +137,7 @@ public:
   }
 */
 
-  // describe the card settings
+  // describe the device settings
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 

@@ -1,12 +1,12 @@
-#ifndef OSPCARDSIMULATOR_H
-#define OSPCARDSIMULATOR_H
+#ifndef OSPSIMULATOR_H
+#define OSPSIMULATOR_H
 
-#include "ospCards.h"
+#include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
-// a "card" which simulates a simple plant including a proportional heating
+// a "device" which simulates a simple plant including a proportional heating
 // term, a thermal loss rate, and some measurement noise
-class ospCardSimulator : public ospBaseInputCard, public ospBaseOutputCard 
+class ospSimulator : public ospBaseInputDevice, public ospBaseOutputDevice 
 {
 private:
   double kpmodel, taup, theta[30];
@@ -16,13 +16,13 @@ private:
   static const double inputStart = 250.0f;
 
 public:
-  ospCardSimulator()
-    : ospBaseInputCard()
-    , ospBaseOutputCard()
+  ospSimulator()
+    : ospBaseInputDevice()
+    , ospBaseOutputDevice()
   {
   }
 
-  // setup the card
+  // setup the device
   void initialize() 
   {
     input = inputStart;
@@ -31,16 +31,16 @@ public:
     setInitialized(true);
   }
 
-  // return the card identifier
-  const char *cardIdentifier() { return "SIML"; }
+  // return the device identifier
+  const char *IODeviceIdentifier() { return "SIML"; }
 
-  // how many settings does this card have
+  // how many settings does this device have
   byte floatSettingsCount() { return 2; }
 /*
   byte integerSettingsCount() { return 0; }
 */
 
-  // read settings from the card
+  // read settings from the device
   double readFloatSetting(byte index) 
   {
     switch (index) 
@@ -62,7 +62,7 @@ public:
   }
 */
 
-  // write settings to the card
+  // write settings to the device
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -102,14 +102,14 @@ public:
     settings.restore(taup);
   }
 
-  // pretend to read an input from the input card
+  // pretend to read an input from the input device
   double readInput() 
   {
     updateModel();
     return input;
   }
 
-  // pretend to write a control signal to the output card
+  // pretend to write a control signal to the output device
   void setOutputPercent(double percent) 
   {
     theta[29] = percent;

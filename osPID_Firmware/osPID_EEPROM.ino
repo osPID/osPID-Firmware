@@ -5,7 +5,7 @@
 #include <util/crc16.h>
 #include <EEPROM.h>
 #include "defines.h"
-#include "ospCards.h"
+#include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
 #undef BUGCHECK
@@ -35,8 +35,8 @@
 *     44 |    2 | Upper trip limit
 *     46 |    1 | EEPROM version identifier
 *     47 |   25 | (free)
-*     72 |   64 | Input card setting space
-*    136 |   64 | Output card setting space
+*     72 |   64 | Input device setting space
+*    136 |   64 | Output device setting space
 *
 * This block is followed by 3 profile blocks, each 122 B long:
 *
@@ -98,8 +98,8 @@ enum
   SETTINGS_DISPLAY_CELSIUS = 48,
   SETTINGS_VERSION_OFFSET = 49,
   // free space from 50 to 71
-  INPUT_CARD_SETTINGS_OFFSET = 72,
-  OUTPUT_CARD_SETTINGS_OFFSET = 168,
+  INPUT_DEVICE_SETTINGS_OFFSET = 72,
+  OUTPUT_DEVICE_SETTINGS_OFFSET = 168,
   SETTINGS_CRC_LENGTH = 198
 };
 
@@ -278,18 +278,18 @@ static void saveEEPROMSettings()
   
   settings.save((byte) EEPROM_STORAGE_VERSION);
 
-  settings.fillUpTo(INPUT_CARD_SETTINGS_OFFSET);
+  settings.fillUpTo(INPUT_DEVICE_SETTINGS_OFFSET);
 #ifndef USE_SIMULATOR
   for (byte i = 0; i < 3; i++ )
   {
-    inputCard[i]->saveSettings(settings);
+    inputDevice[i]->saveSettings(settings);
   }
 #else
-  inputCard[0]->saveSettings(settings);
+  inputDevice[0]->saveSettings(settings);
 #endif
 
-  settings.fillUpTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  outputCard[0]->saveSettings(settings);
+  settings.fillUpTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
+  outputDevice[0]->saveSettings(settings);
 
   // fill any trailing unused space
   settings.fillUpTo(SETTINGS_SBYTE1_OFFSET + SETTINGS_CRC_LENGTH);
@@ -344,22 +344,22 @@ static void restoreEEPROMSettings()
   
   settings.restore(displayCelsius);
 
-  settings.skipTo(INPUT_CARD_SETTINGS_OFFSET);
+  settings.skipTo(INPUT_DEVICE_SETTINGS_OFFSET);
 #ifndef USE_SIMULATOR
   for (byte i = 0; i < 3; i++ )
   {
-    inputCard[i]->restoreSettings(settings);
+    inputDevice[i]->restoreSettings(settings);
   }
 #else  
-  inputCard[0]->restoreSettings(settings);
+  inputDevice[0]->restoreSettings(settings);
 #endif
-  theInputCard = inputCard[inputType];
-  displayCalibration = makeDecimal<1>(theInputCard->calibration() * (displayCelsius ? 1.0 : 1.8));
+  theInputDevice = inputDevice[inputType];
+  displayCalibration = makeDecimal<1>(theInputDevice->calibration() * (displayCelsius ? 1.0 : 1.8));
 
-  settings.skipTo(OUTPUT_CARD_SETTINGS_OFFSET);
-  outputCard[0]->restoreSettings(settings);
-  theOutputCard = outputCard[outputType];
-  displayWindow = makeDecimal<1>(theOutputCard->outputWindowSeconds());
+  settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
+  outputDevice[0]->restoreSettings(settings);
+  theOutputDevice = outputDevice[outputType];
+  displayWindow = makeDecimal<1>(theOutputDevice->outputWindowSeconds());
 }
 
 // check the CRC-16 of the i'th profile block

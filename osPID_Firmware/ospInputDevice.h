@@ -1,11 +1,11 @@
-#ifndef OSPTEMPERATUREINPUTSENSOR_H
-#define OSPTEMPERATUREINPUTSENSOR_H
+#ifndef OSPINPUTDEVICE_H
+#define OSPINPUTDEVICE_H
 
-#include "ospIO.h"
+#include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
-class ospTemperatureInputSensor : 
-  public ospBaseInput 
+class ospInputDevice : 
+  public ospBaseInputDevice 
 {
 private:
 
@@ -14,8 +14,8 @@ private:
 
 
 public:
-  ospTemperatureInputSensor() :
-    ospBaseInput(),
+  ospInputDevice() :
+    ospBaseInputDevice(),
     initialized(false),
     calibration(0.0f)
   { 

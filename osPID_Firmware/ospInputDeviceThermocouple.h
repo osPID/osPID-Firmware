@@ -1,80 +1,66 @@
-#ifndef OSPTEMPERATUREINPUTCARDONEWIRE_H
-#define OSPTEMPERATUREINPUTCARDONEWIRE_H
+#ifndef OSPINPUTDEVICETHERMOCOUPLE_H
+#define OSPINPUTDEVICETHERMOCOUPLE_H
 
-#include "ospTemperatureInputCard.h"
+#include "ospInputDevice.h"
 #include "ospSettingsHelper.h"
-#include "OneWire_local.h"
-#include "DallasTemperature_local.h"
+#include "MAX31855_local.h"
 
-class ospTemperatureInputCardOneWire : 
-  public ospTemperatureInputCard 
+class ospInputDeviceThermocouple : 
+  public ospInputDevice
 {
 private:
-  enum { oneWireBus = A0 };
+  enum { thermocoupleSO = A0  };
+  enum { thermocoupleCS = A1  };
+  enum { thermocoupleCLK = A2 };
 
-  OneWire oneWire;
-  DallasTemperature oneWireDevice;
-  DeviceAddress oneWireDeviceAddress;
-
+  MAX31855 thermocouple;
 
 public:
-  ospTemperatureInputCardOneWire() :
-    ospTemperatureInputCard(),
-    oneWire(oneWireBus),
-    oneWireDevice(&oneWire)
+  ospInputDeviceThermocouple() :
+    ospInputDevice(),
+    thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO)
   { 
   }
 
-  // setup the card
+  // setup the device
   void initialize() 
   {
-    oneWireDevice.begin();
-    if (!oneWireDevice.getAddress(oneWireDeviceAddress, 0)) 
-    {
-      setInitialized(false);
-    }
-    else 
-    {
-      oneWireDevice.setWaitForConversion(false);
-      oneWireDevice.setResolution(oneWireDeviceAddress, 12);
-      setInitialized(true);
-    }
+    setInitialized(true);
   }
 
-  // return the card identifier
-  const __FlashStringHelper *cardIdentifier()
+  // return the device identifier
+  const __FlashStringHelper *deviceIdentifier()
   {
-    return F("DS18B20+");
-  }
-
-public:
-  // request input
-  // returns conversion time in milliseconds
-  unsigned long requestInput() 
-  {
-    oneWireDevice.requestTemperatures();
-    return 750;
+    return F("Thermocouple K");
   }
 
   // read the device
   double readInput() 
   {
-    return oneWireDevice.getTempCByIndex(0) + getCalibration(); 
+    double val = thermocouple.readThermocouple(CELSIUS);
+    if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
+      val = NAN;
+    return val + calibration();
   }
 
-  // how many settings does this card have
+  // request input
+  // returns conversion time in milliseconds
+  unsigned long requestInput() 
+  {
+    return 0;
+  }
+
+  // how many settings does this device have
   byte floatSettingsCount() 
   {
     return 1; 
   }
-/*
   byte integerSettingsCount() 
   {
     return 0; 
   }
-*/
 
-  // read settings from the card
+  // read settings from the device
   double readFloatSetting(byte index) 
   {
     switch (index) 
@@ -92,7 +78,7 @@ public:
   }
 */
 
-  // write settings to the card
+  // write settings to the device
   bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
@@ -111,7 +97,7 @@ public:
   }
 */
 
-  // describe the card settings
+  // describe the device settings
   const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 

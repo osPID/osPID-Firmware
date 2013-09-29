@@ -36,45 +36,45 @@
  *    ospDigitalOutputStripboardV1_0:
  *    1 SSR output on pin A3.
  *
- * For firmware development, there is also the ospCardSimulator which acts as both
- * the input and output cards and simulates the controller being attached to a
+ * For firmware development, there is also the ospSimulator which acts as both
+ * the input and output device and simulates the controller being attached to a
  * simple system.
  *******************************************************************************/
 
 
 #ifndef USE_SIMULATOR
-#include "ospDigitalOutputCard.h"
-#include "ospTemperatureInputCardOneWire.h"
-#include "ospTemperatureInputCardThermocouple.h"
-#include "ospTemperatureInputCardThermistor.h"
-ospTemperatureInputCardThermistor thermistor;
-ospTemperatureInputCardThermocouple thermocouple;
-ospTemperatureInputCardOneWire ds18b20;
-enum { numInputCards = 3 };
-ospTemperatureInputCard *inputCard[numInputCards] = { &thermistor, &thermocouple, &ds18b20 };
+#include "ospOutputDevice.h"
+#include "ospInputDeviceOneWire.h"
+#include "ospInputDeviceThermocouple.h"
+#include "ospInputDeviceThermistor.h"
+ospInputDeviceThermistor thermistor;
+ospInputDeviceThermocouple thermocouple;
+ospInputDeviceOneWire ds18b20;
+enum { numInputDevices = 3 };
+ospInputDevice *inputDevice[numInputDevices] = { &thermistor, &thermocouple, &ds18b20 };
 enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE = 1, INPUT_THERMOCOUPLE = 2 };
 byte inputType = INPUT_THERMISTOR;
-ospDigitalOutputCard ssr;
-enum { numOutputCards = 1 };
+ospOutputDevice ssr;
+enum { numOutputDevices = 1 };
 enum { OUTPUT_SSR = 0 };
 byte outputType = OUTPUT_SSR;
-ospDigitalOutputCard *outputCard[numOutputCards] = { &ssr };
+ospOutputDevice *outputDevice[numOutputDevices] = { &ssr };
 #else
-#include "ospCardSimulator.h"
-ospCardSimulator simulator;
-enum { numInputCards = 1 };
-ospTemperatureInputCard *inputCard[numInputCards] = { &simulator };
+#include "ospSimulator.h"
+ospSimulator simulator;
+enum { numInputDevices = 1 };
+ospInputDevice *inputDevice[numInputDevices] = { &simulator };
 enum { SIMULATOR = 0 };
 byte inputType = SIMULATOR;
-enum { numOutputCards = 1 };
+enum { numOutputDevices = 1 };
 byte outputType = SIMULATOR;
-ospDigitalOutputCard *outputCard[numOutputCards] = { &simulator };
-#define theOutputCard theInputCard
+ospOutputDevice *outputDevice[numOutputDevices] = { &simulator };
+#define theOutputDevice theInputDevice
 #endif
 
 
-ospTemperatureInputCard *theInputCard  = inputCard[inputType];
-ospDigitalOutputCard    *theOutputCard = outputCard[outputType];
+ospInputDevice   *theInputDevice  = inputDevice[inputType];
+ospOutputDevice  *theOutputDevice = outputDevice[outputType];
 
 
 
@@ -181,7 +181,7 @@ PID myPID(&lastGoodInput, &output, &activeSetPoint, double(PGain), double(IGain)
 unsigned long now, lcdTime, readInputTime;
 
 // how often to step the PID loop, in milliseconds: it is impractical to set this
-// to less than ~250 (i.e. faster than 4 Hz), since (a) the input card has up to 100 ms
+// to less than ~1000 (i.e. faster than 1 Hz), since (a) the input has up to 750 ms
 // of latency, and (b) the controller needs time to handle the LCD, EEPROM, and serial
 // I/O
 enum { PID_LOOP_SAMPLE_TIME = 1000 };
@@ -237,9 +237,9 @@ void setup()
 
   now = millis();
 
-  // set up the peripheral cards
-  theInputCard->initialize();
-  theOutputCard->initialize();
+  // set up the peripheral devices
+  theInputDevice->initialize();
+  theOutputDevice->initialize();
 
   // load the EEPROM settings
   //clearEEPROM();
@@ -280,8 +280,8 @@ void setup()
 
   // kick things off by requesting sensor input
   now = millis();
-  if (theInputCard->initialized)
-    readInputTime = now + theInputCard->requestInput();
+  if (theInputDevice->initialized)
+    readInputTime = now + theInputDevice->requestInput();
 
   controllerIsBooting = false;
 }
@@ -431,10 +431,10 @@ static void markSettingsDirty()
   activeSetPoint = celsius(double(setPoints[setpointIndex]));
 
   // capture any changes to the output window length
-  theOutputCard->setOutputWindowSeconds(double(displayWindow));
+  theOutputDevice->setOutputWindowSeconds(double(displayWindow));
   
   // capture any changes to the calibration value
-  theInputCard->setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
+  theInputDevice->setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
 
   settingsWritebackNeeded = true;
 
@@ -489,12 +489,12 @@ void loop()
   now = millis();
 
   // highest priority task is to update the output
-  theOutputCard->setOutputPercent(output);
+  theOutputDevice->setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputCard->initialized && (now > readInputTime))
+  if (theInputDevice->initialized && (now > readInputTime))
   {
-    input = theInputCard->readInput();
+    input = theInputDevice->readInput();
     if (!isnan(input))
     {
       lastGoodInput = input;
@@ -570,11 +570,11 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (!theInputCard->initialized)
+  if (!theInputDevice->initialized)
   {
     input = NAN;
     displayInput = (ospDecimalValue<1>){-19999}; // Display Err
-    theInputCard->initialize();
+    theInputDevice->initialize();
   }     
 
   now = millis();

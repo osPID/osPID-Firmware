@@ -34,7 +34,7 @@ Command list:
 
   a? #Number #Number #Integer -- set Autotune parameters: step, noise, and lookback
 
-  B? #Number -- query / set input card temperature caliBration value
+  B? #Number -- query / set input device temperature caliBration value
 
   c? #Integer -- set the Comm speed, in kbps
 
@@ -456,58 +456,58 @@ static void cmdExamineSettings()
 
   Serial.println();
 
-  // peripheral card settings
-  serialPrint(F("Input card "));
+  // peripheral device settings
+  serialPrint(F("Input device "));
   //serialPrintFCalibrationData();
 /*
-  for (byte i = 0; i < theInputCard->integerSettingsCount(); i++)
+  for (byte i = 0; i < theInputDevice->integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputCard->describeIntegerSetting(i);
+    const __FlashStringHelper *description = theInputDevice->describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputCard->readIntegerSetting(i));
+    serialPrintln(theInputDevice->readIntegerSetting(i));
     Serial.println();
   }
 */
-  for (byte i = 0; i < theInputCard->floatSettingsCount(); i++)
+  for (byte i = 0; i < theInputDevice->floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputCard->describeFloatSetting(i);
+    const __FlashStringHelper *description = theInputDevice->describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputCard->readFloatSetting(i));
+    serialPrintln(theInputDevice->readFloatSetting(i));
     Serial.println();
   }
 
-  serialPrint(F("Output card "));
+  serialPrint(F("Output device "));
   //serialPrintFCalibrationData();  
 /*
-  for (byte i = 0; i < theOutputCard->integerSettingsCount(); i++)
+  for (byte i = 0; i < theOutputDevice->integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputCard->describeIntegerSetting(i);
+    const __FlashStringHelper *description = theOutputDevice->describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputCard->readIntegerSetting(i));
+    serialPrintln(theOutputDevice->readIntegerSetting(i));
     Serial.println();
   }
 */
-  for (byte i = 0; i < theOutputCard->floatSettingsCount(); i++)
+  for (byte i = 0; i < theOutputDevice->floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputCard->describeFloatSetting(i);
+    const __FlashStringHelper *description = theOutputDevice->describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputCard->readFloatSetting(i));
+    serialPrintln(theOutputDevice->readFloatSetting(i));
     Serial.println();
   }
 }
@@ -688,7 +688,7 @@ static void processSerialCommand()
       serialPrintln(aTuneLookBack);
       break;
     case 'B':
-      serialPrintTempln(theInputCard->calibration());
+      serialPrintTempln(theInputDevice->calibration());
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
       break;
@@ -832,7 +832,7 @@ static void processSerialCommand()
   case 'B':
     ospDecimalValue<1> cal = makeDecimal<1>(i1, d1);
     BOUNDS_CHECK(cal, (ospDecimalValue<1>){-999}, (ospDecimalValue<1>){999});
-    theInputCard->setCalibration(double(cal));
+    theInputDevice->setCalibration(double(cal));
     displayCalibration = cal;
     break;
   case 'C': // cancel an auto-tune or profile execution
@@ -1000,7 +1000,7 @@ static void processSerialCommand()
   case 'W': // set the output window size in seconds
     window = makeDecimal<1>(&i1, &d1);
     BOUNDS_CHECK(lower, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
-    theOutputCard->setOutputWindowSecs(double(window));
+    theOutputDevice->setOutputWindowSecs(double(window));
     displayWindow = window;
     break;
   case 'X': // examine: dump the controller settings

@@ -971,7 +971,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      displayWindow = makeDecimal<1>(theOutputCard->outputWindowSeconds());
+      displayWindow = makeDecimal<1>(theOutputDevice->outputWindowSeconds());
     }
 
     // it's a menu: open that menu
@@ -1069,8 +1069,8 @@ static void okKeyPress()
   case ITEM_INPUT_SIMULATOR:
     // update inputType
     inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);
-    theInputCard = inputCard[inputType];
-    theInputCard->initialize();
+    theInputDevice = inputDevice[inputType];
+    theInputDevice->initialize();
     markSettingsDirty();
 
     // return to the prior menu
@@ -1110,9 +1110,7 @@ static void okKeyPress()
 
     // perform a software reset by jumping to 0x0000, which is the start of the application code
     //
-    // it would be better to use a Watchdog Reset, but the bootloader on the osPID main card
-    // doesn't have the "turn off the watchdog" functionality enabled: so if you turn on the watchdog,
-    // the Controller goes into an infinite reset loop because the boot loader takes too long
+    // it would be better to use a Watchdog Reset
     typedef void (*VoidFn)(void);
     ((VoidFn) 0x0000)();
     break;
