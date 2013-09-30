@@ -22,115 +22,19 @@ public:
   { 
   }
 
-  // setup the device
-  void initialize() 
-  {
-    this->setInitializationStatus(true);
-  }
-
   // return the device identifier
-  const __FlashStringHelper *IODeviceIdentifier()
+  virtual const __FlashStringHelper *IODeviceIdentifier()
   {
     return F("Thermocouple K");
   }
 
   // read the device
-  double readInput() 
+  virtual double readInput() 
   {
     double val = thermocouple.readThermocouple(CELSIUS);
     if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
       return NAN;
     return val + this->getCalibration();
-  }
-
-  // request input
-  // returns conversion time in milliseconds
-  unsigned long requestInput() 
-  {
-    return 0;
-  }
-
-  // how many settings does this device have
-  byte floatSettingsCount() 
-  {
-    return 1; 
-  }
-  byte integerSettingsCount() 
-  {
-    return 0; 
-  }
-
-  // read settings from the device
-  double readFloatSetting(byte index) 
-  {
-    switch (index) 
-    {
-    case 0:
-      return this->getCalibration();
-    default:
-      return -1.0f;
-    }
-  }
-/*
-  int readIntegerSetting(byte index) 
-  {
-    return -1;
-  }
-*/
-
-  // write settings to the device
-  bool writeFloatSetting(byte index, double val) 
-  {
-    switch (index) 
-    {
-    case 0:  
-      this->setCalibration(val);
-      return true;
-    default:
-      return false;
-    }
-  }
-/*
-  bool writeIntegerSetting(byte index, int val) 
-  {
-    return false;
-  }
-*/
-
-  // describe the device settings
-  const __FlashStringHelper *describeFloatSetting(byte index) 
-  {
-    switch (index) 
-    {
-    case 0:
-      return F("Calibration temperature adjustment (Celsius)");
-    default:
-      return false;
-    }
-  }
-/*
-  const __FlashStringHelper *describeIntegerSetting(byte index) 
-  {
-    switch (index) 
-    {
-    default:
-      return false;
-    }
-  }
-*/
-
-  // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) 
-  {
-    double tempCalibration = this->getCalibration();
-    settings.save(tempCalibration);
-  }
-
-  void restoreSettings(ospSettingsHelper& settings) 
-  {
-    double tempCalibration;
-    settings.restore(tempCalibration);
-    this->setCalibration(tempCalibration);
   }
 };
 

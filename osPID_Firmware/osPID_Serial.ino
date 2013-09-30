@@ -698,6 +698,7 @@ static void processSerialCommand()
       break;
     case 'B':
       serialPrintFloatTempln(theInputDevice->getCalibration() / (displayCelsius ? 1.0 : 1.8));
+      break;
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
       break;
@@ -711,8 +712,8 @@ static void processSerialCommand()
       serialPrintln(IGain);
       break;
     case 'L':
-      serialPrintTempln(lowerTripLimit);
-      serialPrintTempln(upperTripLimit);
+      serialPrintFloatTempln(lowerTripLimit);
+      serialPrintFloatTempln(upperTripLimit);
       break;
     case 'l':
       serialPrintln(tripLimitsEnabled);
@@ -747,10 +748,10 @@ static void processSerialCommand()
       break;
     case 'U':
       serialPrintln(displayCelsius ? "Celsius" : "Fahrenheit");
+      break;
     case 'W':
       Serial.print(theOutputDevice->getOutputWindowSeconds());
-      Serial.print(" seconds");
-      Serial.println();
+      Serial.println(" seconds");
       break;
     case 't':
       serialPrintln(tripAutoReset);

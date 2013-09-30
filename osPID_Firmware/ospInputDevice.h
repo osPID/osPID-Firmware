@@ -21,6 +21,108 @@ public:
   { 
   }
   
+  virtual void initialize() 
+  {
+    this->setInitializationStatus(true);
+  }
+  
+  virtual const __FlashStringHelper *IODeviceIdentifier() { return NULL; };
+  
+  // how many settings does this device have
+  virtual byte floatSettingsCount() 
+  {
+    return 1; 
+  }  
+
+  // read settings from the device
+  virtual double readFloatSetting(byte index) 
+  {
+    switch (index) 
+    {
+    case 0:
+      return this->getCalibration();
+    default:
+      return -1.0f;
+    }
+  }
+    
+  // write settings to the device
+  virtual bool writeFloatSetting(byte index, double val) 
+  {
+    switch (index) 
+    {
+    case 0:  
+      this->setCalibration(val);
+      return true;
+    default:
+      return false;
+    }
+  }
+  
+  // describe the device settings
+  virtual const __FlashStringHelper *describeFloatSetting(byte index) 
+  {
+    switch (index) 
+    {
+    case 0:
+      return F("Calibration temperature adjustment (Celsius)");
+    default:
+      return false;
+    }
+  }
+
+  // save and restore settings to/from EEPROM using the settings helper
+  virtual void saveSettings(ospSettingsHelper& settings) 
+  {
+    double tempCalibration = this->getCalibration();
+    settings.save(tempCalibration);
+  }
+
+  virtual void restoreSettings(ospSettingsHelper& settings) 
+  {
+    double tempCalibration;
+    settings.restore(tempCalibration);
+    this->setCalibration(tempCalibration);
+  }  
+
+/*
+  virtual byte integerSettingsCount() 
+  {
+    return 0; 
+  }
+
+  virtual int readIntegerSetting(byte index) 
+  {
+    return -1;
+  }
+
+  virtual bool writeIntegerSetting(byte index, int val) 
+  {
+    return false;
+  }
+
+  virtual const __FlashStringHelper *describeIntegerSetting(byte index) 
+  {
+    switch (index) 
+    {
+    default:
+      return false;
+    }
+  }
+*/
+
+  // request input
+  // returns conversion time in milliseconds
+  virtual unsigned long requestInput() 
+  {
+    return 0;
+  }
+
+  virtual double readInput()
+  {
+    return NAN;
+  }
+  
   // get initialization status
   virtual bool getInitializationStatus()
   {
@@ -43,23 +145,7 @@ public:
   virtual void setCalibration(double newCalibration)
   {
     calibration = newCalibration;
-  }
-
-  virtual void initialize() = 0;
-  virtual const __FlashStringHelper *IODeviceIdentifier() = 0; 
-  virtual byte floatSettingsCount() = 0; 
-  //virtual byte integerSettingsCount() = 0;
-  virtual double readFloatSetting(byte index) = 0;
-  //virtual int readIntegerSetting(byte index) = 0;
-  virtual bool writeFloatSetting(byte index, double val) = 0;
-  //virtual bool writeIntegerSetting(byte index, int val) = 0;
-  virtual const __FlashStringHelper *describeFloatSetting(byte index) = 0;
-  //virtual const __FlashStringHelper *describeIntegerSetting(byte index) = 0;
-  virtual void saveSettings(ospSettingsHelper& settings) = 0;
-  virtual void restoreSettings(ospSettingsHelper& settings) = 0;
-
-  virtual unsigned long requestInput() {};
-  virtual double readInput() = 0;
+  }  
 };
 
 

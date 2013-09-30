@@ -17,8 +17,7 @@ private:
 
 public:
   ospSimulator()
-    : ospBaseInputDevice()
-    , ospBaseOutputDevice()
+    : ospBaseInputDevice(), ospBaseOutputDevice()
   {
   }
 
@@ -36,9 +35,6 @@ public:
 
   // how many settings does this device have
   byte floatSettingsCount() { return 2; }
-/*
-  byte integerSettingsCount() { return 0; }
-*/
 
   // read settings from the device
   double readFloatSetting(byte index) 
@@ -46,21 +42,13 @@ public:
     switch (index) 
     {
     case 0:
-      return calibration();
-    case 1:  
       return kpmodel;
-    case 2:
+    case 1:
       return taup;
     default:
       return -1.0f;
     }
   }
-/*
-  int readIntegerSetting(byte index) 
-  {
-    return -1;
-  }
-*/
 
   // write settings to the device
   bool writeFloatSetting(byte index, double val) 
@@ -77,27 +65,16 @@ public:
       return false;
     }
   }
-/*
-  bool writeIntegerSetting(byte index, int val) 
-  {
-    return false;
-  }
-*/
 
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = calibration();
-    settings.save(tempCalibration);
     settings.save(kpmodel);
     settings.save(taup);
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration;
-    settings.restore(tempCalibration);
-    setCalibration(tempCalibration);
     settings.restore(kpmodel);
     settings.restore(taup);
   }
@@ -124,7 +101,7 @@ private:
       theta[i] = theta[i+1];
     }
     // Compute the input
-    input = (kpmodel / taup) * (theta[0] - outputStart) + (input - inputStart) * (1 - 1 / taup) + inputStart + ((double) random(-10,10)) / 100;
+    input = (kpmodel / taup) * (theta[0] - outputStart) + (input - inputStart) * (1 - 1 / taup) + inputStart + ((double) random(-10, 10)) / 100;
   }
 };
 

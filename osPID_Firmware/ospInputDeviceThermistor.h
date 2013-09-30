@@ -26,14 +26,8 @@ public:
   { 
   }
 
-  // setup the device
-  void initialize() 
-  {
-    this->setInitializationStatus(true);
-  }
-
   // return the device identifier
-  const __FlashStringHelper *IODeviceIdentifier()
+  virtual const __FlashStringHelper *IODeviceIdentifier()
   {
     return F("Thermistor NTC");
   }
@@ -55,7 +49,7 @@ private:
 
 public:
   // read the device
-  double readInput() 
+  virtual double readInput() 
   {
     int voltage = analogRead(thermistorPin);
     return thermistorVoltageToTemperature(voltage) + this->getCalibration();
@@ -63,25 +57,19 @@ public:
 
   // request input
   // returns conversion time in milliseconds
-  unsigned long requestInput() 
+  virtual unsigned long requestInput() 
   {
     return 0;
   }
 
   // how many settings does this device have
-  byte floatSettingsCount() 
+  virtual byte floatSettingsCount() 
   {
     return 5; 
   }
-/*
-  byte integerSettingsCount() 
-  {
-    return 0; 
-  }
-*/
 
   // read settings from the device
-  double readFloatSetting(byte index) 
+  virtual double readFloatSetting(byte index) 
   {
     switch (index) 
     {
@@ -99,15 +87,9 @@ public:
       return -1.0f;
     }
   }
-/*
-  int readIntegerSetting(byte index) 
-  {
-    return -1;
-  }
-*/
 
   // write settings to the device
-  bool writeFloatSetting(byte index, double val) 
+  virtual bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
     {
@@ -130,15 +112,9 @@ public:
       return false;
     }
   }
-/*
-  bool writeIntegerSetting(byte index, int val) 
-  {
-    return false;
-  }
-*/
 
   // describe the device settings
-  const __FlashStringHelper *describeFloatSetting(byte index) 
+  virtual const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 
     {
@@ -156,19 +132,9 @@ public:
       return false;
     }
   }
-/*
-  const __FlashStringHelper *describeIntegerSetting(byte index) 
-  {
-    switch (index) 
-    {
-    default:
-      return false;
-    }
-  }
-*/
 
   // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) 
+  virtual void saveSettings(ospSettingsHelper& settings) 
   {
     double tempCalibration = this->getCalibration();
     settings.save(tempCalibration);
@@ -178,7 +144,7 @@ public:
     settings.save(REFERENCE_RESISTANCE);
   }
 
-  void restoreSettings(ospSettingsHelper& settings) 
+  virtual void restoreSettings(ospSettingsHelper& settings) 
   {
     double tempCalibration;
     settings.restore(tempCalibration);

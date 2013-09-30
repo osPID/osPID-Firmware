@@ -255,9 +255,9 @@ void setup()
   // set up the serial interface
 /* FIXME commented out temporarily to save space
  *
- *
+ */
   setupSerial();
- *
+/*
  *
  */
 
@@ -620,9 +620,9 @@ void loop()
 
 /* FIXME commented out temporarily to save space
  *
- *
+ */
       processSerialCommand();
- *
+/*
  *
  */
 
