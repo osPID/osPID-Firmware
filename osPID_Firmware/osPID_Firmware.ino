@@ -40,39 +40,22 @@
  *******************************************************************************/
 
 
+
+
 #ifndef USE_SIMULATOR
 #include "ospOutputDeviceSsr.h"
-#include "ospInputDeviceOneWire.h"
-#include "ospInputDeviceThermocouple.h"
-#include "ospInputDeviceThermistor.h"
-ospInputDeviceThermistor thermistor;
-ospInputDeviceThermocouple thermocouple;
-ospInputDeviceOneWire ds18b20;
+#include "ospInputDevice.h"
 enum { numInputDevices = 3 };
-ospInputDevice *inputDevice[numInputDevices] = { &thermistor, &ds18b20, &thermocouple };
-enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE = 1, INPUT_THERMOCOUPLE = 2 };
-byte inputType = INPUT_THERMISTOR;
-ospOutputDeviceSsr ssr;
 enum { numOutputDevices = 1 };
-enum { OUTPUT_SSR = 0 };
-byte outputType = OUTPUT_SSR;
-ospBaseOutputDevice *outputDevice[numOutputDevices] = { &ssr };
+ospInputDevice theInputDevice;
+ospOutputDeviceSsr theOutputDevice;
 #else
 #include "ospSimulator.h"
-ospSimulator simulator;
 enum { numInputDevices = 1 };
-ospInputDevice *inputDevice[numInputDevices] = { &simulator };
-enum { SIMULATOR = 0 };
-byte inputType = SIMULATOR;
 enum { numOutputDevices = 1 };
-byte outputType = SIMULATOR;
-ospOutputDevice *outputDevice[numOutputDevices] = { &simulator };
+ospSimulator theInputDevice;
 #define theOutputDevice theInputDevice
 #endif
-
-
-ospInputDevice       *theInputDevice  = inputDevice[inputType];
-ospBaseOutputDevice  *theOutputDevice = outputDevice[outputType];
 
 
 
@@ -249,8 +232,8 @@ void setup()
   //saveEEPROMSettings();
   
   // set up the peripheral devices
-  theInputDevice->initialize();
-  theOutputDevice->initialize();
+  theInputDevice.initialize();
+  theOutputDevice.initialize();
 
   // set up the serial interface
 /* FIXME commented out temporarily to save space
@@ -293,8 +276,8 @@ void setup()
 
   // kick things off by requesting sensor input
   now = millis();
-  if (theInputDevice->getInitializationStatus())
-    readInputTime = now + theInputDevice->requestInput();
+  if (theInputDevice.getInitializationStatus())
+    readInputTime = now + theInputDevice.requestInput();
 
   controllerIsBooting = false;
 }
@@ -444,10 +427,10 @@ static void markSettingsDirty()
   activeSetPoint = celsius(double(setPoints[setpointIndex]));
 
   // capture any changes to the output window length
-  theOutputDevice->setOutputWindowSeconds(double(displayWindow));
+  theOutputDevice.setOutputWindowSeconds(double(displayWindow));
   
   // capture any changes to the calibration value
-  theInputDevice->setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
+  theInputDevice.setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
 
   settingsWritebackNeeded = true;
 
@@ -502,12 +485,12 @@ void loop()
   now = millis();
 
   // highest priority task is to update the output
-  theOutputDevice->setOutputPercent(output);
+  theOutputDevice.setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputDevice->getInitializationStatus() && (now > readInputTime))
+  if (theInputDevice.getInitializationStatus() && (now > readInputTime))
   {
-    input = theInputDevice->readInput();
+    input = theInputDevice.readInput();
     if (!isnan(input))
     {
       lastGoodInput = input;
@@ -582,11 +565,11 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (!theInputDevice->getInitializationStatus())
+  if (!theInputDevice.getInitializationStatus())
   {
     input = NAN;
     displayInput = (ospDecimalValue<1>){-19999}; // Display Err
-    theInputDevice->initialize();
+    theInputDevice.initialize();
   }     
 
   now = millis();

@@ -4,6 +4,15 @@
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
+  
+enum { OUTPUT_SSR, OUTPUT_SIMULATOR };
+
+#ifndef USE_SIMULATOR
+byte outputType = OUTPUT_SSR;
+#else
+byte outputType = OUTPUT_SIMULATOR;
+#endif
+
 class ospOutputDeviceSsr : 
   public ospBaseOutputDevice 
 {
@@ -91,12 +100,12 @@ public:
   {
     if (index == 0) 
       return F("Output PWM cycle length in milliseconds");
-    return 0;
+    return NULL;
   }
 /*
   const __FlashStringHelper *describeIntegerSetting(byte index) 
   {
-    return 0;
+    return NULL;
   }
 */
 

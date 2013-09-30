@@ -4,6 +4,11 @@
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
+enum {INPUT_SIMULATOR = 0};
+byte inputType = { INPUT_SIMULATOR };
+
+
+
 // a "device" which simulates a simple plant including a proportional heating
 // term, a thermal loss rate, and some measurement noise
 class ospSimulator : public ospBaseInputDevice, public ospBaseOutputDevice 

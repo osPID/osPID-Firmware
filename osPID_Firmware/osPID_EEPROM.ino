@@ -280,14 +280,11 @@ static void saveEEPROMSettings()
 
   settings.fillUpTo(INPUT_DEVICE_SETTINGS_OFFSET);
 #ifndef USE_SIMULATOR
-  for (byte i = 0; i < 3; i++ )
-  {
-    inputDevice[i]->saveSettings(settings);
-  }
+  theInputDevice.saveSettings(settings);
 #endif
 
   settings.fillUpTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
-  outputDevice[0]->saveSettings(settings);
+  theOutputDevice.saveSettings(settings);
 
   // fill any trailing unused space
   settings.fillUpTo(SETTINGS_SBYTE1_OFFSET + SETTINGS_CRC_LENGTH);
@@ -344,18 +341,13 @@ static void restoreEEPROMSettings()
 
   settings.skipTo(INPUT_DEVICE_SETTINGS_OFFSET);
 #ifndef USE_SIMULATOR
-  for (byte i = 0; i < 3; i++ )
-  {
-    inputDevice[i]->restoreSettings(settings);
-  }
+  theInputDevice.restoreSettings(settings);
 #endif
-  theInputDevice = inputDevice[inputType];
-  displayCalibration = makeDecimal<1>(theInputDevice->getCalibration() * (displayCelsius ? 1.0 : 1.8));
+  displayCalibration = makeDecimal<1>(theInputDevice.getCalibration() * (displayCelsius ? 1.0 : 1.8));
 
   settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
-  outputDevice[0]->restoreSettings(settings);
-  theOutputDevice = outputDevice[outputType];
-  displayWindow = makeDecimal<1>(theOutputDevice->getOutputWindowSeconds());
+  theOutputDevice.restoreSettings(settings);
+  displayWindow = makeDecimal<1>(theOutputDevice.getOutputWindowSeconds());
 }
 
 // check the CRC-16 of the i'th profile block

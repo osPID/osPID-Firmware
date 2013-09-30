@@ -971,7 +971,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      displayWindow = makeDecimal<1>(theOutputDevice->getOutputWindowSeconds());
+      displayWindow = makeDecimal<1>(theOutputDevice.getOutputWindowSeconds());
     }
 
     // it's a menu: open that menu
@@ -1069,8 +1069,7 @@ static void okKeyPress()
   case ITEM_INPUT_SIMULATOR:
     // update inputType
     inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);
-    theInputDevice = inputDevice[inputType];
-    theInputDevice->initialize();
+    theInputDevice.initialize();
     markSettingsDirty();
 
     // return to the prior menu

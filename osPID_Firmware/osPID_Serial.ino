@@ -468,54 +468,54 @@ static void cmdExamineSettings()
   serialPrint(F("Input device "));
   //serialPrintFCalibrationData();
 /*
-  for (byte i = 0; i < theInputDevice->integerSettingsCount(); i++)
+  for (byte i = 0; i < theInputDevice.integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputDevice->describeIntegerSetting(i);
+    const __FlashStringHelper *description = theInputDevice.describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputDevice->readIntegerSetting(i));
+    serialPrintln(theInputDevice.readIntegerSetting(i));
     Serial.println();
   }
 */
-  for (byte i = 0; i < theInputDevice->floatSettingsCount(); i++)
+  for (byte i = 0; i < theInputDevice.floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theInputDevice->describeFloatSetting(i);
+    const __FlashStringHelper *description = theInputDevice.describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theInputDevice->readFloatSetting(i));
+    serialPrintln(theInputDevice.readFloatSetting(i));
     Serial.println();
   }
 
   serialPrint(F("Output device "));
   //serialPrintFCalibrationData();  
 /*
-  for (byte i = 0; i < theOutputDevice->integerSettingsCount(); i++)
+  for (byte i = 0; i < theOutputDevice.integerSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputDevice->describeIntegerSetting(i);
+    const __FlashStringHelper *description = theOutputDevice.describeIntegerSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputDevice->readIntegerSetting(i));
+    serialPrintln(theOutputDevice.readIntegerSetting(i));
     Serial.println();
   }
 */
-  for (byte i = 0; i < theOutputDevice->floatSettingsCount(); i++)
+  for (byte i = 0; i < theOutputDevice.floatSettingsCount(); i++)
   {
     Serial.print(F("  I"));
     serialPrint(i);
     Serial.print(F(": "));
-    const __FlashStringHelper *description = theOutputDevice->describeFloatSetting(i);
+    const __FlashStringHelper *description = theOutputDevice.describeFloatSetting(i);
     serialPrint(description);
     Serial.print(F(" = "));
-    serialPrintln(theOutputDevice->readFloatSetting(i));
+    serialPrintln(theOutputDevice.readFloatSetting(i));
     Serial.println();
   }
 }
@@ -697,7 +697,7 @@ static void processSerialCommand()
       serialPrintln(aTuneLookBack);
       break;
     case 'B':
-      serialPrintFloatTempln(theInputDevice->getCalibration() / (displayCelsius ? 1.0 : 1.8));
+      serialPrintFloatTempln(theInputDevice.getCalibration() / (displayCelsius ? 1.0 : 1.8));
       break;
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
@@ -750,7 +750,7 @@ static void processSerialCommand()
       serialPrintln(displayCelsius ? "Celsius" : "Fahrenheit");
       break;
     case 'W':
-      Serial.print(theOutputDevice->getOutputWindowSeconds());
+      Serial.print(theOutputDevice.getOutputWindowSeconds());
       Serial.println(" seconds");
       break;
     case 't':
@@ -846,7 +846,7 @@ static void processSerialCommand()
     ospDecimalValue<1> cal;
     cal = makeDecimal<1>(i1, d1);
     BOUNDS_CHECK(cal, (ospDecimalValue<1>){-999}, (ospDecimalValue<1>){999});
-    theInputDevice->setCalibration(double(cal));
+    theInputDevice.setCalibration(double(cal));
     displayCalibration = cal;
     break;
   case 'C': // cancel an auto-tune or profile execution
@@ -1016,7 +1016,7 @@ static void processSerialCommand()
     ospDecimalValue<1> window;
     window = makeDecimal<1>(i1, d1);
     BOUNDS_CHECK(window, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
-    theOutputDevice->setOutputWindowSeconds(double(window));
+    theOutputDevice.setOutputWindowSeconds(double(window));
     displayWindow = window;
     break;
   case 'X': // examine: dump the controller settings
