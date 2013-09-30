@@ -284,8 +284,6 @@ static void saveEEPROMSettings()
   {
     inputDevice[i]->saveSettings(settings);
   }
-#else
-  inputDevice[0]->saveSettings(settings);
 #endif
 
   settings.fillUpTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
@@ -350,8 +348,6 @@ static void restoreEEPROMSettings()
   {
     inputDevice[i]->restoreSettings(settings);
   }
-#else  
-  inputDevice[0]->restoreSettings(settings);
 #endif
   theInputDevice = inputDevice[inputType];
   displayCalibration = makeDecimal<1>(theInputDevice->getCalibration() * (displayCelsius ? 1.0 : 1.8));

@@ -1,11 +1,11 @@
-#ifndef OSPOUTPUTDEVICE_H
-#define OSPOUTPUTDEVICE_H
+#ifndef OSPOUTPUTDEVICESSR_H
+#define OSPOUTPUTDEVICESSR_H
 
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
-class ospOutputDevice : 
-public ospBaseOutputDevice 
+class ospOutputDeviceSsr : 
+  public ospBaseOutputDevice 
 {
 private:
   enum { SSRPin = A3 };
@@ -15,7 +15,7 @@ private:
 
 
 public:
-  ospOutputDevice() : 
+  ospOutputDeviceSsr() : 
     ospBaseOutputDevice(),
     //outputWindowSeconds(5.0), 
     outputWindowMilliseconds(5000) // 5s OK for SSR depending on the load, needs to be longer for electromechanical relay

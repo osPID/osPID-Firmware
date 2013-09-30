@@ -26,14 +26,12 @@
  *
  * Inputs
  * ======
- *    ospTemperatureInputStripboardV1_0:
  *    DS18B20+ 1-wire digital thermometer with data pin on A0, OR
  *    10K NTC thermistor with voltage divider input on pin A0, OR
  *    MAX31855KASA interface to type-K thermocouple on pins A0-A2.
  *
  * Output
  * ======
- *    ospDigitalOutputStripboardV1_0:
  *    1 SSR output on pin A3.
  *
  * For firmware development, there is also the ospSimulator which acts as both
@@ -43,7 +41,7 @@
 
 
 #ifndef USE_SIMULATOR
-#include "ospOutputDevice.h"
+#include "ospOutputDeviceSsr.h"
 #include "ospInputDeviceOneWire.h"
 #include "ospInputDeviceThermocouple.h"
 #include "ospInputDeviceThermistor.h"
@@ -51,14 +49,14 @@ ospInputDeviceThermistor thermistor;
 ospInputDeviceThermocouple thermocouple;
 ospInputDeviceOneWire ds18b20;
 enum { numInputDevices = 3 };
-ospInputDevice *inputDevice[numInputDevices] = { &thermistor, &thermocouple, &ds18b20 };
+ospInputDevice *inputDevice[numInputDevices] = { &thermistor, &ds18b20, &thermocouple };
 enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE = 1, INPUT_THERMOCOUPLE = 2 };
 byte inputType = INPUT_THERMISTOR;
-ospOutputDevice ssr;
+ospOutputDeviceSsr ssr;
 enum { numOutputDevices = 1 };
 enum { OUTPUT_SSR = 0 };
 byte outputType = OUTPUT_SSR;
-ospOutputDevice *outputDevice[numOutputDevices] = { &ssr };
+ospBaseOutputDevice *outputDevice[numOutputDevices] = { &ssr };
 #else
 #include "ospSimulator.h"
 ospSimulator simulator;
@@ -73,8 +71,8 @@ ospOutputDevice *outputDevice[numOutputDevices] = { &simulator };
 #endif
 
 
-ospInputDevice   *theInputDevice  = inputDevice[inputType];
-ospOutputDevice  *theOutputDevice = outputDevice[outputType];
+ospInputDevice       *theInputDevice  = inputDevice[inputType];
+ospBaseOutputDevice  *theOutputDevice = outputDevice[outputType];
 
 
 
@@ -193,12 +191,16 @@ char hex(byte b)
   return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
 }
 
+
+
+
+// Temperature conversion functions
+
 ospDecimalValue<1> convertCtoF(ospDecimalValue<1> t)
 {
   t = (t * (ospDecimalValue<1>){18}).rescale<1>();
   t = t + (ospDecimalValue<1>){320};
   return t;
-  //return (tC * (ospDecimalValue<1>){180}).rescale<1>() + (ospDecimalValue<1>){3200};
 }
 
 double convertCtoF(double t)
@@ -226,6 +228,10 @@ double displayUnits(double t)
   return (displayCelsius ? t : convertCtoF(t));
 }
 
+
+
+
+
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
 {
@@ -233,20 +239,27 @@ void setup()
 
   // set up the LCD,show controller name
   theLCD.begin(16, 2);
-  drawStartupBanner();
+  //drawStartupBanner();
 
   now = millis();
-
-  // set up the peripheral devices
-  theInputDevice->initialize();
-  theOutputDevice->initialize();
 
   // load the EEPROM settings
   //clearEEPROM();
   setupEEPROM();
+  //saveEEPROMSettings();
+  
+  // set up the peripheral devices
+  theInputDevice->initialize();
+  theOutputDevice->initialize();
 
   // set up the serial interface
+/* FIXME commented out temporarily to save space
+ *
+ *
   setupSerial();
+ *
+ *
+ */
 
   delay((millis() < now + 1000) ? (now + 1000 - millis()) : 10);
 
@@ -280,7 +293,7 @@ void setup()
 
   // kick things off by requesting sensor input
   now = millis();
-  if (theInputDevice->getInitialized())
+  if (theInputDevice->getInitializationStatus())
     readInputTime = now + theInputDevice->requestInput();
 
   controllerIsBooting = false;
@@ -492,13 +505,12 @@ void loop()
   theOutputDevice->setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputDevice->getInitialized() && (now > readInputTime))
+  if (theInputDevice->getInitializationStatus() && (now > readInputTime))
   {
     input = theInputDevice->readInput();
     if (!isnan(input))
     {
       lastGoodInput = input;
-      displayInput = makeDecimal<1>(input);
       displayInput = makeDecimal<1>(displayCelsius ? input : convertCtoF(input));
     }
     else
@@ -570,7 +582,7 @@ void loop()
   }
 
   // can't do much without input, so initializing input is next in line 
-  if (!theInputDevice->getInitialized())
+  if (!theInputDevice->getInitializationStatus())
   {
     input = NAN;
     displayInput = (ospDecimalValue<1>){-19999}; // Display Err
@@ -605,7 +617,15 @@ void loop()
       // a complete command has been received
       serialCommandBuffer[serialCommandLength] = '\0';
       drawNotificationCursor('*');
+
+/* FIXME commented out temporarily to save space
+ *
+ *
       processSerialCommand();
+ *
+ *
+ */
+
       serialCommandLength = 0;
     }
   }

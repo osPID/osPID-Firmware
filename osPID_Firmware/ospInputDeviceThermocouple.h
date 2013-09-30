@@ -25,11 +25,11 @@ public:
   // setup the device
   void initialize() 
   {
-    setInitialized(true);
+    this->setInitializationStatus(true);
   }
 
   // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  const __FlashStringHelper *IODeviceIdentifier()
   {
     return F("Thermocouple K");
   }
@@ -40,7 +40,7 @@ public:
     double val = thermocouple.readThermocouple(CELSIUS);
     if (val == FAULT_OPEN || val == FAULT_SHORT_GND || val == FAULT_SHORT_VCC)
       return NAN;
-    return val + getCalibration();
+    return val + this->getCalibration();
   }
 
   // request input
@@ -66,7 +66,7 @@ public:
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return this->getCalibration();
     default:
       return -1.0f;
     }
@@ -84,7 +84,7 @@ public:
     switch (index) 
     {
     case 0:  
-      setCalibration(val);
+      this->setCalibration(val);
       return true;
     default:
       return false;
@@ -122,7 +122,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = this->getCalibration();
     settings.save(tempCalibration);
   }
 
@@ -130,7 +130,7 @@ public:
   {
     double tempCalibration;
     settings.restore(tempCalibration);
-    setCalibration(tempCalibration);
+    this->setCalibration(tempCalibration);
   }
 };
 

@@ -9,62 +9,58 @@ class ospInputDevice :
 {
 private:
 
-  bool initialized;
+  bool initializationStatus;
   double calibration;
 
 
 public:
   ospInputDevice() :
     ospBaseInputDevice(),
-    initialized(false),
-    calibration(0.0f)
+    initializationStatus(false),
+    calibration(0.0)
   { 
   }
   
   // get initialization status
-  bool getInitialized()
+  virtual bool getInitializationStatus()
   {
-    return initialized;
+    return initializationStatus;
   }
 
   // set initialization status
-  void setInitialized(bool newInitialized)
+  virtual void setInitializationStatus(bool newInitializationStatus)
   {
-    initialized = newInitialized;
+    initializationStatus = newInitializationStatus;
   }
 
   // get calibration
-  double getCalibration()
+  virtual double getCalibration()
   {
     return calibration;
   }
 
   // set calibration
-  void setCalibration(double newCalibration)
+  virtual void setCalibration(double newCalibration)
   {
     calibration = newCalibration;
   }
 
-  const __FlashStringHelper *IoIdentifier() { return 0; };
-  double readInput() { return NAN; }; 
-  unsigned long requestInput() { return 0; }; // returns conversion time in milliseconds 
-  byte floatSettingsCount() { return 0; }; 
-  //byte integerSettingsCount() { return 0; }; 
-  double readFloatSetting(byte index) { return -1.0f; };
-  //int readIntegerSetting(byte index) { return -1; };
-  bool writeFloatSetting(byte index, double val) { return false; }; 
-  //bool writeIntegerSetting(byte index, int val) { return false; }; 
-  const __FlashStringHelper *describeFloatSetting(byte index) { return 0; }; 
-  //const __FlashStringHelper *describeIntegerSetting(byte index) { return 0; }; 
-  void saveSettings(ospSettingsHelper& settings) {}; 
-  void restoreSettings(ospSettingsHelper& settings) {}; 
+  virtual void initialize() = 0;
+  virtual const __FlashStringHelper *IODeviceIdentifier() = 0; 
+  virtual byte floatSettingsCount() = 0; 
+  //virtual byte integerSettingsCount() = 0;
+  virtual double readFloatSetting(byte index) = 0;
+  //virtual int readIntegerSetting(byte index) = 0;
+  virtual bool writeFloatSetting(byte index, double val) = 0;
+  //virtual bool writeIntegerSetting(byte index, int val) = 0;
+  virtual const __FlashStringHelper *describeFloatSetting(byte index) = 0;
+  //virtual const __FlashStringHelper *describeIntegerSetting(byte index) = 0;
+  virtual void saveSettings(ospSettingsHelper& settings) = 0;
+  virtual void restoreSettings(ospSettingsHelper& settings) = 0;
+
+  virtual unsigned long requestInput() {};
+  virtual double readInput() = 0;
 };
 
 
 #endif
-
-
-
-
-
-

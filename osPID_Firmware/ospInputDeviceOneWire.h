@@ -24,25 +24,25 @@ public:
     oneWireDevice(&oneWire)
   { 
   }
-
+  
   // setup the device
-  void initialize() 
+  virtual void initialize() 
   {
     oneWireDevice.begin();
     if (!oneWireDevice.getAddress(oneWireDeviceAddress, 0)) 
     {
-      setInitialized(false);
+      this->setInitializationStatus(false);
     }
     else 
     {
       oneWireDevice.setResolution(oneWireDeviceAddress, 12);
       oneWireDevice.setWaitForConversion(false);
-      setInitialized(true);
+      this->setInitializationStatus(true);
     }
   }
 
   // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  virtual const __FlashStringHelper *IODeviceIdentifier()
   {
     return F("DS18B20+");
   }
@@ -50,69 +50,69 @@ public:
 public:
   // request input
   // returns conversion time in milliseconds
-  unsigned long requestInput() 
+  virtual unsigned long requestInput() 
   {
     oneWireDevice.requestTemperatures();
     return 750;
   }
 
   // read the device
-  double readInput() 
+  virtual double readInput() 
   {
-    return oneWireDevice.getTempCByIndex(0) + getCalibration(); 
+    return oneWireDevice.getTempCByIndex(0) + this->getCalibration(); 
   }
 
   // how many settings does this device have
-  byte floatSettingsCount() 
+  virtual byte floatSettingsCount() 
   {
     return 1; 
   }
 /*
-  byte integerSettingsCount() 
+  virtual byte integerSettingsCount() 
   {
     return 0; 
   }
 */
 
   // read settings from the device
-  double readFloatSetting(byte index) 
+  virtual double readFloatSetting(byte index) 
   {
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return this->getCalibration();
     default:
       return -1.0f;
     }
   }
 /*
-  int readIntegerSetting(byte index) 
+  virtual int readIntegerSetting(byte index) 
   {
     return -1;
   }
 */
 
   // write settings to the device
-  bool writeFloatSetting(byte index, double val) 
+  virtual bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
     {
     case 0:  
-      setCalibration(val);
+      this->setCalibration(val);
       return true;
     default:
       return false;
     }
   }
 /*
-  bool writeIntegerSetting(byte index, int val) 
+  virtual bool writeIntegerSetting(byte index, int val) 
   {
     return false;
   }
 */
 
   // describe the device settings
-  const __FlashStringHelper *describeFloatSetting(byte index) 
+  virtual const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index) 
     {
@@ -123,7 +123,7 @@ public:
     }
   }
 /*
-  const __FlashStringHelper *describeIntegerSetting(byte index) 
+  virtual const __FlashStringHelper *describeIntegerSetting(byte index) 
   {
     switch (index) 
     {
@@ -134,17 +134,17 @@ public:
 */
 
   // save and restore settings to/from EEPROM using the settings helper
-  void saveSettings(ospSettingsHelper& settings) 
+  virtual void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = this->getCalibration();
     settings.save(tempCalibration);
   }
 
-  void restoreSettings(ospSettingsHelper& settings) 
+  virtual void restoreSettings(ospSettingsHelper& settings) 
   {
     double tempCalibration;
     settings.restore(tempCalibration);
-    setCalibration(tempCalibration);
+    this->setCalibration(tempCalibration);
   }
 };
 

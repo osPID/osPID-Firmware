@@ -1064,8 +1064,8 @@ static void okKeyPress()
     break;
 
   case ITEM_INPUT_THERMISTOR:
-  case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_ONEWIRE:
+  case ITEM_INPUT_THERMOCOUPLE:
   case ITEM_INPUT_SIMULATOR:
     // update inputType
     inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);

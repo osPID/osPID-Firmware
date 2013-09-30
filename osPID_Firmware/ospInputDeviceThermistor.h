@@ -29,11 +29,11 @@ public:
   // setup the device
   void initialize() 
   {
-    setInitialized(true);
+    this->setInitializationStatus(true);
   }
 
   // return the device identifier
-  const __FlashStringHelper *deviceIdentifier()
+  const __FlashStringHelper *IODeviceIdentifier()
   {
     return F("Thermistor NTC");
   }
@@ -58,7 +58,7 @@ public:
   double readInput() 
   {
     int voltage = analogRead(thermistorPin);
-    return thermistorVoltageToTemperature(voltage) + getCalibration();
+    return thermistorVoltageToTemperature(voltage) + this->getCalibration();
   }
 
   // request input
@@ -112,7 +112,7 @@ public:
     switch (index) 
     {
     case 0:  
-      setCalibration(val);
+      this->setCalibration(val);
       return true;
     case 1:
       THERMISTORNOMINAL = val;
@@ -170,7 +170,7 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration = getCalibration();
+    double tempCalibration = this->getCalibration();
     settings.save(tempCalibration);
     settings.save(THERMISTORNOMINAL);
     settings.save(BCOEFFICIENT);
@@ -182,7 +182,7 @@ public:
   {
     double tempCalibration;
     settings.restore(tempCalibration);
-    setCalibration(tempCalibration);
+    this->setCalibration(tempCalibration);
     settings.restore(THERMISTORNOMINAL);
     settings.restore(BCOEFFICIENT);
     settings.restore(TEMPERATURENOMINAL);

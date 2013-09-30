@@ -28,7 +28,7 @@ public:
     input = inputStart;
     for(int i = 0; i < 30; i++)
       theta[i] = outputStart;
-    setInitialized(true);
+    setInitializationStatus(true);
   }
 
   // return the device identifier
