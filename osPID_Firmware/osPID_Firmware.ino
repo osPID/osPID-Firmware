@@ -401,7 +401,7 @@ static void markSettingsDirty()
   activeSetPoint = double(setPoints[setpointIndex]);
 
   // capture any changes to the output window length
-  theOutputDevice.setOutputWindowSeconds(double(displayWindow));
+  theOutputDevice.setOutputWindowSeconds(displayWindow);
   
   // capture any changes to the calibration value
   theInputDevice.setCalibration(double(displayCalibration));

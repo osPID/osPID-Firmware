@@ -747,7 +747,7 @@ static void processSerialCommand()
       serialPrintln(tripped);
       break;
     case 'W':
-      Serial.print(theOutputDevice.getOutputWindowSeconds());
+      serialPrint(theOutputDevice.getOutputWindowSeconds());
       Serial.println(" seconds");
       break;
     case 't':
@@ -1007,7 +1007,7 @@ static void processSerialCommand()
     ospDecimalValue<1> window;
     window = makeDecimal<1>(i1, d1);
     BOUNDS_CHECK(window, (ospDecimalValue<1>){10}, (ospDecimalValue<1>){9999});
-    theOutputDevice.setOutputWindowSeconds(double(window));
+    theOutputDevice.setOutputWindowSeconds(window);
     displayWindow = window;
     break;
   case 'X': // examine: dump the controller settings

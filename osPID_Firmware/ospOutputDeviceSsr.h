@@ -16,7 +16,7 @@ class ospOutputDeviceSsr :
 private:
   enum { SSRPin = A3 };
   
-  double outputWindowSeconds;
+  ospDecimalValue<1> outputWindowSeconds;
   unsigned long outputWindowMilliseconds;
 
 
@@ -32,14 +32,15 @@ public:
     pinMode(SSRPin, OUTPUT);
   }
   
-  double getOutputWindowSeconds()
+  ospDecimalValue<1> getOutputWindowSeconds()
   {
     return outputWindowSeconds;
   }  
   
-  void setOutputWindowSeconds(double newOutputWindowSeconds)
+  void setOutputWindowSeconds(ospDecimalValue<1> newOutputWindowSeconds)
   {
     outputWindowSeconds = newOutputWindowSeconds;
+    outputWindowMilliseconds = ((int)outputWindowSeconds) * 100;
   }  
 
   const __FlashStringHelper *IODeviceIdentifier() 
@@ -63,7 +64,7 @@ public:
   double readFloatSetting(byte index) 
   {
     if (index == 0)
-      return outputWindowSeconds;
+      return double(outputWindowSeconds);
     return NAN;
   }
 /*
@@ -78,8 +79,8 @@ public:
   {
     if (index == 0) 
     {
-      outputWindowSeconds = val;
-      outputWindowMilliseconds = round(outputWindowSeconds * 1000.0f);
+      outputWindowSeconds = makeDecimal<1>(val);
+      outputWindowMilliseconds = round(val * 1000.0f);
       return true;
     }
     return false;

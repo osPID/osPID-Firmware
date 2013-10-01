@@ -904,7 +904,7 @@ static void okKeyPress()
 
     if (item == ITEM_DASHBOARD_MENU)
     {
-      displayWindow = makeDecimal<1>(theOutputDevice.getOutputWindowSeconds());
+      displayWindow = theOutputDevice.getOutputWindowSeconds();
     }
 
     // it's a menu: open that menu

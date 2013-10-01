@@ -342,7 +342,7 @@ static void restoreEEPROMSettings()
 
   settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
   theOutputDevice.restoreSettings(settings);
-  displayWindow = makeDecimal<1>(theOutputDevice.getOutputWindowSeconds());
+  displayWindow = theOutputDevice.getOutputWindowSeconds();
 }
 
 // check the CRC-16 of the i'th profile block
