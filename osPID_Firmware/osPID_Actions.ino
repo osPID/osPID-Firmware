@@ -1,6 +1,6 @@
 /* This file contains implementations of various user-triggered actions */
 
-#include "defines.h"
+#include "ospConfig.h"
 #include "ospProfile.h"
 #include "ospAssert.h"
 

@@ -2,7 +2,8 @@
 
 #include <avr/io.h>
 #include <avr/pgmspace.h>
-#include "MyLiquidCrystal.h"
+#include "MyLiquidCrystal.h">
+#include "ospConfig.h"
 #include "ospAssert.h"
 #include "ospDecimalValue.h"
 
@@ -84,7 +85,6 @@ enum
 
   ITEM_PID_MODE,
   ITEM_PID_DIRECTION,
-  ITEM_UNITS,
 
   ITEM_INPUT_THERMISTOR,
   ITEM_INPUT_ONEWIRE,
@@ -111,14 +111,13 @@ enum
 
   ITEM_COUNT,
   MENU_COUNT = FIRST_DECIMAL_ITEM,
-  DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM,
-  TEMPERATURE_ITEMS_LIST = 10
+  DECIMAL_ITEM_COUNT = FIRST_ACTION_ITEM - FIRST_DECIMAL_ITEM
 };
 
 PROGMEM const byte mainMenuItems[4] = { ITEM_DASHBOARD_MENU, ITEM_PROFILE_MENU, ITEM_CONFIG_MENU, ITEM_AUTOTUNE_CMD };
 PROGMEM const byte dashMenuItems[4] = { ITEM_SETPOINT, ITEM_INPUT, ITEM_OUTPUT, ITEM_PID_MODE };
-PROGMEM const byte configMenuItems[12] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
-  ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_UNITS, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
+PROGMEM const byte configMenuItems[11] = { ITEM_KP, ITEM_KI, ITEM_KD, ITEM_CALIBRATION, ITEM_WINDOW_LENGTH, ITEM_PID_DIRECTION, 
+  ITEM_TRIP_MENU, ITEM_INPUT_MENU, ITEM_POWERON_MENU, ITEM_COMM_MENU, ITEM_RESET_ROM_MENU };
 PROGMEM const byte profileMenuItems[3] = { ITEM_PROFILE1, ITEM_PROFILE2, ITEM_PROFILE3 };
 PROGMEM const byte setpointMenuItems[4] = { ITEM_SETPOINT1, ITEM_SETPOINT2, ITEM_SETPOINT3, ITEM_SETPOINT4 };
 #ifndef USE_SIMULATOR
@@ -145,9 +144,7 @@ PROGMEM const MenuItem menuData[MENU_COUNT + 1] =
   { sizeof(inputMenuItems), 0, inputMenuItems             } ,
   { sizeof(poweronMenuItems), 0, poweronMenuItems         } ,
   { sizeof(commMenuItems), 0, commMenuItems               } ,
-  { sizeof(resetRomMenuItems), 0, resetRomMenuItems       } ,
-  // not a menu
-  { sizeof(temperatureItems), 0, temperatureItems         }
+  { sizeof(resetRomMenuItems), 0, resetRomMenuItems       } 
 };
 
 /*
@@ -448,7 +445,7 @@ static void drawSelector(byte item, bool selected)
   if (menuState.editing && !canEdit && (millis() > menuState.editStartMillis + 1000))
   {
     // cancel the disallowed edit
-    stopEditing(item);
+    stopEditing();
   }
 
   if (menuState.editing)
@@ -487,11 +484,11 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     case ITEM_CALIBRATION:
     case ITEM_LOWER_TRIP_LIMIT:
     case ITEM_UPPER_TRIP_LIMIT:
-      theLCD.print(F(" \337"));
-      if (displayCelsius)
-        theLCD.print('C');
-      else
-        theLCD.print('F');
+#ifndef UNITS_FAHRENHEIT
+      theLCD.print(F(" \337C"));
+#else
+      theLCD.print(F(" \337C"));
+#endif
       break;
     case ITEM_WINDOW_LENGTH:
       theLCD.print(F(" s "));
@@ -556,12 +553,6 @@ static void drawFullRowItem(byte row, bool selected, byte item)
       theLCD.println(PSTR("Action Forward"));
     else
       theLCD.println(PSTR("Action Reverse"));
-    break;
-  case ITEM_UNITS:
-    if (displayCelsius)
-      theLCD.println(PSTR("Celsius"));
-    else
-      theLCD.println(PSTR("Fahrenheit"));
     break;
   case ITEM_INPUT_THERMISTOR:
     theLCD.println(PSTR("Thermistor"));
@@ -723,51 +714,10 @@ static void startEditing(byte item)
     theLCD.cursor();
 }
 
-static void stopEditing(byte item)
+static void stopEditing()
 {
   menuState.editing = false;
   theLCD.noCursor();
-  if ((item == ITEM_UNITS) && changeUnitsFlag)
-    switchUnits();
-}
-
-static void switchUnits()
-{
-  if (!changeUnitsFlag)
-    return; // shouldn't happen
-    
-  // switch units for displaySetpoint, displayInput, and trip limits:
-  for (byte i = 0; i < menuData[TEMPERATURE_ITEMS_LIST].itemCount(); i++)
-  {
-    byte decimalItemIndex = menuData[TEMPERATURE_ITEMS_LIST].itemAt(i) - FIRST_DECIMAL_ITEM;
-    /*
-    ospDecimalValue<1> t = (ospDecimalValue<1>){decimalItemData[decimalItemIndex].currentValue()};
-    t = (displayCelsius ? convertFtoC(t) : convertCtoF(t)); // fails for some reason
-    */
-    long t = decimalItemData[decimalItemIndex].currentValue();
-    t = (displayCelsius ? (((t - 320) * 10) / 18) : ((t * 18) / 10) + 320);
-    int *valPtr = decimalItemData[decimalItemIndex].valuePtr();
-    *valPtr = (int) t;
-    decimalItemData[decimalItemIndex].boundValue();
-  }
-  
-  // calibration parameter is different because 32F is not added 
-  if (displayCelsius)
-    displayCalibration = (displayCalibration / (ospDecimalValue<1>){18}).rescale<1>();
-  else
-    displayCalibration = (displayCalibration * (ospDecimalValue<1>){18}).rescale<1>();
-  decimalItemData[ITEM_CALIBRATION - FIRST_DECIMAL_ITEM].boundValue();
-  
-  // change setPoint values 
-  for (byte i = 0; i < 4; i++ )
-  {
-    setPoints[i] = (displayCelsius ? convertFtoC(setPoints[i]) : convertCtoF(setPoints[i]));
-  }
-
-  // profile information will stay in Celsius
-  
-  //reset flag
-  changeUnitsFlag = false;
 }
 
 static void backKeyPress()
@@ -785,7 +735,7 @@ static void backKeyPress()
     }
 
     if (menuState.editDepth < firstDigitPosition)
-      stopEditing(item);   
+      stopEditing();   
 
     return;
   }
@@ -891,10 +841,6 @@ static void updownKeyPress(bool up)
     case ITEM_TRIP_AUTORESET:
       tripAutoReset = !tripAutoReset;
       break;
-    case ITEM_UNITS:
-      displayCelsius = !displayCelsius;  
-      changeUnitsFlag = !changeUnitsFlag;
-      break;
     default:
       BUGCHECK();
     }
@@ -921,19 +867,6 @@ static void updownKeyPress(bool up)
     setPoints[setpointIndex] = displaySetpoint;
 }
 
-static int bound(int val, byte decimalItemIndex)
-{
-  int min = decimalItemData[decimalItemIndex].minimumValue();
-  if (val < min)
-    val = min;
-
-  int max = decimalItemData[decimalItemIndex].maximumValue();
-  if (val > max)
-    val = max;
-    
-  return val;
-}
-
 static void okKeyPress()
 {
   byte item = menuData[menuState.currentMenu].itemAt(menuState.highlightedItemMenuIndex);
@@ -951,7 +884,7 @@ static void okKeyPress()
     }
 
     if ((menuState.editDepth > lastDigitPosition) || (item >= FIRST_ACTION_ITEM))
-      stopEditing(item);
+      stopEditing();
 
     return;
   }
@@ -1059,7 +992,6 @@ static void okKeyPress()
   case ITEM_PID_DIRECTION:
   case ITEM_TRIP_ENABLED:
   case ITEM_TRIP_AUTORESET:
-  case ITEM_UNITS:
     startEditing(item);
     break;
 

@@ -3,7 +3,7 @@
 
 #include <math.h>
 #include <avr/pgmspace.h>
-#include "defines.h"
+#include "ospConfig.h"
 #include "ospAssert.h"
 #include "ospProfile.h"
 
@@ -86,8 +86,6 @@ Command list:
   s? #0-3 -- Select setpoint -- changes which setpoint is active
 
   T? -- query Trip state or clear a trip
-
-  U? #CF -- query temperature Units or set Units to Celsius or Fahrenheit
 
   t? #0-1 -- trip auto-reseT -- enable or disable automatic recovery from trips
 
@@ -265,17 +263,21 @@ template<int D> static void serialPrintln(ospDecimalValue<D> val)
 template<int D> static void serialPrintTempln(ospDecimalValue<D> val)
 {
   serialPrintDecimal(val.rawValue(), D);
-  Serial.print(" \337");
-  Serial.write(displayCelsius ? 'C' : 'F');
-  Serial.println();
+#ifndef UNITS_FAHRENHEIT
+  Serial.println(" \337C");
+#else
+  Serial.println(" \337F");
+#endif
 }
 
 static void serialPrintFloatTempln(double val)
 {
   Serial.print(val);
-  Serial.print(" \337");
-  Serial.write(displayCelsius ? 'C' : 'F');
-  Serial.println();
+#ifndef UNITS_FAHRENHEIT
+  Serial.println(" \337C");
+#else
+  Serial.println(" \337F");
+#endif
 }
 
 void serialPrintFAutotuner()
@@ -372,9 +374,9 @@ static void cmdIdentify()
 static void cmdQuery()
 {
   Serial.print(F("S "));
-  serialPrintFloatTempln(displayUnits(activeSetPoint));
+  serialPrintFloatTempln(activeSetPoint);
   Serial.print(F("I "));
-  serialPrintFloatTempln(displayUnits(input));
+  serialPrintFloatTempln(input);
   Serial.print(F("O "));
   serialPrintln(output);
 
@@ -425,8 +427,11 @@ static void cmdExamineSettings()
     Serial.write('1' + i);
     Serial.print(F(": "));
     serialPrint(setPoints[i]);
-    Serial.print(" /337");
-    Serial.write(displayCelsius ? 'C' : 'F');
+#ifndef UNITS_FAHRENHEIT
+    Serial.print(" /337C");
+#else
+    Serial.print(" /337F");
+#endif
     if (i & 1 == 0)
       Serial.print('\t');
     else
@@ -697,7 +702,7 @@ static void processSerialCommand()
       serialPrintln(aTuneLookBack);
       break;
     case 'B':
-      serialPrintFloatTempln(theInputDevice.getCalibration() / (displayCelsius ? 1.0 : 1.8));
+      serialPrintFloatTempln(theInputDevice.getCalibration());
       break;
     case 'c':
       serialPrintln(pgm_read_dword_near(&serialSpeedTable[serialSpeed]));
@@ -738,16 +743,13 @@ static void processSerialCommand()
       serialPrintln(ctrlDirection);
       break;
     case 'S':
-      serialPrintFloatTempln(displayUnits(activeSetPoint));
+      serialPrintFloatTempln(activeSetPoint);
       break;
     case 's':
       serialPrintln(setpointIndex);
       break;
     case 'T':
       serialPrintln(tripped);
-      break;
-    case 'U':
-      serialPrintln(displayCelsius ? "Celsius" : "Fahrenheit");
       break;
     case 'W':
       Serial.print(theOutputDevice.getOutputWindowSeconds());
@@ -982,7 +984,7 @@ static void processSerialCommand()
         goto out_EMOD;
 
       setPoints[setpointIndex] = sp;
-      activeSetPoint = celsius(double(sp));
+      activeSetPoint = double(sp);
     }
     break;
   case 's': // change the active setpoint
@@ -990,7 +992,7 @@ static void processSerialCommand()
       goto out_EINV;
 
     setpointIndex = i1;
-    activeSetPoint = celsius(double(setPoints[setpointIndex]));
+    activeSetPoint = double(setPoints[setpointIndex]);
     break;
   case 'T': // clear a trip
     if (!tripped)
@@ -1000,14 +1002,6 @@ static void processSerialCommand()
     goto out_OK; // no EEPROM writeback needed
   case 't': // set trip auto-reset
     tripAutoReset = i1;
-    break;
-  case 'U': // change temperature units
-    if ((*p == 'C') || (*p == 'c'))
-      displayCelsius = true;
-    else if ((*p == 'F') || (*p == 'f'))
-      displayCelsius = false;
-    else
-      goto out_EINV;
     break;
   case 'V': // save the profile buffer to EEPROM
     saveEEPROMProfile(i1);

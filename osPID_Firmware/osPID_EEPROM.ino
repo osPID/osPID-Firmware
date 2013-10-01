@@ -4,7 +4,7 @@
 #include <avr/eeprom.h>
 #include <util/crc16.h>
 #include <EEPROM.h>
-#include "defines.h"
+#include "ospConfig.h"
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
@@ -95,8 +95,7 @@ enum
   SETTINGS_UPPER_TRIP_OFFSET = 44,
   SETTINGS_INPUT_TYPE = 46,
   SETTINGS_OUTPUT_TYPE = 47, 
-  SETTINGS_DISPLAY_CELSIUS = 48,
-  SETTINGS_VERSION_OFFSET = 49,
+  SETTINGS_VERSION_OFFSET = 48,
   // free space from 50 to 71
   INPUT_DEVICE_SETTINGS_OFFSET = 72,
   OUTPUT_DEVICE_SETTINGS_OFFSET = 168,
@@ -274,8 +273,6 @@ static void saveEEPROMSettings()
   settings.save(inputType);
   settings.save(outputType);
 
-  settings.save(displayCelsius);
-  
   settings.save((byte) EEPROM_STORAGE_VERSION);
 
   settings.fillUpTo(INPUT_DEVICE_SETTINGS_OFFSET);
@@ -337,13 +334,11 @@ static void restoreEEPROMSettings()
   settings.restore(inputType);
   settings.restore(outputType);
   
-  settings.restore(displayCelsius);
-
   settings.skipTo(INPUT_DEVICE_SETTINGS_OFFSET);
 #ifndef USE_SIMULATOR
   theInputDevice.restoreSettings(settings);
 #endif
-  displayCalibration = makeDecimal<1>(theInputDevice.getCalibration() * (displayCelsius ? 1.0 : 1.8));
+  displayCalibration = makeDecimal<1>(theInputDevice.getCalibration());
 
   settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
   theOutputDevice.restoreSettings(settings);

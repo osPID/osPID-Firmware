@@ -3,10 +3,10 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <avr/pgmspace.h>
-#include "defines.h"
 #include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
+#include "ospConfig.h"
 #include "ospAnalogButton.h"
 #include "ospDecimalValue.h"
 #include "ospProfile.h"
@@ -93,8 +93,12 @@ byte ctrlDirection = DIRECT;
 byte modeIndex = MANUAL;
 
 // the 4 setpoints we can easily switch between
-// units may be Celsius or Fahrenheit
-ospDecimalValue<1> setPoints[4] = { { 250 }, { 750 }, { 1500 }, { 3000 } };
+#ifndef UNITS_FAHRENHEIT
+ospDecimalValue<1> setPoints[4] = { { 250 }, { 650 }, { 1000 }, { 1250 } };
+#else
+ospDecimalValue<1> setPoints[4] = { { 800 }, { 1500 }, { 2120 }, { 2600 } };
+#endif
+
 
 // the index of the selected setpoint
 byte setpointIndex = 0;
@@ -103,22 +107,14 @@ byte setpointIndex = 0;
 ospDecimalValue<1> manualOutput = { 0 };
 
 // temporary fixed point decimal values for display and data entry
-// units may be Celsius or Fahrenheit
 ospDecimalValue<1> displaySetpoint = { 250 }, displayInput = { -19999 }, displayCalibration = { 0 };
 ospDecimalValue<1> displayOutput = { 0 }; // percentile
-
-// flag to display menu options in Fahrenheit
-bool displayCelsius = true;
-
-// flag to change units of display values between Celsius and Fahrenheit
-bool changeUnitsFlag = false;
 
 // the most recent measured input value
 double input = NAN; 
 
 // the variables to which the PID controller is bound
-// temperatures all in Celsius
-double activeSetPoint = 25.0;
+double activeSetPoint = setPoints[setpointIndex];
 
 // last good input value
 double lastGoodInput = 25.0;
@@ -177,44 +173,6 @@ char hex(byte b)
 
 
 
-// Temperature conversion functions
-
-ospDecimalValue<1> convertCtoF(ospDecimalValue<1> t)
-{
-  t = (t * (ospDecimalValue<1>){18}).rescale<1>();
-  t = t + (ospDecimalValue<1>){320};
-  return t;
-}
-
-double convertCtoF(double t)
-{
-  return (t * 1.8 + 32.0);
-}
-
-ospDecimalValue<1> convertFtoC(ospDecimalValue<1> t)
-{
-  return ((t - (ospDecimalValue<1>){320}) / (ospDecimalValue<1>){18}).rescale<1>();
-}
-
-double convertFtoC(double t)
-{
-  return ((t - 32.0 ) / 1.8);
-}
-
-double celsius(double t)
-{
-  return (displayCelsius ? t : convertFtoC(t));
-}
-
-double displayUnits(double t)
-{
-  return (displayCelsius ? t : convertCtoF(t));
-}
-
-
-
-
-
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
 {
@@ -238,9 +196,9 @@ void setup()
   // set up the serial interface
 /* FIXME commented out temporarily to save space
  *
- */
+ *
   setupSerial();
-/*
+ *
  *
  */
 
@@ -424,13 +382,13 @@ static void markSettingsDirty()
     manualOutput = displayOutput;
 
   // capture any changes to the setpoint
-  activeSetPoint = celsius(double(setPoints[setpointIndex]));
+  activeSetPoint = double(setPoints[setpointIndex]);
 
   // capture any changes to the output window length
   theOutputDevice.setOutputWindowSeconds(double(displayWindow));
   
   // capture any changes to the calibration value
-  theInputDevice.setCalibration(double(displayCalibration) / (displayCelsius ? 1.0 : 1.8));
+  theInputDevice.setCalibration(double(displayCalibration));
 
   settingsWritebackNeeded = true;
 
@@ -494,7 +452,7 @@ void loop()
     if (!isnan(input))
     {
       lastGoodInput = input;
-      displayInput = makeDecimal<1>(displayCelsius ? input : convertCtoF(input));
+      displayInput = makeDecimal<1>(input);
     }
     else
     {
@@ -603,9 +561,9 @@ void loop()
 
 /* FIXME commented out temporarily to save space
  *
- */
+ *
       processSerialCommand();
-/*
+ *
  *
  */
 

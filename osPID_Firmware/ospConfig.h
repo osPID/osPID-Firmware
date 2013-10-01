@@ -8,3 +8,6 @@
 
 // quiet mode (buzzer off)
 #define OSPID_SILENT
+
+// use Fahrenheit temperature units
+#undef UNITS_FAHRENHEIT

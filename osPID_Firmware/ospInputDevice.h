@@ -248,23 +248,29 @@ public:
 
   virtual double readInput()
   {
+    double temperature;
     switch (inputType)
     {
     case INPUT_THERMISTOR:
       int voltage;
       voltage = analogRead(thermistorPin);
-      return thermistorVoltageToTemperature(voltage) + this->getCalibration();
+      temperature = thermistorVoltageToTemperature(voltage);
+      break;
     case INPUT_ONEWIRE:
-      return oneWireDevice.getTempCByIndex(0) + this->getCalibration();
+      temperature = oneWireDevice.getTempCByIndex(0);
+      break;
     case INPUT_THERMOCOUPLE: 
-      double val;
-      val = thermocouple.readThermocouple(CELSIUS);
-      if ((val == FAULT_OPEN) || (val == FAULT_SHORT_GND) || (val == FAULT_SHORT_VCC))
-        return NAN;
-      return val + this->getCalibration();
+      temperature = thermocouple.readThermocouple(CELSIUS);
+      if ((temperature == FAULT_OPEN) || (temperature = FAULT_SHORT_GND) || (temperature == FAULT_SHORT_VCC))
+      break;
     default:
       return NAN;
     }
+#ifndef UNITS_FAHRENHEIT
+    return temperature + this->getCalibration();
+#else
+    return temperature * 1.8 + 32.0 + this->getCalibration();
+#endif
   }
   
   // get initialization status

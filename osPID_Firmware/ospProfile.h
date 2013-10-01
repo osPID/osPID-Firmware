@@ -7,7 +7,6 @@
 #include "ospDecimalValue.h"
 
 // an ospProfile encapsulates the information for a setpoint profile
-// NB the units are always Celsius
 class ospProfile 
 {
 public:
