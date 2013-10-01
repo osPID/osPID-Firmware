@@ -170,6 +170,19 @@ char hex(byte b)
   return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
 }
 
+void updateTimer()
+{
+  now = millis();
+}
+
+// check time avoiding overflow
+bool after(unsigned long targetTime)
+{
+  unsigned long u = (targetTime - now);
+  return ((u & 0x80000000) > 0);
+}
+
+
 
 
 
@@ -180,9 +193,9 @@ void setup()
 
   // set up the LCD,show controller name
   theLCD.begin(16, 2);
-  //drawStartupBanner();
+  drawStartupBanner();
 
-  now = millis();
+  updateTimer();
 
   // load the EEPROM settings
   //clearEEPROM();
@@ -196,15 +209,15 @@ void setup()
   // set up the serial interface
 /* FIXME commented out temporarily to save space
  *
- *
+ */
   setupSerial();
- *
+/*
  *
  */
 
   delay((millis() < now + 1000) ? (now + 1000 - millis()) : 10);
 
-  now = millis();
+  updateTimer();
 
   // configure the PID loop
   myPID.SetSampleTime(PID_LOOP_SAMPLE_TIME);
@@ -233,7 +246,7 @@ void setup()
   }
 
   // kick things off by requesting sensor input
-  now = millis();
+  updateTimer();
   if (theInputDevice.getInitializationStatus())
     readInputTime = now + theInputDevice.requestInput();
 
@@ -271,7 +284,7 @@ static void checkButtons()
     {
       // OK does long-press/short-press, not auto-repeat
     }
-    else if (now > autoRepeatTriggerTime)
+    else if (after(autoRepeatTriggerTime))
     {
       // don't auto-repeat until 100 ms after the redraw
       if (lcdRedrawNeeded)
@@ -289,7 +302,7 @@ static void checkButtons()
   }
   else if (heldButton != BUTTON_NONE)
   {
-    if (heldButton == BUTTON_OK && (now > autoRepeatTriggerTime + (400 - AUTOREPEAT_DELAY)))
+    if (heldButton == BUTTON_OK && (after(autoRepeatTriggerTime + (400 - AUTOREPEAT_DELAY))))
     {
       // BUTTON_OK was held for at least 400 ms: execute a long-press
       bool longPress = okKeyLongPress();
@@ -440,13 +453,13 @@ void loop()
 {
   // first up is the realtime part of the loop, which is not allowed to perform
   // EEPROM writes or serial I/O
-  now = millis();
+  updateTimer();
 
   // highest priority task is to update the output
   theOutputDevice.setOutputPercent(output);
 
   // read input, if it is ready
-  if (theInputDevice.getInitializationStatus() && (now > readInputTime))
+  if (theInputDevice.getInitializationStatus() && after(readInputTime))
   {
     input = theInputDevice.readInput();
     if (!isnan(input))
@@ -507,15 +520,15 @@ void loop()
     return;
 
   // update the time after each major operation;
-  now = millis();
+  updateTimer();
 
   // we want to monitor the buttons as often as possible
   checkButtons();
   
   // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
   // a button is pressed
-  now = millis();
-  if (now > lcdTime || lcdRedrawNeeded)
+  updateTimer();
+  if (after(lcdTime) || lcdRedrawNeeded)
   {
     drawMenu();
     lcdRedrawNeeded = false;
@@ -530,8 +543,8 @@ void loop()
     theInputDevice.initialize();
   }     
 
-  now = millis();
-  if (settingsWritebackNeeded && (now > settingsWritebackTime)) 
+  updateTimer();
+  if (settingsWritebackNeeded && (after(settingsWritebackTime)))
   {
     // clear settingsWritebackNeeded first, so that it gets re-armed if the
     // realtime loop calls markSettingsDirty()
@@ -561,9 +574,9 @@ void loop()
 
 /* FIXME commented out temporarily to save space
  *
- *
+ */
       processSerialCommand();
- *
+/*
  *
  */
 

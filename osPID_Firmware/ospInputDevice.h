@@ -42,7 +42,7 @@ private:
   static const double inputStart = 250.0f;
 
   bool initializationStatus;
-  double calibration;
+  double calibration[3];
 
 
   // convert the thermistor voltage to a temperature
@@ -64,7 +64,7 @@ public:
   ospInputDevice() :
     ospBaseInputDevice(),
     initializationStatus(false),
-    calibration(0.0),
+    calibration({0.0f, 0.0f, 0.0f}),
     THERMISTORNOMINAL(10.0f),
     BCOEFFICIENT(1.0f),
     TEMPERATURENOMINAL(293.15f),
@@ -82,7 +82,7 @@ public:
       oneWireDevice.begin();
       if (!oneWireDevice.getAddress(oneWireDeviceAddress, 0)) 
       {
-        this->setInitializationStatus(false);
+        initializationStatus = false;
         return;
       }
       else 
@@ -91,7 +91,7 @@ public:
         oneWireDevice.setWaitForConversion(false);
       }
     }
-    this->setInitializationStatus(true);
+    initializationStatus = true;
   }
   
   virtual const __FlashStringHelper *IODeviceIdentifier()
@@ -112,10 +112,7 @@ public:
   // how many settings does this device have
   virtual byte floatSettingsCount() 
   {
-    switch (inputType)
-    {
-      return 5;
-    }
+    return 7;
   }  
 
   // read settings from the device
@@ -124,14 +121,18 @@ public:
     switch (index) 
     {
     case 0:
-      return getCalibration();
+      return calibration[INPUT_THERMISTOR];
     case 1:
-      return THERMISTORNOMINAL;
+      return calibration[INPUT_ONEWIRE];
     case 2:
-      return BCOEFFICIENT;
+      return calibration[INPUT_THERMOCOUPLE];
     case 3:
-      return TEMPERATURENOMINAL;
+      return THERMISTORNOMINAL;
     case 4:
+      return BCOEFFICIENT;
+    case 5:
+      return TEMPERATURENOMINAL;
+    case 6:
       return REFERENCE_RESISTANCE;
     default:
       return NAN;
@@ -144,19 +145,25 @@ public:
     switch (index) 
     {
     case 0:  
-      this->setCalibration(val);
+      calibration[INPUT_THERMISTOR] = val;
       return true;
-    case 1:
-      THERMISTORNOMINAL = val;
+    case 1:  
+      calibration[INPUT_ONEWIRE] = val;
       return true;
-    case 2:
-      BCOEFFICIENT = val;
+    case 2:  
+      calibration[INPUT_THERMOCOUPLE] = val;
       return true;
     case 3:
-      TEMPERATURENOMINAL = val;
+      THERMISTORNOMINAL = val;
       return true;
     case 4:
       REFERENCE_RESISTANCE = val;
+      return true;
+    case 5:
+      BCOEFFICIENT = val;
+      return true;
+    case 6:
+      TEMPERATURENOMINAL = val;
       return true;
     default:
       return false;
@@ -169,15 +176,19 @@ public:
     switch (index)
     {
     case 0:
-      return F("Thermistor reference temperature (Celsius)");
+      return F("Thermistor calibration value");
     case 1:
-      return F("Calibration temperature adjustment (Celsius)");
+      return F("DS18B20+ calibration value");
     case 2:
-      return F("Thermistor nominal resistance (Kohms)");
+      return F("Thermocouple calibration value");
     case 3:
-      return F("Reference resistor value (Kohms)");
+      return F("Thermistor nominal resistance (Kohms)");
     case 4:
+      return F("Reference resistor value (Kohms)");
+    case 5:
       return F("Thermistor B coefficient");
+    case 6:
+      return F("Thermistor reference temperature (Celsius)");
     default:
       return NULL;
     }
@@ -186,25 +197,25 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   virtual void saveSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration;
-    tempCalibration = this->getCalibration();
-    settings.save(tempCalibration);
+    settings.save(calibration[INPUT_THERMISTOR]);
+    settings.save(calibration[INPUT_ONEWIRE]);
+    settings.save(calibration[INPUT_THERMOCOUPLE]);
     settings.save(THERMISTORNOMINAL);
+    settings.save(REFERENCE_RESISTANCE);
     settings.save(BCOEFFICIENT);
     settings.save(TEMPERATURENOMINAL);
-    settings.save(REFERENCE_RESISTANCE);
     return;
   }
 
   virtual void restoreSettings(ospSettingsHelper& settings) 
   {
-    double tempCalibration;
-    settings.restore(tempCalibration);
-    this->setCalibration(tempCalibration);
+    settings.restore(calibration[INPUT_THERMISTOR]);
+    settings.restore(calibration[INPUT_ONEWIRE]);
+    settings.restore(calibration[INPUT_THERMOCOUPLE]);
     settings.restore(THERMISTORNOMINAL);
+    settings.restore(REFERENCE_RESISTANCE);
     settings.restore(BCOEFFICIENT);
     settings.restore(TEMPERATURENOMINAL);
-    settings.restore(REFERENCE_RESISTANCE);
     return;
   }  
 
@@ -288,13 +299,13 @@ public:
   // get calibration
   virtual double getCalibration()
   {
-    return calibration;
+    return calibration[inputType];
   }
 
   // set calibration
   virtual void setCalibration(double newCalibration)
   {
-    calibration = newCalibration;
+    calibration[inputType] = newCalibration;
   }  
 };
 

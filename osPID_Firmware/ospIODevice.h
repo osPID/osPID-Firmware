@@ -50,11 +50,6 @@ public:
   {
   }
 
-   bool getInitializationStatus() { return false; };
-   void setInitializationStatus(bool newInitializationStatus) {};
-   double getCalibration() { return NAN; };
-   void setCalibration(double newCalibration) {};
-   unsigned long requestInput() { return 0; };
    double readInput() { return NAN; };
 };
 
@@ -66,9 +61,7 @@ public:
    ospBaseIODevice()
   {
   }
-  
-   double getOutputWindowSeconds() { return NAN; };
-   void setOutputWindowSeconds(double newOutputWindowSeconds) {};
+ 
    void setOutputPercent(double percentage) {};
 };
 

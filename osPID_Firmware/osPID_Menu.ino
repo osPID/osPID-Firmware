@@ -487,7 +487,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
 #ifndef UNITS_FAHRENHEIT
       theLCD.print(F(" \337C"));
 #else
-      theLCD.print(F(" \337C"));
+      theLCD.print(F(" \337F"));
 #endif
       break;
     case ITEM_WINDOW_LENGTH:
@@ -1004,7 +1004,7 @@ static void okKeyPress()
     theInputDevice.initialize();
     markSettingsDirty();
 
-    // return to the prior menu
+    // return to prior menu
     backKeyPress();
     break;
 

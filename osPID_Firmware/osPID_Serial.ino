@@ -135,7 +135,7 @@ byte serialSpeed = SERIAL_SPEED_28p8k;
 
 static void setupSerial()
 {
-  ospAssert(serialSpeed >= 0 && serialSpeed < 7);
+  ospAssert((serialSpeed >= 0) && (serialSpeed < 7));
 
   Serial.end();
   long int kbps = pgm_read_dword_near(&serialSpeedTable[serialSpeed]);
@@ -284,13 +284,6 @@ void serialPrintFAutotuner()
 {
   serialPrint(F("Auto-tuner "));
 }
- 
-/*
-void serialPrintFCalibrationData()
-{
-  serialPrintln(F("calibration data:"));
-}
-*/
 
 static bool cmdSetSerialSpeed(const long& speed)
 {
@@ -323,7 +316,7 @@ static bool cmdStartProfile(const char *name)
     const char *p = name;
     bool match = true;
 
-    while (*p && ch < ospProfile::NAME_LENGTH)
+    while (*p && (ch < ospProfile::NAME_LENGTH))
     {
       if (*p != getProfileNameCharAt(i, ch))
         match = false;
@@ -331,7 +324,7 @@ static bool cmdStartProfile(const char *name)
       ch++;
     }
 
-    if (match && ch <= ospProfile::NAME_LENGTH)
+    if (match && (ch <= ospProfile::NAME_LENGTH))
     {
       // found the requested profile: start it
       activeProfileIndex = i;

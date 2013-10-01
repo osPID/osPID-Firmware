@@ -4,14 +4,11 @@
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
-  
-enum { OUTPUT_SSR, OUTPUT_SIMULATOR };
 
-#ifndef USE_SIMULATOR
+enum { OUTPUT_SSR = 0 };
 byte outputType = OUTPUT_SSR;
-#else
-byte outputType = OUTPUT_SIMULATOR;
-#endif
+
+  
 
 class ospOutputDeviceSsr : 
   public ospBaseOutputDevice 
@@ -25,8 +22,7 @@ private:
 
 public:
   ospOutputDeviceSsr() : 
-    ospBaseOutputDevice(),
-    //outputWindowSeconds(5.0), 
+    ospBaseOutputDevice(), 
     outputWindowMilliseconds(5000) // 5s OK for SSR depending on the load, needs to be longer for electromechanical relay
   { 
   }
@@ -68,7 +64,7 @@ public:
   {
     if (index == 0)
       return outputWindowSeconds;
-    return -1.0f;
+    return NAN;
   }
 /*
   int readIntegerSetting(byte index) 
