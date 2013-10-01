@@ -4,7 +4,7 @@
 #include "ospIODevice.h"
 #include "ospSettingsHelper.h"
 
-enum {INPUT_SIMULATOR = 0};
+enum {INPUT_SIMULATOR = 3};
 byte inputType = { INPUT_SIMULATOR };
 
 

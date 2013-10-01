@@ -7,10 +7,12 @@
 #include "DallasTemperature_local.h"
 #include "MAX31855_local.h"
 
-// class using crude switches instead of nice but bloaty methods
+
+// class using crude switches 
+// instead of pretty virtual methods
+// that there is not space to accommodate
 
 enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE, INPUT_THERMOCOUPLE };
-
 byte inputType = INPUT_THERMISTOR;
 
 
@@ -18,19 +20,20 @@ class ospInputDevice :
   public ospBaseInputDevice 
 {
 private:
-  enum { thermistorPin = A0 };
-  enum { oneWireBus = A0 };
-  enum { thermocoupleSO = A0  };
-  enum { thermocoupleCS = A1  };
-  enum { thermocoupleCLK = A2 }; 
+  
+  enum // settings
+  { 
+    CALIBRATION_THERMISTOR = 0,
+    CALIBRATION_ONEWIRE,
+    CALIBRATION_THERMOCOUPLE,  
+    THERMISTORNOMINAL,
+    BCOEFFICIENT,
+    TEMPERATURENOMINAL,
+    REFERENCE_RESISTANCE
+  };    
 
   bool initializationStatus;
-  double calibration[3];
-  
-  double THERMISTORNOMINAL;
-  double BCOEFFICIENT;
-  double TEMPERATURENOMINAL;
-  double REFERENCE_RESISTANCE;
+  double inputSetting[7];
 
   OneWire oneWire;
   DallasTemperature oneWireDevice;
@@ -38,19 +41,17 @@ private:
 
   MAX31855 thermocouple;
 
-
-
   // convert the thermistor voltage to a temperature
   double thermistorVoltageToTemperature(int voltage)
   {
-    double R = REFERENCE_RESISTANCE / (1024.0/(double)voltage - 1);
+    double R = inputSetting[REFERENCE_RESISTANCE] / (1024.0/(double)voltage - 1);
     double steinhart;
-    steinhart = R / THERMISTORNOMINAL;                // (R/Ro)
-    steinhart = log(steinhart);                       // ln(R/Ro)
-    steinhart /= BCOEFFICIENT;                        // 1/B * ln(R/Ro)
-    steinhart += 1.0 / (TEMPERATURENOMINAL + 273.15); // + (1/To)
-    steinhart = 1.0 / steinhart;                      // Invert
-    steinhart -= 273.15;                              // convert to C
+    steinhart = R / inputSetting[THERMISTORNOMINAL];                 // (R/Ro)
+    steinhart = log(steinhart);                                      // ln(R/Ro)
+    steinhart /= inputSetting[BCOEFFICIENT];                         // 1/B * ln(R/Ro)
+    steinhart += 1.0 / (inputSetting[TEMPERATURENOMINAL] + 273.15);  // + (1/To)
+    steinhart = 1.0 / steinhart;                                     // Invert
+    steinhart -= 273.15;                                             // convert to C
     return steinhart;
   }
   
@@ -59,15 +60,14 @@ public:
   ospInputDevice() :
     ospBaseInputDevice(),
     initializationStatus(false),
-    calibration({0.0f, 0.0f, 0.0f}),
-    THERMISTORNOMINAL(10.0f),
-    BCOEFFICIENT(1.0f),
-    TEMPERATURENOMINAL(293.15f),
-    REFERENCE_RESISTANCE(10.0f),
     oneWire(oneWireBus),
     oneWireDevice(&oneWire),
-    thermocouple(thermocoupleCLK, thermocoupleCS, thermocoupleSO)
+    thermocouple(thermocoupleCLK_Pin, thermocoupleCS_Pin, thermocoupleSO_Pin)
   { 
+    inputSetting[THERMISTORNOMINAL]    = 10.0f;
+    inputSetting[BCOEFFICIENT]         = 1.0f;
+    inputSetting[TEMPERATURENOMINAL]   = 293.15;
+    inputSetting[REFERENCE_RESISTANCE] = 10.0f;
   }
   
   void initialize() 
@@ -113,56 +113,18 @@ public:
   // read settings from the device
   double readFloatSetting(byte index) 
   {
-    switch (index) 
-    {
-    case 0:
-      return calibration[INPUT_THERMISTOR];
-    case 1:
-      return calibration[INPUT_ONEWIRE];
-    case 2:
-      return calibration[INPUT_THERMOCOUPLE];
-    case 3:
-      return THERMISTORNOMINAL;
-    case 4:
-      return BCOEFFICIENT;
-    case 5:
-      return TEMPERATURENOMINAL;
-    case 6:
-      return REFERENCE_RESISTANCE;
-    default:
-      return NAN;
-    }
+    if (index > 6 )
+      return NULL;
+    return inputSetting[index];
   }
     
   // write settings to the device
   bool writeFloatSetting(byte index, double val) 
   {
-    switch (index) 
-    {
-    case 0:  
-      calibration[INPUT_THERMISTOR] = val;
-      return true;
-    case 1:  
-      calibration[INPUT_ONEWIRE] = val;
-      return true;
-    case 2:  
-      calibration[INPUT_THERMOCOUPLE] = val;
-      return true;
-    case 3:
-      THERMISTORNOMINAL = val;
-      return true;
-    case 4:
-      REFERENCE_RESISTANCE = val;
-      return true;
-    case 5:
-      BCOEFFICIENT = val;
-      return true;
-    case 6:
-      TEMPERATURENOMINAL = val;
-      return true;
-    default:
+    if (index > 6 )
       return false;
-    }
+    inputSetting[index] = val;
+    return true;
   }
   
   // describe the device settings
@@ -192,26 +154,18 @@ public:
   // save and restore settings to/from EEPROM using the settings helper
   void saveSettings(ospSettingsHelper& settings) 
   {
-    settings.save(calibration[INPUT_THERMISTOR]);
-    settings.save(calibration[INPUT_ONEWIRE]);
-    settings.save(calibration[INPUT_THERMOCOUPLE]);
-    settings.save(THERMISTORNOMINAL);
-    settings.save(REFERENCE_RESISTANCE);
-    settings.save(BCOEFFICIENT);
-    settings.save(TEMPERATURENOMINAL);
-    return;
+    for (byte i = 0; i < 7; i++)
+    {
+      settings.save(inputSetting[i]);
+    }
   }
 
   void restoreSettings(ospSettingsHelper& settings) 
   {
-    settings.restore(calibration[INPUT_THERMISTOR]);
-    settings.restore(calibration[INPUT_ONEWIRE]);
-    settings.restore(calibration[INPUT_THERMOCOUPLE]);
-    settings.restore(THERMISTORNOMINAL);
-    settings.restore(REFERENCE_RESISTANCE);
-    settings.restore(BCOEFFICIENT);
-    settings.restore(TEMPERATURENOMINAL);
-    return;
+    for (byte i = 0; i < 7; i++)
+    {
+      settings.restore(inputSetting[i]);
+    }
   }  
 
 /*
@@ -268,14 +222,15 @@ public:
     case INPUT_THERMOCOUPLE: 
       temperature = thermocouple.readThermocouple(CELSIUS);
       if ((temperature == FAULT_OPEN) || (temperature = FAULT_SHORT_GND) || (temperature == FAULT_SHORT_VCC))
+        return NAN;
       break;
     default:
       return NAN;
     }
 #ifndef UNITS_FAHRENHEIT
-    return temperature + this->getCalibration();
+    return temperature + inputSetting[inputType];
 #else
-    return (temperature * 1.8 + 32.0) + this->getCalibration();
+    return (temperature * 1.8 + 32.0) + inputSetting[inputType];
 #endif
   }
   
@@ -292,15 +247,15 @@ public:
   }
 
   // get calibration
-  double getCalibration()
+  ospDecimalValue<1> getCalibration()
   {
-    return calibration[inputType];
+    return makeDecimal<1>(inputSetting[inputType]);
   }
 
   // set calibration
-  void setCalibration(double newCalibration)
+  void setCalibration(ospDecimalValue<1> newCalibration)
   {
-    calibration[inputType] = newCalibration;
+    inputSetting[inputType] = double(newCalibration);
   }  
 };
 

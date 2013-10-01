@@ -147,6 +147,7 @@ PROGMEM const MenuItem menuData[MENU_COUNT + 1] =
   { sizeof(resetRomMenuItems), 0, resetRomMenuItems       } 
 };
 
+
 /*
  * This class encapsulates the PROGMEM tables which describe how the various decimal
  * values are to be formatted.
@@ -241,12 +242,12 @@ PROGMEM DecimalItem decimalItemData[DECIMAL_ITEM_COUNT] =
 {
   { 'S', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &displaySetpoint },
   { 'I', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::NO_EDIT, &displayInput },
-  { 'O', DecimalItem::RANGE_0_1000 | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &displayOutput },
-  { 'P', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
-  { 'I', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
-  { 'D', DecimalItem::RANGE_0_32767 | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
-  { 'C', DecimalItem::RANGE_M999_P999 | DecimalItem::ONE_DECIMAL_PLACE, &displayCalibration },
-  { 'W', DecimalItem::RANGE_1_32767 | DecimalItem::ONE_DECIMAL_PLACE, &displayWindow },
+  { 'O', DecimalItem::RANGE_0_1000      | DecimalItem::ONE_DECIMAL_PLACE | DecimalItem::EDIT_MANUAL_ONLY, &displayOutput },
+  { 'P', DecimalItem::RANGE_0_32767     | DecimalItem::THREE_DECIMAL_PLACES, &PGain },
+  { 'I', DecimalItem::RANGE_0_32767     | DecimalItem::THREE_DECIMAL_PLACES, &IGain },
+  { 'D', DecimalItem::RANGE_0_32767     | DecimalItem::THREE_DECIMAL_PLACES, &DGain },
+  { 'C', DecimalItem::RANGE_M999_P999   | DecimalItem::ONE_DECIMAL_PLACE, &displayCalibration },
+  { 'W', DecimalItem::RANGE_1_32767     | DecimalItem::ONE_DECIMAL_PLACE, &displayWindow },
   { 'L', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &lowerTripLimit },
   { 'U', DecimalItem::RANGE_M9999_P9999 | DecimalItem::ONE_DECIMAL_PLACE, &upperTripLimit }
 };
@@ -263,16 +264,27 @@ struct MenuStateData
 
 struct MenuStateData menuState;
 
+static void __attribute__ ((noinline)) setCursorTopLeft()
+{
+  theLCD.setCursor(0, 0);
+}
+
+static void __attribute__ ((noinline)) setCursorBottomLeft()
+{
+  theLCD.setCursor(0, 1);
+}
+
 // draw the initial startup banner
 static void drawStartupBanner()
 {
   // display a startup message
-  theLCD.setCursor(0, 0);
-  theLCD.println(" osPID");
-  theLCD.setCursor(0, 1);
-  theLCD.println(" " OSPID_VERSION_TAG);
-#ifndef OSPID_SILENT  
-  tone( buzzerPin, 1000, 10 );
+  theLCD.clear();
+  setCursorTopLeft();
+  theLCD.println(PcontrollerName);
+  setCursorBottomLeft();
+  theLCD.println(Pversion);
+#ifndef SILENCE_BUZZER  
+  buzzMillis(10);
 #endif  
 }
 
@@ -280,16 +292,16 @@ static void drawStartupBanner()
 static void drawBadCsum(byte profile)
 {
   delay(500);
-  theLCD.setCursor(0, 0);
+  setCursorTopLeft();
   if (profile == 0xFF)
-    theLCD.println(PSTR("Config"));
+    theLCD.println(PSTR("Settings"));
   else
   {
-    theLCD.println(PSTR("Profile"));
+    theLCD.println(Pprofile);
     theLCD.setCursor(8, 0);
-    theLCD.print(profile + 1);
+    theLCD.print(char(profile + '1'));
   }
-  theLCD.setCursor(0, 1);
+  setCursorBottomLeft();
   theLCD.println(PSTR("Cleared"));
   delay(2000);
 }
@@ -297,9 +309,9 @@ static void drawBadCsum(byte profile)
 // draw a banner reporting that we're resuming an interrupted profile
 static void drawResumeProfileBanner()
 {
-  theLCD.setCursor(0, 0);
+  setCursorTopLeft();
   theLCD.println(PSTR("Resuming"));
-  theLCD.setCursor(0, 1);
+  setCursorBottomLeft();
   drawProfileName(activeProfileIndex);
   delay(1000);
 }
@@ -467,7 +479,7 @@ static void drawProfileName(byte profileIndex)
 // draw an item occupying a full 8x1 display line
 static void drawFullRowItem(byte row, bool selected, byte item)
 {
-  long int kbps;
+  unsigned int kbps;
   theLCD.setCursor(0, row);
 
   // first draw the selector
@@ -477,6 +489,7 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   if ((item >= FIRST_DECIMAL_ITEM) && (item < FIRST_ACTION_ITEM))
   {
     drawDecimalValue(item);
+    byte spc = 5;
     switch (item)
     { 
     case ITEM_SETPOINT:
@@ -489,13 +502,17 @@ static void drawFullRowItem(byte row, bool selected, byte item)
 #else
       theLCD.print(F(" \337F"));
 #endif
+      spc--;
       break;
     case ITEM_WINDOW_LENGTH:
       theLCD.print(F(" s "));
+      break;
+    case ITEM_OUTPUT:
+      theLCD.print(F(" % "));
     default:
-      theLCD.spc(3);
+      spc++;
     }
-    theLCD.spc(4);
+    theLCD.spc(spc);
   }
   else switch (item)
   {
@@ -550,10 +567,11 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     break;
   case ITEM_PID_DIRECTION:
     if (ctrlDirection == DIRECT)
-      theLCD.println(PSTR("Action Forward"));
+      theLCD.println(PSTR("Direct Action"));
     else
-      theLCD.println(PSTR("Action Reverse"));
+      theLCD.println(PSTR("Reverse Action"));
     break;
+#ifndef USE_SIMULATOR 
   case ITEM_INPUT_THERMISTOR:
     theLCD.println(PSTR("Thermistor"));
     break;
@@ -562,10 +580,12 @@ static void drawFullRowItem(byte row, bool selected, byte item)
     break;
   case ITEM_INPUT_THERMOCOUPLE:
     theLCD.println(PSTR("Thermocouple"));
-    break;
+    break;  
+#else
   case ITEM_INPUT_SIMULATOR:
     theLCD.println(PSTR("Simulation"));
     break;
+#endif    
   case ITEM_COMM_9p6k:
   case ITEM_COMM_14p4k:
   case ITEM_COMM_19p2k:
@@ -573,10 +593,10 @@ static void drawFullRowItem(byte row, bool selected, byte item)
   case ITEM_COMM_38p4k:
   case ITEM_COMM_57p6k:
   case ITEM_COMM_115k:
-    kbps = pgm_read_dword_near(&serialSpeedTable[item - ITEM_COMM_9p6k]);
+    kbps = pgm_read_word_near(&serialSpeedTable[item - ITEM_COMM_9p6k]);
     theLCD.print(kbps);
-    theLCD.println(PSTR(" baud"));
-    theLCD.spc(5 + (item == ITEM_COMM_9p6k) + (item < ITEM_COMM_115k));
+    theLCD.print(F("00 baud"));
+    theLCD.spc(6 + (item == ITEM_COMM_9p6k) - (item == ITEM_COMM_115k));
     break;
   case ITEM_POWERON_DISABLE:
     theLCD.println(PSTR("Disable"));
@@ -660,7 +680,7 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
   case ITEM_SETPOINT2:
   case ITEM_SETPOINT3:
   case ITEM_SETPOINT4:
-    theLCD.print((char)'1' + item - ITEM_SETPOINT1);
+    theLCD.print(char('1' + item - ITEM_SETPOINT1));
     break;
   default:
     BUGCHECK();
@@ -673,6 +693,7 @@ static void drawHalfRowItem(byte row, byte col, bool selected, byte item)
 // if icon is '\0', then just set the cursor at the editable location
 static void drawNotificationCursor(char icon)
 {
+  byte row, col;
   if (menuData[menuState.currentMenu].is2x2())
   {
     ospAssert(!menuState.editing);
@@ -680,19 +701,18 @@ static void drawNotificationCursor(char icon)
     if (!icon)
       return;
 
-    byte row = menuState.highlightedItemMenuIndex / 2;
-    byte col = 4 * (menuState.highlightedItemMenuIndex & 1);
-
-    theLCD.setCursor(col, row);
-    theLCD.print(icon);
-    return;
+    row = menuState.highlightedItemMenuIndex / 2;
+    col = 4 * (menuState.highlightedItemMenuIndex & 1);
   }
-
-  byte row = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex) ? 0 : 1;
+  else
+  {
+    row = (menuState.highlightedItemMenuIndex == menuState.firstItemMenuIndex) ? 0 : 1;
+    //col = 0; // initialized to 0 by C compiler
+  }
 
   if (icon)
   {
-    theLCD.setCursor(0, row);
+    theLCD.setCursor(col, row);
     theLCD.print(icon);
   }
 
@@ -828,7 +848,7 @@ static void updownKeyPress(bool up)
       modeIndex ^= 1; //= (modeIndex == 0 ? 1 : 0);
       // use the manual output value
       if (modeIndex == MANUAL)
-        output = double(manualOutput);
+        output = manualOutput;
       myPID.SetMode(modeIndex);
       break;
     case ITEM_PID_DIRECTION:
@@ -909,7 +929,6 @@ static void okKeyPress()
 
     // it's a menu: open that menu
     menuState.currentMenu = item;
-
     switch (item)
     {
     case ITEM_PROFILE_MENU:
@@ -931,7 +950,7 @@ static void okKeyPress()
       menuState.highlightedItemMenuIndex = 0;
       break;
     }
-    menuState.firstItemMenuIndex = min(menuState.highlightedItemMenuIndex, menuData[menuState.currentMenu].itemCount() - 2);
+    menuState.firstItemMenuIndex = min(menuState.highlightedItemMenuIndex, menuData[item].itemCount() - 2);
     return;
   }
 
@@ -941,8 +960,10 @@ static void okKeyPress()
     if (tripped && (item == ITEM_SETPOINT))
     {
       tripped = false;
-      output = double(manualOutput);
-      noTone( buzzerPin );
+      output = manualOutput;
+#ifndef SILENCE_BUZZER      
+      buzzOff;
+#endif
       return;
     }
     // it's a numeric value: mark that the user wants to edit it
@@ -994,13 +1015,17 @@ static void okKeyPress()
   case ITEM_TRIP_AUTORESET:
     startEditing(item);
     break;
-
+    
+#ifndef  USE_SIMULATOR
   case ITEM_INPUT_THERMISTOR:
   case ITEM_INPUT_ONEWIRE:
   case ITEM_INPUT_THERMOCOUPLE:
-  case ITEM_INPUT_SIMULATOR:
     // update inputType
-    inputType = (item == ITEM_INPUT_SIMULATOR) ? 0 : (item - ITEM_INPUT_THERMISTOR);
+    inputType = (item - ITEM_INPUT_THERMISTOR);
+#else  
+  case ITEM_INPUT_SIMULATOR:
+    inputType = INPUT_SIMULATOR;
+#endif  
     theInputDevice.initialize();
     markSettingsDirty();
 

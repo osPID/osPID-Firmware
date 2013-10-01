@@ -263,7 +263,7 @@ template<int lDEC, int rDEC> inline bool operator >= (const ospDecimalValue<lDEC
 
 template<int D> inline ospDecimalValue<D> makeDecimal(double val)
 {
-  return (ospDecimalValue<D>) {(int)(val * ospPow10<D>::value + 0.5)}; // rounded
+  return (ospDecimalValue<D>) {(int)(val * (double)ospPow10<D>::value + 0.5)}; // rounded
 }
 
 #endif

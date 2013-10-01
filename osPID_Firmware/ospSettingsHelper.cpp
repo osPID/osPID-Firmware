@@ -8,9 +8,12 @@ extern void realtimeLoop();
 
 // since EEPROM write time is ~4 ms per byte, we perform an iteration of the realtime loop after
 // every byte which requires an actual erase/program cycle
-template<size_t size> void ospSettingsHelper::saveSize(const byte *p) {
-  for (byte n = size; n; n--) {
-    if (eeprom_read_byte((byte *)address) != *p) {
+template<size_t size> void ospSettingsHelper::saveSize(const byte *p) 
+{
+  for (byte n = size; n; n--) 
+  {
+    if (eeprom_read_byte((byte *)address) != *p) 
+    {
       eeprom_write_byte((byte *)address, *p);
       ::realtimeLoop();
     }
@@ -20,8 +23,10 @@ template<size_t size> void ospSettingsHelper::saveSize(const byte *p) {
   }
 }
 
-template<size_t size> void ospSettingsHelper::eepromReadSize(unsigned int address, byte *p) {
-  for (byte n = size; n; n--) {
+template<size_t size> void ospSettingsHelper::eepromReadSize(unsigned int address, byte *p) 
+{
+  for (byte n = size; n; n--) 
+  {
     *p = eeprom_read_byte((byte *)address);
     p++;
     address++;
@@ -30,9 +35,12 @@ template<size_t size> void ospSettingsHelper::eepromReadSize(unsigned int addres
 
 // since EEPROM write time is ~4 ms per byte, we perform an iteration of the realtime loop after
 // every byte which requires an actual erase/program
-template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int address, const byte *p) {
-  for (byte n = size; n; n--) {
-    if (eeprom_read_byte((byte *)address) != *p) {
+template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int address, const byte *p) 
+{
+  for (byte n = size; n; n--) 
+  {
+    if (eeprom_read_byte((byte *)address) != *p) 
+    {
       eeprom_write_byte((byte *)address, *p);
       ::realtimeLoop();
     }
@@ -49,8 +57,10 @@ template<size_t size> void ospSettingsHelper::eepromWriteSize(unsigned int addre
 //
 // NOTE: this function does _not_ perform a realtime loop iteration, since it is called by
 // the profile executor, which is _part_ of the realtime loop
-template<size_t size> void ospSettingsHelper::eepromClearBitsSize(unsigned int address, const byte *p) {
-  for (byte n = size; n; n--) {
+template<size_t size> void ospSettingsHelper::eepromClearBitsSize(unsigned int address, const byte *p) 
+{
+  for (byte n = size; n; n--) 
+  {
     __asm__ __volatile__ (
       "1: sbic %0, %1\n" // wait for EEPROM write to complete
       "   rjmp 1b\n"

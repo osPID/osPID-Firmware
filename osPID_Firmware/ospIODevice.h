@@ -24,7 +24,7 @@ public:
   // byte integerSettingsCount() { return 0xFF; }; 
 
   // read settings from the IO device
-  double readFloatSetting(byte index) { return -1.0f ;};
+  double readFloatSetting(byte index) { return NAN; };
   // int readIntegerSetting(byte index) { return -1; };
 
   // write settings to the IO device

@@ -22,7 +22,7 @@ void ospBugCheck(const char *block, int line)
   theLCD.print(F(" Err"));
 
   theLCD.setCursor(0, 1);
-  theLCD.print(F("Lin "));
+  theLCD.print(F("Line "));
   theLCD.print(line);
 
   // just lock up, flashing the error message
@@ -57,7 +57,7 @@ static void stopAutoTune()
 
   // restore the output to the last manual command; it will be overwritten by the PID
   // if the loop is active
-  output = double(manualOutput);
+  output = manualOutput;
   myPID.SetMode(modeIndex);
 }
 
@@ -88,11 +88,11 @@ static bool startCurrentProfileStep()
   if (stepType == ospProfile::STEP_INVALID)
     return false;
 
-#ifndef OSPID_SILENT
+#ifndef SILENCE_BUZZER
   if (stepType & ospProfile::STEP_FLAG_BUZZER)
-    tone(buzzerPin, 1000);
+    buzzMillis(1000);
   else
-    noTone(buzzerPin);
+    buzzOff;
 #endif
 
   profileState.stepType = stepType & ospProfile::STEP_TYPE_MASK;
@@ -124,6 +124,7 @@ static bool startCurrentProfileStep()
 static void profileLoopIteration()
 {
   double delta;
+  double target = double(profileState.targetSetpoint);
   ospAssert(!tuning);
   ospAssert(runningProfile);
 
@@ -133,12 +134,12 @@ static void profileLoopIteration()
   case ospProfile::STEP_RAMP_TO_SETPOINT:
     if (stepTimeLeft >= 0)
     {
-      activeSetPoint = double(profileState.targetSetpoint);
+      activeSetPoint = target;
       break;
     }
-    delta = double(profileState.targetSetpoint - profileState.initialSetpoint);
+    delta = target - double(profileState.initialSetpoint);
     // FIXME: does this handle rounding correctly?
-    activeSetPoint = double(profileState.targetSetpoint) - 
+    activeSetPoint = target - 
       (delta * stepTimeLeft / profileState.stepDuration);
     return;
   case ospProfile::STEP_SOAK_AT_VALUE:
@@ -151,9 +152,9 @@ static void profileLoopIteration()
       return;
     break;
   case ospProfile::STEP_WAIT_TO_CROSS:
-    if ((lastGoodInput < double(profileState.targetSetpoint)) && profileState.temperatureRising)
+    if ((lastGoodInput < target) && profileState.temperatureRising)
       return; // not there yet
-    if ((lastGoodInput > double(profileState.targetSetpoint)) && !profileState.temperatureRising)
+    if ((lastGoodInput > target) && !profileState.temperatureRising)
       return;
     break;
   }
@@ -186,8 +187,9 @@ static void startProfile()
 static void stopProfile()
 {
   ospAssert(runningProfile);
-
-  noTone(buzzerPin);
+#ifndef SILENCE_BUZZER
+  buzzOff;
+#endif
   recordProfileCompletion();
   runningProfile = false;
 }

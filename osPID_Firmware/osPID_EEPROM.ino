@@ -22,19 +22,18 @@
 *      0 |    2 | CRC-16
 *      2 |    1 | settings byte 1
 *      3 |    1 | settings byte 2
-*      4 |   16 | Controller name
-*     20 |    2 | P gain
-*     22 |    2 | I gain
-*     24 |    2 | D gain
-*     26 |    8 | 4 setpoints
-*     34 |    2 | Autotune step parameter
-*     36 |    2 | Autotune noise parameter
-*     38 |    2 | Autotune look-back parameter
-*     40 |    2 | Manual output setting
-*     42 |    2 | Lower trip limit
-*     44 |    2 | Upper trip limit
-*     46 |    1 | EEPROM version identifier
-*     47 |   25 | (free)
+*      4 |    2 | P gain
+*      6 |    2 | I gain
+*      8 |    2 | D gain
+*     10 |    8 | 4 setpoints
+*     18 |    2 | Autotune step parameter
+*     20 |    2 | Autotune noise parameter
+*     22 |    2 | Autotune look-back parameter
+*     24 |    4 | Manual output setting
+*     28 |    2 | Lower trip limit
+*     30 |    2 | Upper trip limit
+*     32 |    1 | EEPROM version identifier
+*     33 |   39 | (free)
 *     72 |   64 | Input device setting space
 *    136 |   64 | Output device setting space
 *
@@ -80,23 +79,19 @@ enum
   SETTINGS_CRC_OFFSET = 0,
   SETTINGS_SBYTE1_OFFSET = 2,
   SETTINGS_SBYTE2_OFFSET = 3,
-  SETTINGS_NAME_OFFSET = 4,
-  SETTINGS_NAME_LENGTH = 16,
-  SETTINGS_P_OFFSET = 20,
-  SETTINGS_I_OFFSET = 22,
-  SETTINGS_D_OFFSET = 24,
-  SETTINGS_SP_OFFSET = 26,
+  SETTINGS_P_OFFSET = 4,
+  SETTINGS_I_OFFSET = 6,
+  SETTINGS_D_OFFSET = 8,
+  SETTINGS_SP_OFFSET = 10,
   NR_SETPOINTS = 4,
-  SETTINGS_AT_STEP_OFFSET = 34,
-  SETTINGS_AT_NOISE_OFFSET = 36,
-  SETTINGS_AT_LOOKBACK_OFFSET = 38,
-  SETTINGS_OUTPUT_OFFSET = 40,
-  SETTINGS_LOWER_TRIP_OFFSET = 42,
-  SETTINGS_UPPER_TRIP_OFFSET = 44,
-  SETTINGS_INPUT_TYPE = 46,
-  SETTINGS_OUTPUT_TYPE = 47, 
-  SETTINGS_VERSION_OFFSET = 48,
-  // free space from 50 to 71
+  SETTINGS_AT_STEP_OFFSET = 18,
+  SETTINGS_AT_NOISE_OFFSET = 20,
+  SETTINGS_AT_LOOKBACK_OFFSET = 22,
+  SETTINGS_OUTPUT_OFFSET = 24,
+  SETTINGS_LOWER_TRIP_OFFSET = 28,
+  SETTINGS_UPPER_TRIP_OFFSET = 30,
+  SETTINGS_VERSION_OFFSET = 32,
+  // free space from 33 to 71
   INPUT_DEVICE_SETTINGS_OFFSET = 72,
   OUTPUT_DEVICE_SETTINGS_OFFSET = 168,
   SETTINGS_CRC_LENGTH = 198
@@ -226,7 +221,8 @@ union SettingsByte2
   {
     byte serialSpeed : 3;
     byte activeProfileIndex : 2;
-    byte spare : 3;
+    byte inputType : 2;
+    byte spare : 1;
   };
   byte byteVal;
 };
@@ -249,10 +245,8 @@ static void saveEEPROMSettings()
   sb2.byteVal = 0;
   sb2.serialSpeed = serialSpeed;
   sb2.activeProfileIndex = activeProfileIndex;
+  sb2.inputType = inputType;
   settings.save(sb2.byteVal);
-
-  for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
-    settings.save(controllerName[i]);
 
   settings.save(PGain);
   settings.save(IGain);
@@ -269,16 +263,11 @@ static void saveEEPROMSettings()
 
   settings.save(lowerTripLimit);
   settings.save(upperTripLimit);
-  
-  settings.save(inputType);
-  settings.save(outputType);
 
   settings.save((byte) EEPROM_STORAGE_VERSION);
 
   settings.fillUpTo(INPUT_DEVICE_SETTINGS_OFFSET);
-#ifndef USE_SIMULATOR
   theInputDevice.saveSettings(settings);
-#endif
 
   settings.fillUpTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
   theOutputDevice.saveSettings(settings);
@@ -307,9 +296,7 @@ static void restoreEEPROMSettings()
   settings.restore(sb2.byteVal);
   serialSpeed = sb2.serialSpeed;
   activeProfileIndex = sb2.activeProfileIndex;
-
-  for (byte i = 0; i < SETTINGS_NAME_LENGTH; i++)
-    settings.restore(controllerName[i]);
+  inputType = sb2.inputType;
 
   settings.restore(PGain);
   settings.restore(IGain);
@@ -317,7 +304,6 @@ static void restoreEEPROMSettings()
 
   for (byte i = 0; i < NR_SETPOINTS; i++)
     settings.restore(setPoints[i]);
-
   activeSetPoint = double(setPoints[setpointIndex]);
   displaySetpoint = setPoints[0];
 
@@ -326,23 +312,22 @@ static void restoreEEPROMSettings()
   settings.restore(aTuneLookBack);
 
   settings.restore(manualOutput);
-  output = double(manualOutput);
+  output = manualOutput;
 
   settings.restore(lowerTripLimit);
   settings.restore(upperTripLimit);
   
-  settings.restore(inputType);
-  settings.restore(outputType);
-  
   settings.skipTo(INPUT_DEVICE_SETTINGS_OFFSET);
-#ifndef USE_SIMULATOR
   theInputDevice.restoreSettings(settings);
+#ifndef USE_SIMULATOR
+  displayCalibration = theInputDevice.getCalibration();
 #endif
-  displayCalibration = makeDecimal<1>(theInputDevice.getCalibration());
 
   settings.skipTo(OUTPUT_DEVICE_SETTINGS_OFFSET);
   theOutputDevice.restoreSettings(settings);
+#ifndef USE_SIMULATOR
   displayWindow = theOutputDevice.getOutputWindowSeconds();
+#endif
 }
 
 // check the CRC-16 of the i'th profile block
@@ -412,7 +397,7 @@ static void getProfileStepData(byte profileIndex, byte i, byte *type, unsigned l
                     + profileIndex * PROFILE_BLOCK_LENGTH;
 
 
-  ospAssert(profileIndex >= 0 && profileIndex < NR_PROFILES);
+  ospAssert((profileIndex >= 0) && (profileIndex < NR_PROFILES));
   ospSettingsHelper::eepromRead(base + PROFILE_STEP_TYPES_OFFSET + i, *type);
   *type &= ospProfile::STEP_CONTENT_MASK;
 

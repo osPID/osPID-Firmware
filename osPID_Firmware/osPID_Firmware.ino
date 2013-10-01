@@ -3,6 +3,8 @@
 #include <Arduino.h>
 #include <LiquidCrystal.h>
 #include <avr/pgmspace.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
 #include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
 #include "PID_AutoTune_v0_local.h"
@@ -60,14 +62,11 @@ ospSimulator theInputDevice;
 
 
 // we use the LiquidCrystal library to drive the LCD screen
-MyLiquidCrystal theLCD(2, 3, 7, 6, 5, 4);
+MyLiquidCrystal theLCD(lcdRsPin, lcdEnablePin, lcdD0Pin, lcdD1Pin, lcdD2Pin, lcdD3Pin);
 
 // our AnalogButton library provides debouncing and interpretation
 // of the analog-multiplexed button channel
-ospAnalogButton<A4, 100, 253, 454, 657> theButtonReader;
-
-// Pin assignment for buzzer
-enum { buzzerPin = A5 };
+ospAnalogButton<buttonsPin, 100, 253, 454, 657> theButtonReader;
 
 // an in-memory buffer that we use when receiving a profile over USB
 ospProfile profileBuffer;
@@ -76,11 +75,6 @@ ospProfile profileBuffer;
 byte activeProfileIndex;
 byte currentProfileStep;
 boolean runningProfile = false;
-
-// the name of this controller unit (can be queried and set over USB)
-char controllerName[17] = { 
-  'o', 's', 'P', 'I', 'D', ' ',
-  'C', 'o', 'n', 't', 'r', 'o', 'l', 'l', 'e', 'r', '\0' };
 
 // the gain coefficients of the PID controller
 ospDecimalValue<3> PGain = { 2000 } , IGain = { 500 } , DGain = { 2000 };
@@ -100,30 +94,29 @@ ospDecimalValue<1> setPoints[4] = { { 800 }, { 1500 }, { 2120 }, { 2600 } };
 #endif
 
 
-// the index of the selected setpoint
-byte setpointIndex = 0;
 
-// the manually-commanded output value
-ospDecimalValue<1> manualOutput = { 0 };
 
-// temporary fixed point decimal values for display and data entry
-ospDecimalValue<1> displaySetpoint = { 250 }, displayInput = { -19999 }, displayCalibration = { 0 };
-ospDecimalValue<1> displayOutput = { 0 }; // percentile
 
 // the most recent measured input value
 double input = NAN; 
 
-// the variables to which the PID controller is bound
-double activeSetPoint = setPoints[setpointIndex];
-
-// last good input value
+// last good input value, used by PID controller
 double lastGoodInput = 25.0;
+
+// the index of the selected setpoint
+byte setpointIndex = 0;
+
+// set value for PID controller
+double activeSetPoint = setPoints[setpointIndex];
 
 // the output duty cycle calculated by PID controller
 double output = 0.0;   
 
-// temporary value of output window length in seconds
-ospDecimalValue<1> displayWindow = { 50 };
+// the manually-commanded output value
+double manualOutput = 0.0;
+
+// temporary fixed point decimal values for display and data entry
+ospDecimalValue<1> displaySetpoint = { 250 }, displayInput = { -19999 }, displayCalibration = { 0 }, displayOutput = { 0 }, displayWindow = { 50 }; 
 
 // the hard trip limits
 #ifndef UNITS_FAHRENHEIT
@@ -166,38 +159,95 @@ unsigned long now, lcdTime, readInputTime;
 // I/O
 enum { PID_LOOP_SAMPLE_TIME = 1000 };
 
-PROGMEM long serialSpeedTable[7] = { 9600, 14400, 19200, 28800, 38400, 57600, 115200 };
+// some constants in flash memory, for reuse
+
+PROGMEM unsigned int serialSpeedTable[7] = { 96, 144, 192, 288, 384, 576, 1152 };
+
+#ifndef UNITS_FAHRENHEIT
+const __FlashStringHelper *FdegCelsius() { return F(" \272C"); }
+#else
+const __FlashStringHelper *FdegFahrenheit() { return F(" \272F"); }
+#endif
+
+const PROGMEM char Pprofile[] = "Profile ";
+
 
 char hex(byte b)
 {
   return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
 }
 
-void updateTimer()
+void __attribute__ ((noinline)) updateTimer()
 {
   now = millis();
 }
 
 // check time avoiding overflow
-bool after(unsigned long targetTime)
+bool __attribute__ ((noinline)) after(unsigned long targetTime)
 {
   unsigned long u = (targetTime - now);
   return ((u & 0x80000000) > 0);
 }
 
+#ifndef SILENCE_BUZZER
+// buzzer 
+volatile int buzz = 0; // countdown timer for intermittent buzzer
+enum { BUZZ_OFF = 0, BUZZ_UNTIL_CANCEL = -769 };
+#define buzzMillis(x)    buzz = (x)*4
+#define buzzUntilCancel  buzz = BUZZ_UNTIL_CANCEL
+#define buzzOff          buzz = BUZZ_OFF
 
+ISR (TIMER2_COMPA_vect)
+{
+  const byte     buzzerPort     = digitalPinToPort(buzzerPin);
+  volatile byte *buzzerOut      = portOutputRegister(buzzerPort);
+  const byte     buzzerBitMask  = digitalPinToBitMask(buzzerPin);
 
-
+  // 1 kHz tone
+  // buzz counts down every 0.25 ms
+  if (buzz == BUZZ_OFF)
+  {
+    // write buzzer pin low
+    *buzzerOut &= ~buzzerBitMask;
+  }
+  else
+  {      
+    if (((unsigned int)buzz & 0x380) == 0) // intermittent beep
+    {
+      // toggle buzzer pin
+      *buzzerOut ^= buzzerBitMask;
+    }
+    else
+    {
+      // write buzzer pin low
+      *buzzerOut &= ~buzzerBitMask;
+    }
+    buzz--;
+    if (buzz == BUZZ_UNTIL_CANCEL - 1024)
+      buzz = BUZZ_UNTIL_CANCEL;
+  }
+}
+#endif
 
 // initialize the controller: this is called by the Arduino runtime on bootup
 void setup()
 {
-  lcdTime = 25;
+  // set up timer2 for buzzer interrupt
+#ifndef SILENCE_BUZZER
+  cli();                   // disable interrupts
+  OCR2A = 124;             // set up timer2 CTC interrupts for buzzer every 250 us (gives 1 kHz tone)
+  TCCR2A |= (1 << WGM21);  // CTC Mode
+  TIMSK2 |= (1 << OCIE2A); // set interrupt on compare match
+  GTCCR  |= (1 << PSRASY); // reset timer2 prescaler
+  TCCR2B |= (1 << CS22);   // prescale 64 (every 4 us @ 16 MHz)
+  sei();                   // enable interrupts
+#endif  
 
   // set up the LCD,show controller name
   theLCD.begin(16, 2);
   drawStartupBanner();
 
+  lcdTime = 25;
   updateTimer();
 
   // load the EEPROM settings
@@ -210,15 +260,11 @@ void setup()
   theOutputDevice.initialize();
 
   // set up the serial interface
-/* FIXME commented out temporarily to save space
- *
- */
+#ifndef SHORTER
   setupSerial();
-/*
- *
- */
+#endif
 
-  delay((millis() < now + 1000) ? (now + 1000 - millis()) : 10);
+  delay((millis() < now + 2000) ? (now + 2000 - millis()) : 10);
 
   updateTimer();
 
@@ -231,7 +277,7 @@ void setup()
   if (powerOnBehavior == POWERON_DISABLE) 
   {
     modeIndex = MANUAL;
-    output = double(manualOutput);
+    output = manualOutput;
   }
   myPID.SetMode(modeIndex);
 
@@ -273,7 +319,7 @@ static void checkButtons()
 
   enum 
   {
-    AUTOREPEAT_DELAY = 250,
+    AUTOREPEAT_DELAY  = 250,
     AUTOREPEAT_PERIOD = 350
   };
 
@@ -360,22 +406,27 @@ static void completeAutoTune()
   DGain = makeDecimal<3>(aTune.GetKd());
 
   // set the PID controller to accept the new gain settings
-  myPID.SetControllerDirection(DIRECT);
+  // use whatever direction of control is currently set
+  //myPID.SetControllerDirection(DIRECT);
   myPID.SetMode(AUTOMATIC);
 
   if (PGain < (ospDecimalValue<3>){0})
   {
     // the auto-tuner found a negative gain sign: convert the coefficients
-    // to positive with REVERSE controller action
+    // to positive and change the direction of controller action
     PGain = -PGain;
     IGain = -IGain;
     DGain = -DGain;
-    myPID.SetControllerDirection(REVERSE);
-    ctrlDirection = REVERSE;
-  }
-  else
-  {
-    ctrlDirection = DIRECT;
+    if (ctrlDirection == DIRECT)
+    {
+      myPID.SetControllerDirection(REVERSE);
+      ctrlDirection = REVERSE;
+    }
+    else
+    {
+      myPID.SetControllerDirection(DIRECT);
+      ctrlDirection = DIRECT;
+    }      
   }
 
   myPID.SetTunings(double(PGain), double(IGain), double(DGain));
@@ -404,7 +455,7 @@ static void markSettingsDirty()
   theOutputDevice.setOutputWindowSeconds(displayWindow);
   
   // capture any changes to the calibration value
-  theInputDevice.setCalibration(double(displayCalibration));
+  theInputDevice.setCalibration(displayCalibration);
 
   settingsWritebackNeeded = true;
 
@@ -504,18 +555,27 @@ void loop()
     if (tripAutoReset)
     {
       tripped = false;
-      noTone( buzzerPin );
+#ifndef SILENCE_BUZZER      
+      buzzOff;
+#endif      
     }
 
     if (displayInput != (ospDecimalValue<1>){-19999} || (displayInput < lowerTripLimit) || (displayInput > upperTripLimit) || tripped)
     {
       output = 0;
       tripped = true;
-#ifndef OSPID_SILENT      
-      tone( buzzerPin, 1000 ); // continuous beep - could get pretty annoying
+#ifndef SILENCE_BUZZER  
+      if (buzz >= BUZZ_OFF)
+        buzzUntilCancel; // could get pretty annoying
 #endif      
     }
   }
+#ifndef SILENCE_BUZZER    
+  else
+  {
+    buzzOff;
+  }
+#endif      
 
   // after the realtime part comes the slow operations, which may re-enter
   // the realtime part of the loop but not the slow part
@@ -547,7 +607,7 @@ void loop()
   }     
 
   updateTimer();
-  if (settingsWritebackNeeded && (after(settingsWritebackTime)))
+  if (settingsWritebackNeeded && after(settingsWritebackTime))
   {
     // clear settingsWritebackNeeded first, so that it gets re-armed if the
     // realtime loop calls markSettingsDirty()
@@ -575,13 +635,9 @@ void loop()
       serialCommandBuffer[serialCommandLength] = '\0';
       drawNotificationCursor('*');
 
-/* FIXME commented out temporarily to save space
- *
- */
+#ifndef SHORTER
       processSerialCommand();
-/*
- *
- */
+#endif
 
       serialCommandLength = 0;
     }

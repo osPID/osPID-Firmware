@@ -22,6 +22,7 @@ public:
   }
 
   // print text from PROGMEM to LCD and fill in with blanks to the end of the line
+  
   void println(const PROGMEM char* s)
   {
     char c;
@@ -33,7 +34,24 @@ public:
     }
     this->spc(i);
   }
-
+  /*
+  void println(const PROGMEM char* s, byte len)
+  {
+    char c;
+    byte i = len;
+    while ((c = (char) pgm_read_byte_near(s++)) && (i > 0))
+    {
+      this->print(c);
+      i--;
+    }
+    this->spc(i);
+  }
+  
+  void println(const PROGMEM char* s)
+  {
+    this->println(s, 16);
+  }
+  */
 private:
 
 };

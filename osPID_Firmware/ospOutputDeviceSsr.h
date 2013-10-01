@@ -79,8 +79,7 @@ public:
   {
     if (index == 0) 
     {
-      outputWindowSeconds = makeDecimal<1>(val);
-      outputWindowMilliseconds = round(val * 1000.0f);
+      this->setOutputWindowSeconds(makeDecimal<1>(val));
       return true;
     }
     return false;
@@ -121,7 +120,7 @@ public:
   {
     unsigned long wind = millis() % outputWindowMilliseconds;
     unsigned long oVal = (unsigned long)(percent * 0.01 * (double)outputWindowMilliseconds);
-    digitalWrite(SSRPin, (oVal>wind) ? HIGH : LOW);
+    digitalWrite(SSRPin, (oVal > wind) ? HIGH : LOW);
   }
 };
 
