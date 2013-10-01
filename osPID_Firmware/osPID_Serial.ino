@@ -48,10 +48,10 @@ Command list:
 
   i? #Number -- set I gain
 
-  K #Integer -- peeK at memory address, +ve number = SRAM, -ve number = EEPROM; returns
+//K #Integer -- peeK at memory address, +ve number = SRAM, -ve number = EEPROM; returns
   the byte value in hexadecimal
 
-  k #Integer #Integer -- poKe at memory address: the first number is the address,
+//k #Integer #Integer -- poKe at memory address: the first number is the address,
   the second is the byte to write there, in decimal
 
   L? #Number #Number -- set interLock lower and upper trip points
@@ -335,6 +335,7 @@ static bool cmdStartProfile(const char *name)
   return false;
 }
 
+/*
 static void cmdPeek(int address)
 {
   byte val;
@@ -355,6 +356,7 @@ static void cmdPoke(int address, byte val)
   else
     *(byte *)address = val;
 }
+*/
 
 static void cmdIdentify()
 {
@@ -417,7 +419,7 @@ static void cmdExamineSettings()
     else
       Serial.print(' ');
     Serial.print(F("SP"));
-    Serial.write('1' + i);
+    Serial.print(char('1' + i));
     Serial.print(F(": "));
     serialPrint(setPoints[i]);
 #ifndef UNITS_FAHRENHEIT
@@ -604,7 +606,7 @@ PROGMEM SerialCommandParseData commandParseData[] =
   { 'D', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'E', ARGS_STRING },
   { 'I', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
-  { 'K', ARGS_ONE_NUMBER },
+//{ 'K', ARGS_ONE_NUMBER },
   { 'L', ARGS_TWO_NUMBERS | ARGS_FLAG_QUERYABLE },
   { 'M', ARGS_ONE_NUMBER | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
   { 'N', ARGS_STRING | ARGS_FLAG_QUERYABLE },
@@ -624,7 +626,7 @@ PROGMEM SerialCommandParseData commandParseData[] =
   { 'c', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
   { 'e', ARGS_ONE_NUMBER | ARGS_FLAG_PROFILE_NUMBER },
   { 'i', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
-  { 'k', ARGS_TWO_NUMBERS },
+//{ 'k', ARGS_TWO_NUMBERS },
   { 'l', ARGS_ONE_NUMBER | ARGS_FLAG_FIRST_IS_01 | ARGS_FLAG_QUERYABLE },
   { 'n', ARGS_STRING },
   { 'o', ARGS_ONE_NUMBER | ARGS_FLAG_NONNEGATIVE | ARGS_FLAG_QUERYABLE },
@@ -883,6 +885,7 @@ static void processSerialCommand()
     if (!trySetGain(&IGain, i1, d1))
       goto out_EINV;
     break;
+/*  
   case 'K': // memory peek
     cmdPeek(i1);
     goto out_OK; // no EEPROM writeback needed
@@ -891,6 +894,7 @@ static void processSerialCommand()
 
     cmdPoke(i2, i1);
     goto out_OK; // no EEPROM writeback needed
+*/    
   case 'L': // set trip limits
     {
       ospDecimalValue<1> lower = makeDecimal<1>(i2, d2);

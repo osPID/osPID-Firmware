@@ -126,8 +126,11 @@ double output = 0.0;
 ospDecimalValue<1> displayWindow = { 50 };
 
 // the hard trip limits
-// units may be Fahrenheit
-ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 2000 };
+#ifndef UNITS_FAHRENHEIT
+ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 1250 };
+#else
+ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 2600 };
+#endif
 bool tripLimitsEnabled;
 bool tripped;
 bool tripAutoReset;
@@ -504,7 +507,7 @@ void loop()
       noTone( buzzerPin );
     }
 
-    if (isnan(input) || (input < lowerTripLimit) || (input > upperTripLimit) || tripped)
+    if (displayInput != (ospDecimalValue<1>){-19999} || (displayInput < lowerTripLimit) || (displayInput > upperTripLimit) || tripped)
     {
       output = 0;
       tripped = true;

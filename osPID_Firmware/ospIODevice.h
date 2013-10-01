@@ -50,7 +50,7 @@ public:
   {
   }
 
-   double readInput() { return NAN; };
+  double readInput() { return NAN; };
 };
 
 
@@ -62,7 +62,7 @@ public:
   {
   }
  
-   void setOutputPercent(double percentage) {};
+  void setOutputPercent(double percentage) {};
 };
 
 #endif
