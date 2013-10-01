@@ -7,7 +7,7 @@
 #include "DallasTemperature_local.h"
 #include "MAX31855_local.h"
 
-// class using crude switches instead of nice but bloaty virtual methods
+// class using crude switches instead of nice but bloaty methods
 
 enum { INPUT_THERMISTOR = 0, INPUT_ONEWIRE, INPUT_THERMOCOUPLE };
 
@@ -24,6 +24,9 @@ private:
   enum { thermocoupleCS = A1  };
   enum { thermocoupleCLK = A2 }; 
 
+  bool initializationStatus;
+  double calibration[3];
+  
   double THERMISTORNOMINAL;
   double BCOEFFICIENT;
   double TEMPERATURENOMINAL;
@@ -34,15 +37,7 @@ private:
   DeviceAddress oneWireDeviceAddress;
 
   MAX31855 thermocouple;
-  
-  double kpmodel, taup, theta[30];
-  double input;
 
-  static const double outputStart = 50.0f;
-  static const double inputStart = 250.0f;
-
-  bool initializationStatus;
-  double calibration[3];
 
 
   // convert the thermistor voltage to a temperature
@@ -75,7 +70,7 @@ public:
   { 
   }
   
-  virtual void initialize() 
+  void initialize() 
   {
     if (inputType == INPUT_ONEWIRE)
     {
@@ -94,7 +89,7 @@ public:
     initializationStatus = true;
   }
   
-  virtual const __FlashStringHelper *IODeviceIdentifier()
+  const __FlashStringHelper *IODeviceIdentifier()
   {
     switch (inputType)
     {
@@ -110,13 +105,13 @@ public:
   }
   
   // how many settings does this device have
-  virtual byte floatSettingsCount() 
+  byte floatSettingsCount() 
   {
     return 7;
   }  
 
   // read settings from the device
-  virtual double readFloatSetting(byte index) 
+  double readFloatSetting(byte index) 
   {
     switch (index) 
     {
@@ -140,7 +135,7 @@ public:
   }
     
   // write settings to the device
-  virtual bool writeFloatSetting(byte index, double val) 
+  bool writeFloatSetting(byte index, double val) 
   {
     switch (index) 
     {
@@ -171,7 +166,7 @@ public:
   }
   
   // describe the device settings
-  virtual const __FlashStringHelper *describeFloatSetting(byte index) 
+  const __FlashStringHelper *describeFloatSetting(byte index) 
   {
     switch (index)
     {
@@ -195,7 +190,7 @@ public:
   }
 
   // save and restore settings to/from EEPROM using the settings helper
-  virtual void saveSettings(ospSettingsHelper& settings) 
+  void saveSettings(ospSettingsHelper& settings) 
   {
     settings.save(calibration[INPUT_THERMISTOR]);
     settings.save(calibration[INPUT_ONEWIRE]);
@@ -207,7 +202,7 @@ public:
     return;
   }
 
-  virtual void restoreSettings(ospSettingsHelper& settings) 
+  void restoreSettings(ospSettingsHelper& settings) 
   {
     settings.restore(calibration[INPUT_THERMISTOR]);
     settings.restore(calibration[INPUT_ONEWIRE]);
@@ -220,34 +215,34 @@ public:
   }  
 
 /*
-  virtual byte integerSettingsCount() 
+  byte integerSettingsCount() 
   {
     return 0; 
   }
 
-  virtual int readIntegerSetting(byte index) 
+  int readIntegerSetting(byte index) 
   {
     return -1;
   }
 
-  virtual bool writeIntegerSetting(byte index, int val) 
+  bool writeIntegerSetting(byte index, int val) 
   {
     return false;
   }
 
-  virtual const __FlashStringHelper *describeIntegerSetting(byte index) 
+  const __FlashStringHelper *describeIntegerSetting(byte index) 
   {
     switch (index) 
     {
     default:
-      return false;
+      return NULL;
     }
   }
 */
 
   // request input
   // returns conversion time in milliseconds
-  virtual unsigned long requestInput() 
+  unsigned long requestInput() 
   {
     if (inputType == INPUT_ONEWIRE)
     {
@@ -257,7 +252,7 @@ public:
     return 0;
   }
 
-  virtual double readInput()
+  double readInput()
   {
     double temperature;
     switch (inputType)
@@ -280,30 +275,30 @@ public:
 #ifndef UNITS_FAHRENHEIT
     return temperature + this->getCalibration();
 #else
-    return temperature * 1.8 + 32.0 + this->getCalibration();
+    return (temperature * 1.8 + 32.0) + this->getCalibration();
 #endif
   }
   
   // get initialization status
-  virtual bool getInitializationStatus()
+  bool getInitializationStatus()
   {
     return initializationStatus;
   }
 
   // set initialization status
-  virtual void setInitializationStatus(bool newInitializationStatus)
+  void setInitializationStatus(bool newInitializationStatus)
   {
     initializationStatus = newInitializationStatus;
   }
 
   // get calibration
-  virtual double getCalibration()
+  double getCalibration()
   {
     return calibration[inputType];
   }
 
   // set calibration
-  virtual void setCalibration(double newCalibration)
+  void setCalibration(double newCalibration)
   {
     calibration[inputType] = newCalibration;
   }  
