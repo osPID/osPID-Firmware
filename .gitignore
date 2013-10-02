@@ -1,0 +1,7 @@
+# files that Git should ignore
+
+# editor backup files
+*~
+\#*\#
+
+

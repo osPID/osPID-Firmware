@@ -161,7 +161,7 @@ void PID_ATune::FinishUp()
 	  *output = outputStart;
       //we can generate tuning parameters!
       Ku = 4*oStep/((absMax-absMin)*3.14159);
-      Pu = (double)(peak1-peak2) / 1000;
+      Pu = (double)(peak1-peak2) * 0.001;
 }
 
 double PID_ATune::GetKp()

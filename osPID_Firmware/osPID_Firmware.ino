@@ -1,1325 +1,647 @@
-//#define USE_SIMULATION
+/* This file contains the setup() and loop() logic for the controller. */
 
+#include <Arduino.h>
 #include <LiquidCrystal.h>
-#include <EEPROM.h>
-#include "AnalogButton_local.h"
+#include <avr/pgmspace.h>
+#include <avr/io.h>
+#include <avr/interrupt.h>
+#include "MyLiquidCrystal.h"
 #include "PID_v1_local.h"
-#include "EEPROMAnything.h"
 #include "PID_AutoTune_v0_local.h"
-#include "io.h"
+#include "ospConfig.h"
+#include "ospAnalogButton.h"
+#include "ospDecimalValue.h"
+#include "ospProfile.h"
 
-// ***** PIN ASSIGNMENTS *****
+#undef BUGCHECK
+#define BUGCHECK() ospBugCheck(PSTR("MAIN"), __LINE__);
 
-const byte buzzerPin = 3;
-const byte systemLEDPin = A2;
-
-const byte EEPROM_ID = 2; //used to automatically trigger and eeprom reset after firmware update (if necessary)
-
-const byte TYPE_NAV=0;
-const byte TYPE_VAL=1;
-const byte TYPE_OPT=2;
-
-byte mMain[] = {
-  0,1,2,3};
-byte mDash[] = {
-  4,5,6,7};
-byte mConfig[] = {
-  8,9,10,11};
-byte *mMenu[] = {
-  mMain, mDash, mConfig};
-
-byte curMenu=0, mIndex=0, mDrawIndex=0;
-LiquidCrystal lcd(A1, A0, 4, 7, 8, 9);
-AnalogButton button(A3, 0, 253, 454, 657);
-
-unsigned long now, lcdTime, buttonTime,ioTime, serialTime;
-boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
-
-bool editing=false;
-
-bool tuning = false;
-
-double setpoint=250,input=250,output=50, pidInput=250;
-
-double kp = 2, ki = 0.5, kd = 2;
-byte ctrlDirection = 0;
-byte modeIndex = 0;
-byte highlightedIndex=0;
-
-PID myPID(&pidInput, &output, &setpoint,kp,ki,kd, DIRECT);
-
-double aTuneStep = 20, aTuneNoise = 1;
-unsigned int aTuneLookBack = 10;
-byte ATuneModeRemember = 0;
-PID_ATune aTune(&pidInput, &output);
+/*******************************************************************************
+ * The stripboard PID Arduino shield uses firmware based on the osPID but
+ * simplified hardware. Instead of swappable output cards there is a simple
+ * 5V logical output that can drive an SSR. In place of output cards there
+ * is a terminal block that can be used for a 1-wire bus or NTC thermistor,
+ * and female pin headers that can interface a MAX31855 thermocouple amplifier
+ * breakout board. Each of these inputs is supported by different
+ * device drivers & libraries. The input in use is specified by a menu option.
+ * This saves having to recompile the firmware when changing input sensors.
+ *
+ * Inputs
+ * ======
+ *    DS18B20+ 1-wire digital thermometer with data pin on A0, OR
+ *    10K NTC thermistor with voltage divider input on pin A0, OR
+ *    MAX31855KASA interface to type-K thermocouple on pins A0-A2.
+ *
+ * Output
+ * ======
+ *    1 SSR output on pin A3.
+ *
+ * For firmware development, there is also the ospSimulator which acts as both
+ * the input and output device and simulates the controller being attached to a
+ * simple system.
+ *******************************************************************************/
 
 
-byte curProfStep=0;
-byte curType=0;
-float curVal=0;
-float helperVal=0;
-unsigned long helperTime=0;
-boolean helperflag=false;
-unsigned long curTime=0;
 
 
-/*Profile declarations*/
-const unsigned long profReceiveTimeout = 10000;
-unsigned long profReceiveStart=0;
-boolean receivingProfile=false;
-const int nProfSteps = 15;
-char profname[] = {
-  'N','o',' ','P','r','o','f'};
-byte proftypes[nProfSteps];
-unsigned long proftimes[nProfSteps];
-float profvals[nProfSteps];
+#ifndef USE_SIMULATOR
+#include "ospOutputDeviceSsr.h"
+#include "ospInputDevice.h"
+enum { numInputDevices = 3 };
+enum { numOutputDevices = 1 };
+ospInputDevice theInputDevice;
+ospOutputDeviceSsr theOutputDevice;
+#else
+#include "ospSimulator.h"
+enum { numInputDevices = 1 };
+enum { numOutputDevices = 1 };
+ospSimulator theInputDevice;
+#define theOutputDevice theInputDevice
+#endif
+
+
+
+// we use the LiquidCrystal library to drive the LCD screen
+MyLiquidCrystal theLCD(lcdRsPin, lcdEnablePin, lcdD0Pin, lcdD1Pin, lcdD2Pin, lcdD3Pin);
+
+// our AnalogButton library provides debouncing and interpretation
+// of the analog-multiplexed button channel
+ospAnalogButton<buttonsPin, 100, 253, 454, 657> theButtonReader;
+
+// an in-memory buffer that we use when receiving a profile over USB
+ospProfile profileBuffer;
+
+// the 0-based index of the active profile while a profile is executing
+byte activeProfileIndex;
+byte currentProfileStep;
 boolean runningProfile = false;
 
+// the gain coefficients of the PID controller
+ospDecimalValue<3> PGain = { 2000 } , IGain = { 500 } , DGain = { 2000 };
 
-//for devlopment and demo purposes, it's useful to have a
-//simulation that can run on the osPID.  the problem is
-//that is uses memory.  rather than have it hogging resources
-//when not in use, it's activated using a compile flag.
-// this way, it doesn't get compiled during normal  circumstances
+// the direction flag for the PID controller
+byte ctrlDirection = DIRECT;
 
-#ifdef USE_SIMULATION
-double kpmodel = 5, taup = 50, theta[30];
-const double outputStart = 50;
-const double inputStart=250;
+// whether the controller is executing a PID law or just outputting a manual
+// value
+byte modeIndex = MANUAL;
 
-void DoModel()
-{
-  // Cycle the dead time
-  for(byte i=0;i<30;i++)
-  {
-    theta[i] = theta[i+1];
-  }
-  // Compute the input
-  input = (kpmodel / taup) *(theta[0]-outputStart) + (input-inputStart)*(1-1/taup)+inputStart + ((float)random(-10,10))/100;
-}
+// the 4 setpoints we can easily switch between
+#ifndef UNITS_FAHRENHEIT
+ospDecimalValue<1> setPoints[4] = { { 250 }, { 650 }, { 1000 }, { 1250 } };
 #else
-
-#endif /*USE_SIMULATION*/
-
-
-
-void setup()
-{
-  Serial.begin(9600);
-  lcdTime=10;
-  buttonTime=1;
-  ioTime=5;
-  serialTime=6;
-  //windowStartTime=2;
-  lcd.begin(8, 2);
-
-  lcd.setCursor(0,0);
-  lcd.print(F(" osPID   "));
-  lcd.setCursor(0,1);
-  lcd.print(F(" v1.60   "));
-  delay(1000);
-
-  initializeEEPROM();
-
-
-
-#ifdef USE_SIMULATION
-  input = inputStart;
-  for(int i=0;i<30;i++)theta[i] = outputStart;
-#else
-  InitializeInputCard();
-  InitializeOutputCard();
+ospDecimalValue<1> setPoints[4] = { { 800 }, { 1500 }, { 2120 }, { 2600 } };
 #endif
-  myPID.SetSampleTime(1000);
-  myPID.SetOutputLimits(0, 100);
-  myPID.SetTunings(kp, ki, kd);
-  myPID.SetControllerDirection(ctrlDirection);
-  myPID.SetMode(modeIndex);
+
+
+
+
+
+// the most recent measured input value
+double input = NAN; 
+
+// last good input value, used by PID controller
+double lastGoodInput = 25.0;
+
+// the index of the selected setpoint
+byte setpointIndex = 0;
+
+// set value for PID controller
+double activeSetPoint = setPoints[setpointIndex];
+
+// the output duty cycle calculated by PID controller
+double output = 0.0;   
+
+// the manually-commanded output value
+double manualOutput = 0.0;
+
+// temporary fixed point decimal values for display and data entry
+ospDecimalValue<1> displaySetpoint = { 250 }, displayInput = { -19999 }, displayCalibration = { 0 }, displayOutput = { 0 }, displayWindow = { 50 }; 
+
+// the hard trip limits
+#ifndef UNITS_FAHRENHEIT
+ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 1250 };
+#else
+ospDecimalValue<1> lowerTripLimit = { 0 } , upperTripLimit = { 2600 };
+#endif
+bool tripLimitsEnabled;
+bool tripped;
+bool tripAutoReset;
+
+// what to do on power-on
+enum 
+{
+  POWERON_DISABLE = 0,
+  POWERON_CONTINUE_LOOP,
+  POWERON_RESUME_PROFILE
+};
+
+byte powerOnBehavior = POWERON_CONTINUE_LOOP;
+
+bool controllerIsBooting = true;
+
+// the parameters for the autotuner
+ospDecimalValue<1> aTuneStep = { 200 } , aTuneNoise = { 10 }; int aTuneLookBack = 10;
+PID_ATune aTune(&lastGoodInput, &output);
+
+// whether the autotuner is active
+bool tuning = false;
+
+// the actual PID controller
+PID myPID(&lastGoodInput, &output, &activeSetPoint, double(PGain), double(IGain), double(DGain), DIRECT);
+
+// timekeeping to schedule the various tasks in the main loop
+unsigned long now, lcdTime, readInputTime;
+
+// how often to step the PID loop, in milliseconds: it is impractical to set this
+// to less than ~1000 (i.e. faster than 1 Hz), since (a) the input has up to 750 ms
+// of latency, and (b) the controller needs time to handle the LCD, EEPROM, and serial
+// I/O
+enum { PID_LOOP_SAMPLE_TIME = 1000 };
+
+// some constants in flash memory, for reuse
+
+PROGMEM unsigned int serialSpeedTable[7] = { 96, 144, 192, 288, 384, 576, 1152 };
+
+#ifndef UNITS_FAHRENHEIT
+const __FlashStringHelper *FdegCelsius() { return F(" \272C"); }
+#else
+const __FlashStringHelper *FdegFahrenheit() { return F(" \272F"); }
+#endif
+
+const PROGMEM char Pprofile[] = "Profile ";
+
+
+char hex(byte b)
+{
+  return ((b < 10) ? (char) ('0' + b) : (char) ('A' - 10 + b));
 }
 
-byte editDepth=0;
-void loop()
+void __attribute__ ((noinline)) updateTimer()
 {
   now = millis();
+}
 
-  if(now >= buttonTime)
+// check time avoiding overflow
+bool __attribute__ ((noinline)) after(unsigned long targetTime)
+{
+  unsigned long u = (targetTime - now);
+  return ((u & 0x80000000) > 0);
+}
+
+#ifndef SILENCE_BUZZER
+// buzzer 
+volatile int buzz = 0; // countdown timer for intermittent buzzer
+enum { BUZZ_OFF = 0, BUZZ_UNTIL_CANCEL = -769 };
+#define buzzMillis(x)    buzz = (x)*4
+#define buzzUntilCancel  buzz = BUZZ_UNTIL_CANCEL
+#define buzzOff          buzz = BUZZ_OFF
+
+ISR (TIMER2_COMPA_vect)
+{
+  const byte     buzzerPort     = digitalPinToPort(buzzerPin);
+  volatile byte *buzzerOut      = portOutputRegister(buzzerPort);
+  const byte     buzzerBitMask  = digitalPinToBitMask(buzzerPin);
+
+  // 1 kHz tone
+  // buzz counts down every 0.25 ms
+  if (buzz == BUZZ_OFF)
   {
-    switch(button.get())
+    // write buzzer pin low
+    *buzzerOut &= ~buzzerBitMask;
+  }
+  else
+  {      
+    if (((unsigned int)buzz & 0x380) == 0) // intermittent beep
     {
-    case BUTTON_NONE:
-      break;
-
-    case BUTTON_RETURN:
-      back();
-      break;
-
-    case BUTTON_UP:      
-      updown(true);
-      break;
-
-    case BUTTON_DOWN:
-      updown(false);
-      break;
-
-    case BUTTON_OK:
-      ok();
-      break;
+      // toggle buzzer pin
+      *buzzerOut ^= buzzerBitMask;
     }
-    buttonTime += 50;
+    else
+    {
+      // write buzzer pin low
+      *buzzerOut &= ~buzzerBitMask;
+    }
+    buzz--;
+    if (buzz == BUZZ_UNTIL_CANCEL - 1024)
+      buzz = BUZZ_UNTIL_CANCEL;
   }
+}
+#endif
 
-  bool doIO = now >= ioTime;
-  //read in the input
-  if(doIO)
-  { 
-    ioTime+=250;
-#ifdef USE_SIMULATION
-    DoModel();
-    pidInput = input;
-#else
-    input =  ReadInputFromCard();
-    if(!isnan(input))pidInput = input;
+// initialize the controller: this is called by the Arduino runtime on bootup
+void setup()
+{
+  // set up timer2 for buzzer interrupt
+#ifndef SILENCE_BUZZER
+  cli();                   // disable interrupts
+  OCR2A = 124;             // set up timer2 CTC interrupts for buzzer every 250 us (gives 1 kHz tone)
+  TCCR2A |= (1 << WGM21);  // CTC Mode
+  TIMSK2 |= (1 << OCIE2A); // set interrupt on compare match
+  GTCCR  |= (1 << PSRASY); // reset timer2 prescaler
+  TCCR2B |= (1 << CS22);   // prescale 64 (every 4 us @ 16 MHz)
+  sei();                   // enable interrupts
+#endif  
 
-#endif /*USE_SIMULATION*/
-  }
+  // set up the LCD,show controller name
+  theLCD.begin(16, 2);
+  drawStartupBanner();
+
+  lcdTime = 25;
+  updateTimer();
+
+  // load the EEPROM settings
+  //clearEEPROM();
+  setupEEPROM();
+  //saveEEPROMSettings();
   
+  // set up the peripheral devices
+  theInputDevice.initialize();
+  theOutputDevice.initialize();
 
-  if(tuning)
+  // set up the serial interface
+#ifndef SHORTER
+  setupSerial();
+#endif
+
+  delay((millis() < now + 2000) ? (now + 2000 - millis()) : 10);
+
+  updateTimer();
+
+  // configure the PID loop
+  myPID.SetSampleTime(PID_LOOP_SAMPLE_TIME);
+  myPID.SetOutputLimits(0, 100);
+  myPID.SetTunings(double(PGain), double(IGain), double(DGain));
+  myPID.SetControllerDirection(ctrlDirection);
+
+  if (powerOnBehavior == POWERON_DISABLE) 
   {
-    byte val = (aTune.Runtime());
+    modeIndex = MANUAL;
+    output = manualOutput;
+  }
+  myPID.SetMode(modeIndex);
 
-    if(val != 0)
+  // finally, check whether we were interrupted in the middle of a profile
+  if (profileWasInterrupted())
+  {
+    if (powerOnBehavior == POWERON_RESUME_PROFILE)
+    {
+      drawResumeProfileBanner();
+      runningProfile = true;
+      startCurrentProfileStep();
+    }
+    else
+      recordProfileCompletion(); // we don't want to pick up again, so mark it completed
+  }
+
+  // kick things off by requesting sensor input
+  updateTimer();
+  if (theInputDevice.getInitializationStatus())
+    readInputTime = now + theInputDevice.requestInput();
+
+  controllerIsBooting = false;
+}
+
+// Letting a button auto-repeat without redrawing the LCD in between leads to a
+// poor user interface
+bool lcdRedrawNeeded;
+
+// keep track of which button is being held, and for how long
+byte heldButton;
+byte autoRepeatCount;
+unsigned long autoRepeatTriggerTime;
+
+// test the buttons and look for button presses or long-presses
+static void checkButtons()
+{
+  byte button = theButtonReader.get();
+  byte executeButton = BUTTON_NONE;
+
+  enum 
+  {
+    AUTOREPEAT_DELAY  = 250,
+    AUTOREPEAT_PERIOD = 350
+  };
+
+  if (button != BUTTON_NONE)
+  {
+    if (heldButton == BUTTON_NONE)
+    {
+      autoRepeatTriggerTime = now + AUTOREPEAT_DELAY;
+    }
+    else if (heldButton == BUTTON_OK)
+    {
+      // OK does long-press/short-press, not auto-repeat
+    }
+    else if (after(autoRepeatTriggerTime))
+    {
+      // don't auto-repeat until 100 ms after the redraw
+      if (lcdRedrawNeeded)
+      {
+        autoRepeatTriggerTime = now + 150;
+        return;
+      }
+
+      // auto-repeat
+      executeButton = button;
+      autoRepeatCount += 1;
+      autoRepeatTriggerTime = now + AUTOREPEAT_PERIOD;
+    }
+    heldButton = button;
+  }
+  else if (heldButton != BUTTON_NONE)
+  {
+    if (heldButton == BUTTON_OK && (after(autoRepeatTriggerTime + (400 - AUTOREPEAT_DELAY))))
+    {
+      // BUTTON_OK was held for at least 400 ms: execute a long-press
+      bool longPress = okKeyLongPress();
+
+      if (!longPress)
+      {
+        // no long-press action defined, so fall back to a short-press
+        executeButton = BUTTON_OK;
+      }
+    }
+    else if (autoRepeatCount == 0)
+    {
+      // the button hasn't triggered auto-repeat yet; execute it on release
+      executeButton = heldButton;
+    }
+
+    // else: the button was in auto-repeat, so don't execute it again on release
+    heldButton = BUTTON_NONE;
+    autoRepeatCount = 0;
+  }
+
+  if (executeButton == BUTTON_NONE)
+    return;
+
+  lcdRedrawNeeded = true;
+
+  switch (executeButton)
+  {
+  case BUTTON_RETURN:
+    backKeyPress();
+    break;
+
+  case BUTTON_UP:
+    updownKeyPress(true);
+    break;
+
+  case BUTTON_DOWN:
+    updownKeyPress(false);
+    break;
+
+  case BUTTON_OK:
+    okKeyPress();
+    break;
+  }
+}
+
+static void completeAutoTune()
+{
+  // We're done, set the tuning parameters
+  PGain = makeDecimal<3>(aTune.GetKp());
+  IGain = makeDecimal<3>(aTune.GetKi());
+  DGain = makeDecimal<3>(aTune.GetKd());
+
+  // set the PID controller to accept the new gain settings
+  // use whatever direction of control is currently set
+  //myPID.SetControllerDirection(DIRECT);
+  myPID.SetMode(AUTOMATIC);
+
+  if (PGain < (ospDecimalValue<3>){0})
+  {
+    // the auto-tuner found a negative gain sign: convert the coefficients
+    // to positive and change the direction of controller action
+    PGain = -PGain;
+    IGain = -IGain;
+    DGain = -DGain;
+    if (ctrlDirection == DIRECT)
+    {
+      myPID.SetControllerDirection(REVERSE);
+      ctrlDirection = REVERSE;
+    }
+    else
+    {
+      myPID.SetControllerDirection(DIRECT);
+      ctrlDirection = DIRECT;
+    }      
+  }
+
+  myPID.SetTunings(double(PGain), double(IGain), double(DGain));
+
+  // this will restore the user-requested PID controller mode
+  stopAutoTune();
+
+  markSettingsDirty();
+}
+
+bool settingsWritebackNeeded;
+unsigned long settingsWritebackTime;
+
+// record that the settings have changed, and need to be written to EEPROM
+// as soon as they are done changing
+static void markSettingsDirty()
+{
+  // capture any possible changes to the output value if we're in MANUAL mode
+  if (modeIndex == MANUAL && !tuning && !tripped)
+    manualOutput = displayOutput;
+
+  // capture any changes to the setpoint
+  activeSetPoint = double(setPoints[setpointIndex]);
+
+  // capture any changes to the output window length
+  theOutputDevice.setOutputWindowSeconds(displayWindow);
+  
+  // capture any changes to the calibration value
+  theInputDevice.setCalibration(displayCalibration);
+
+  settingsWritebackNeeded = true;
+
+  // wait until nothing has changed for 5s before writing to EEPROM
+  // this reduces EEPROM wear by not writing every time a digit is changed
+  settingsWritebackTime = now + 5000;
+}
+
+// This is the Arduino main loop.
+//
+// There are two goals this loop must balance: the highest priority is
+// that the PID loop be executed reliably and on-time; the other goal is that
+// the screen, buttons, and serial interfaces all be responsive. However,
+// since things like redrawing the LCD may take tens of milliseconds -- and responding
+// to serial commands can take 100s of milliseconds at low bit rates -- a certain
+// measure of cleverness is required.
+//
+// Alongside the real-time task of the PID loop, there are 6 other tasks which may
+// need to be performed:
+// 1. handling a button press
+// 2. executing a step of the auto-tuner
+// 3. executing a step of a profile
+// 4. redrawing the LCD
+// 5. saving settings to EEPROM
+// 6. processing a serial-port command
+//
+// Characters from the serial port are received asynchronously: it is only the
+// command _processing_ which needs to be scheduled.
+
+// whether loop() is permitted to do LCD, EEPROM, or serial I/O: this is set
+// to false when loop() is being re-entered during some slow operation
+bool blockSlowOperations;
+
+void realtimeLoop()
+{
+  if (controllerIsBooting)
+    return;
+
+  blockSlowOperations = true;
+  loop();
+  blockSlowOperations = false;
+}
+
+// we accumulate characters for a single serial command in this buffer
+char serialCommandBuffer[33];
+byte serialCommandLength;
+
+void loop()
+{
+  // first up is the realtime part of the loop, which is not allowed to perform
+  // EEPROM writes or serial I/O
+  updateTimer();
+
+  // highest priority task is to update the output
+  theOutputDevice.setOutputPercent(output);
+
+  // read input, if it is ready
+  if (theInputDevice.getInitializationStatus() && after(readInputTime))
+  {
+    input = theInputDevice.readInput();
+    if (!isnan(input))
+    {
+      lastGoodInput = input;
+      displayInput = makeDecimal<1>(input);
+    }
+    else
+    {
+      displayInput = (ospDecimalValue<1>){-19999}; // display Err
+    }
+  }
+
+  if (tuning)
+  {
+    byte val = aTune.Runtime();
+
+    if (val != 0)
     {
       tuning = false;
-    }
-
-    if(!tuning)
-    { 
-      // We're done, set the tuning parameters
-      kp = aTune.GetKp();
-      ki = aTune.GetKi();
-      kd = aTune.GetKd();
-      myPID.SetTunings(kp, ki, kd);
-      AutoTuneHelper(false);
-      EEPROMBackupTunings();
+      completeAutoTune();
     }
   }
   else
   {
-    if(runningProfile) ProfileRunTime();
-    //allow the pid to compute if necessary
+    // step the profile, if there is one running
+    // this may call ospSettingsHelper::eepromClearBits(), but not
+    // ospSettingsHelper::eepromWrite()
+    if (runningProfile)
+      profileLoopIteration();
+
+    // update the PID
     myPID.Compute();
   }
 
-
-
-
-
-  if(doIO)
+  // after the PID has updated, check the trip limits
+  if (tripLimitsEnabled)
   {
-    //send the output
-#ifdef USE_SIMULATION
-    theta[29] = output;
-#else
-    //send to output card
-    WriteToOutputCard(output);
-#endif /*USE_SIMULATION*/  
+    if (tripAutoReset)
+    {
+      tripped = false;
+#ifndef SILENCE_BUZZER      
+      buzzOff;
+#endif      
+    }
 
-
-
+    if (displayInput != (ospDecimalValue<1>){-19999} || (displayInput < lowerTripLimit) || (displayInput > upperTripLimit) || tripped)
+    {
+      output = 0;
+      tripped = true;
+#ifndef SILENCE_BUZZER  
+      if (buzz >= BUZZ_OFF)
+        buzzUntilCancel; // could get pretty annoying
+#endif      
+    }
   }
-
-  if(now>lcdTime)
+#ifndef SILENCE_BUZZER    
+  else
   {
-    drawLCD();
-    lcdTime+=250; 
+    buzzOff;
   }
-  if(millis() > serialTime)
-  {
-    //if(receivingProfile && (now-profReceiveStart)>profReceiveTimeout) receivingProfile = false;
-    SerialReceive();
-    SerialSend();
-    serialTime += 500;
-  }
-}
+#endif      
 
-
-void drawLCD()
-{
-  boolean highlightFirst= (mDrawIndex==mIndex);
-  drawItem(0,highlightFirst, mMenu[curMenu][mDrawIndex]);
-  drawItem(1,!highlightFirst, mMenu[curMenu][mDrawIndex+1]);  
-  if(editing) lcd.setCursor(editDepth, highlightFirst?0:1);
-}
-
-void drawItem(byte row, boolean highlight, byte index)
-{
-  char buffer[7];
-  lcd.setCursor(0,row);
-  double val=0;
-  int dec=0;
-  int num=0;
-  char icon=' ';
-  boolean isNeg = false;
-  boolean didneg = false;
-  byte decSpot = 0;
-  boolean edit = editing && highlightedIndex==index;
-  boolean canEdit=!tuning;
-  switch(getMenuType(index))
-  {
-  case TYPE_NAV:
-    lcd.print(highlight? '>':' ');
-    switch(index)
-    {
-    case 0: 
-      lcd.print(F("DashBrd")); 
-      break;
-    case 1: 
-      lcd.print(F("Config ")); 
-      break;
-    case 2: 
-      lcd.print(tuning ? F("Cancel ") : F("ATune  ")); 
-      break;
-    case 3:
-      if(runningProfile)lcd.print(F("Cancel "));
-      else lcd.print(profname);
-      break;
-    default: 
-      return;
-    }
-
-    break;
-  case TYPE_VAL:
-
-    switch(index)
-    {
-    case 4: 
-      val = setpoint; 
-      dec=1; 
-      icon='S'; 
-      break;
-    case 5: 
-      val = input; 
-      dec=1; 
-      icon='I'; 
-      canEdit=false;
-      break;
-    case 6: 
-      val = output; 
-      dec=1; 
-      icon='O'; 
-      canEdit = (modeIndex==0);
-      break;
-    case 8: 
-      val = kp; 
-      dec=2; 
-      icon='P'; 
-      break;
-    case 9: 
-      val = ki; 
-      dec=2; 
-      icon='I'; 
-      break ;
-    case 10: 
-      val = kd; 
-      dec=2; 
-      icon='D'; 
-      break ;
-
-    default: 
-      return;
-    }
-    lcd.print(edit? '[' : (highlight ? (canEdit ? '>':'|') : 
-    ' '));
-    
-    if(isnan(val))
-    { //display an error
-      lcd.print(icon);
-      lcd.print( now % 2000<1000 ? F(" Error"):F("      ")); 
-      return;
-    }
-    
-    for(int i=0;i<dec;i++) val*=10;
-    
-    num = (int)round(val);
-    buffer[0] = icon;
-    isNeg = num<0;
-    if(isNeg) num = 0 - num;
-    didneg = false;
-    decSpot = 6-dec;
-    if(decSpot==6)decSpot=7;
-    for(byte i=6; i>=1;i--)
-    {
-      if(i==decSpot)buffer[i] = '.';
-      else {
-        if(num==0)
-        {
-          if(i>=decSpot-1) buffer[i]='0';
-          else if (isNeg && !didneg)
-          {
-            buffer[i]='-';
-            didneg=true;
-          }
-          else buffer[i]=' ';
-        }
-        else {
-          buffer[i] = num%10+48;
-          num/=10;
-        }
-      }
-    }     
-    lcd.print(buffer);
-    break;
-  case TYPE_OPT: 
-
-    lcd.print(edit ? '[': (highlight? '>':' '));    
-    switch(index)
-    {
-    case 7:    
-      lcd.print(modeIndex==0 ? F("M Man  "):F("M Auto ")); 
-      break;
-    case 11://12: 
-
-      lcd.print(ctrlDirection==0 ? F("A Direc"):F("A Rever")); 
-      break;
-    }
-
-    break;
-  default: 
+  // after the realtime part comes the slow operations, which may re-enter
+  // the realtime part of the loop but not the slow part
+  if (blockSlowOperations)
     return;
-  }
 
-  //indication of altered state
-  if(highlight && (tuning || runningProfile))
-  {
-    //should we blip?
-    if(tuning)
-    { 
-      if(now % 1500 <500)
-      {
-        lcd.setCursor(0,row);
-        lcd.print('T'); 
-      }
-    }
-    else //running profile
-    {
-      if(now % 2000 < 500)
-      {
-        lcd.setCursor(0,row);
-        lcd.print('P');
-      }
-      else if(now%2000 < 1000)
-      {
-        lcd.setCursor(0,row);
-        char c;
-        if(curProfStep<10) c = curProfStep + 48; //0-9
-        else c = curProfStep + 65; //A,B...
-        lcd.print(c);      
-      }  
-    }
-  }
-}
+  // update the time after each major operation;
+  updateTimer();
 
-byte getValDec(byte index)
-{       
-  switch(index)
-  {
-  case 4: 
-  case 5: 
-  case 6: 
-  //case 11: 
-    return 1;
-  case 8: 
-  case 9: 
-  case 10: 
-  default:
-    return 2;
-  }
-}
-byte getMenuType(byte index)
-{
-  switch(index)
-  {
-  case 0:
-  case 1:
-  case 2:
-  case 3:
-    return TYPE_NAV;
-  case 4: 
-  case 5: 
-  case 6: 
-  case 8: 
-  case 9: 
-  case 10: 
-  //case 11:
-    return TYPE_VAL;
-  case 7:
-  case 11: //12:
-    return TYPE_OPT;
-  default: 
-    return 255;
-  }
-}
-
-boolean changeflag=false;
-
-void back()
-{
-  if(editing)
-  { //decrease the depth and stop editing if required
-
-    editDepth--;
-    if(getMenuType(highlightedIndex)==TYPE_VAL)
-    {
-      if(editDepth==7-getValDec(highlightedIndex))editDepth--; //skip the decimal  
-    }
-    if(editDepth<3)
-    {
-      editDepth=0;
-      editing= false;
-      lcd.noCursor();
-    }
-  }
-  else
-  { //if not editing return to previous menu. currently this is always main
-
-
-    //depending on which menu we're coming back from, we may need to write to the eeprom
-    if(changeflag)
-    {
-      if(curMenu==1)
-      { 
-        EEPROMBackupDash();
-      }
-      else if(curMenu==2) //tunings may have changed
-      {
-        EEPROMBackupTunings();
-        myPID.SetTunings(kp,ki,kd);
-        myPID.SetControllerDirection(ctrlDirection);
-      }
-      changeflag=false;
-    }
-    if(curMenu!=0)
-    { 
-      highlightedIndex = curMenu-1; //make sure the arrow is on the menu they were in
-      mIndex=curMenu-1;
-      curMenu=0;
-      mDrawIndex=0;
-
-    }
-  }
-}
-
-
-
-double getValMin(byte index)
-{
-  switch(index)
-  {
-  case 4: 
-  case 5: 
-  case 6: 
-//  case 11: 
-    return -999.9;
-  case 8: 
-  case 9: 
-  case 10: 
-  default:
-    return 0;
-  }
-}
-
-
-double getValMax(byte index)
-{
-  switch(index)
-  {
-  case 4: 
-  case 5: 
-  case 6: 
-  //case 11: 
-    return 999.9;
-  case 8: 
-  case 9: 
-  case 10: 
-  default:
-    return 99.99;
-  } 
-
-}
-
-void updown(bool up)
-{
-
-  if(editing)
-  {
-    changeflag = true;
-    byte decdepth;
-    double adder;
-    switch(getMenuType(highlightedIndex))
-    {
-    case TYPE_VAL:
-      decdepth = 7 - getValDec(highlightedIndex);
-      adder=1;
-      if(editDepth<decdepth-1)for(int i=editDepth;i<decdepth-1;i++)adder*=10;
-      else if(editDepth>decdepth)for(int i=decdepth;i<editDepth;i++)adder/=10;
-
-      if(!up)adder = 0-adder;
-
-      double *val, minimum, maximum;
-      switch(highlightedIndex)
-      {
-      case 4: 
-        val=&setpoint; 
-        break;
-      case 6:  
-        val=&output; 
-        break;
-      case 8:  
-        val=&kp; 
-        break;
-      case 9:  
-        val=&ki; 
-        break;
-      case 10:  
-        val=&kd; 
-        break;
-      }
-      
-      minimum = getValMin(highlightedIndex);
-      maximum = getValMax(highlightedIndex);
-      (*val)+=adder;
-      if((*val)>maximum)(*val)=maximum;
-      else if((*val)<minimum)(*val)=minimum;
-      break; 
-    case TYPE_OPT:
-      switch(highlightedIndex)
-      {
-      case 7:
-        modeIndex= (modeIndex==0?1:0);
-        /*mode change code*/
-        myPID.SetMode(modeIndex);
-        break;
-      case 11://12:
-        ctrlDirection = (ctrlDirection==0?1:0); 
-        Serial.println(ctrlDirection);
-        break;
-      }
-
-      break;
-    }
-
-  }
-  else
-  {
-    if(up)
-    {
-      if(mIndex>0)
-      {
-        mIndex--;
-        mDrawIndex=mIndex;
-      }
-    }
-    else
-    {
-      byte limit = 3;// (curMenu==2 ? 4 : 3); 
-      if(mIndex<limit)
-      {
-        mDrawIndex =mIndex;
-        mIndex++;
-      }
-    }
-    highlightedIndex = mMenu[curMenu][mIndex];
-  }
-}
-
-
-
-
-
-void ok()
-{
-  if(editing)
-  {
-    byte dec = getValDec(highlightedIndex);
-    if(getMenuType(highlightedIndex) == TYPE_VAL &&(editDepth<6 || (editDepth==6 && dec!=1)))
-    {
-      editDepth++;
-      if(editDepth==7-dec)editDepth++; //skip the decimal
-    }
-  }
-  else
-  {
-
-    switch(highlightedIndex)
-    {
-    case 0: 
-      curMenu=1;
-      mDrawIndex=0;
-      mIndex=0; 
-      highlightedIndex = 4; //setpoint
-      changeflag = false;
-      break;
-    case 1: 
-      curMenu=2;
-      mDrawIndex=0;
-      mIndex=0; 
-      highlightedIndex = 8; //kp
-      changeflag = false;
-      break;
-    case 2: 
-      changeAutoTune();/*autotune code*/
-      break;
-    case 3: 
-      if(runningProfile)StopProfile();
-      else StartProfile();
-
-      break;
-    case 5: /*nothing for input*/
-      break;
-    case 6: 
-      if(modeIndex==0 && !tuning) editing=true; 
-      break; //output
-    case 4: //setpoint
-    case 8: //kp
-    case 9: //ki
-    case 10: //kd
-//    case 11: //windowsize
-    case 11: //12: //direction
-      editing=true;
-      break; //verify this is correct
-    case 7: 
-      if(!tuning) editing=true; 
-      break; //mode
-    }
-    if(editing)
-    {
-      editDepth=3;
-      lcd.cursor();
-    }
-  }
-}
-
-void changeAutoTune()
-{
-  if(!tuning)
-  {
-    //initiate autotune
-    AutoTuneHelper(true);
-    aTune.SetNoiseBand(aTuneNoise);
-    aTune.SetOutputStep(aTuneStep);
-    aTune.SetLookbackSec((int)aTuneLookBack);
-    tuning = true;
-  }
-  else
-  { //cancel autotune
-    aTune.Cancel();
-    tuning = false;
-    AutoTuneHelper(false);
-  }
-}
-
-void AutoTuneHelper(boolean start)
-{
-
-  if(start)
-  {
-    ATuneModeRemember = myPID.GetMode();
-    myPID.SetMode(MANUAL);
-  }
-  else
-  {
-    modeIndex = ATuneModeRemember;
-    myPID.SetMode(modeIndex);
-  } 
-}
-
-
-
-
-
-
-void StartProfile()
-{
-  if(!runningProfile)
-  {
-    //initialize profle
-    curProfStep=0;
-    runningProfile = true;
-    calcNextProf();
-  }
-}
-void StopProfile()
-{
-  if(runningProfile)
-  {
-    curProfStep=nProfSteps;
-    calcNextProf(); //runningProfile will be set to false in here
-  } 
-}
-
-
-void ProfileRunTime()
-{
-  if(tuning || !runningProfile) return;
+  // we want to monitor the buttons as often as possible
+  checkButtons();
   
-
-
-  boolean gotonext = false;
-
-  //what are we doing?
-  if(curType==1) //ramp
+  // we try to keep an LCD frame rate of 4 Hz, plus refreshing as soon as
+  // a button is pressed
+  updateTimer();
+  if (after(lcdTime) || lcdRedrawNeeded)
   {
-    //determine the value of the setpoint
-    if(now>helperTime)
+    drawMenu();
+    lcdRedrawNeeded = false;
+    lcdTime += 250;
+  }
+
+  // can't do much without input, so initializing input is next in line 
+  if (!theInputDevice.getInitializationStatus())
+  {
+    input = NAN;
+    displayInput = (ospDecimalValue<1>){-19999}; // Display Err
+    theInputDevice.initialize();
+  }     
+
+  updateTimer();
+  if (settingsWritebackNeeded && after(settingsWritebackTime))
+  {
+    // clear settingsWritebackNeeded first, so that it gets re-armed if the
+    // realtime loop calls markSettingsDirty()
+    settingsWritebackNeeded = false;
+
+    // display a '$' instead of the cursor to show that we're saving to EEPROM
+    drawNotificationCursor('$');
+    saveEEPROMSettings();
+  }
+
+  // accept any pending characters from the serial buffer
+  byte avail = Serial.available();
+  while (avail--)
+  {
+    char ch = Serial.read();
+    if (serialCommandLength < 32)
     {
-      setpoint = curVal;
-      gotonext=true;
+      // throw away excess characters
+      serialCommandBuffer[serialCommandLength++] = ch;
     }
-    else
+
+    if (ch == '\n')
     {
-      setpoint = (curVal-helperVal)*(1-(float)(helperTime-now)/(float)(curTime))+helperVal; 
+      // a complete command has been received
+      serialCommandBuffer[serialCommandLength] = '\0';
+      drawNotificationCursor('*');
+
+#ifndef SHORTER
+      processSerialCommand();
+#endif
+
+      serialCommandLength = 0;
     }
   }
-  else if (curType==2) //wait
-  {
-    float err = input-setpoint;
-    if(helperflag) //we're just looking for a cross
-    {
-
-      if(err==0 || (err>0 && helperVal<0) || (err<0 && helperVal>0)) gotonext=true;
-      else helperVal = err;
-    }
-    else //value needs to be within the band for the perscribed time
-    {
-      if (abs(err)>curVal) helperTime=now; //reset the clock
-      else if( (now-helperTime)>=curTime) gotonext=true; //we held for long enough
-    }
-
-  }
-  else if(curType==3) //step
-  {
-
-    if((now-helperTime)>curTime)gotonext=true;
-  }
-  else if(curType==127) //buzz
-  {
-    if(now<helperTime)digitalWrite(buzzerPin,HIGH);
-    else 
-    {
-       digitalWrite(buzzerPin,LOW);
-       gotonext=true;
-    }
-  }
-  else
-  { //unrecognized type, kill the profile
-    curProfStep=nProfSteps;
-    gotonext=true;
-  }
-
-
-
-
-
-  if(gotonext)
-  {
-    curProfStep++;
-    calcNextProf();
-  }
 }
-
-void calcNextProf()
-{
-  if(curProfStep>=nProfSteps) 
-  {
-    curType=0;
-    helperTime =0;
-  }
-  else
-  { 
-    curType = proftypes[curProfStep];
-    curVal = profvals[curProfStep];
-    curTime = proftimes[curProfStep];
-
-  }
-  if(curType==1) //ramp
-  {
-    helperTime = curTime + now; //at what time the ramp will end
-    helperVal = setpoint;
-  }   
-  else if(curType==2) //wait
-  {
-    helperflag = (curVal==0);
-    if(helperflag) helperVal= input-setpoint;
-    else helperTime=now; 
-  }
-  else if(curType==3) //step
-  {
-    setpoint = curVal;
-    helperTime = now;
-  }
-  else if(curType==127) //buzzer
-  {
-    helperTime = now + curTime;    
-  }
-  else
-  {
-    curType=0;
-  }
-
-
-
-  if(curType==0) //end
-  { //we're done 
-    runningProfile=false;
-    curProfStep=0;
-    Serial.println("P_DN");
-    digitalWrite(buzzerPin,LOW);
-  } 
-  else
-  {
-    Serial.print("P_STP ");
-    Serial.print(int(curProfStep));
-    Serial.print(" ");
-    Serial.print(int(curType));
-    Serial.print(" ");
-    Serial.print((curVal));
-    Serial.print(" ");
-    Serial.println((curTime));
-  }
-
-}
-
-
-
-
-
-const int eepromTuningOffset = 1; //13 bytes
-const int eepromDashOffset = 14; //9 bytes
-const int eepromATuneOffset = 23; //12 bytes
-const int eepromProfileOffset = 35; //136 bytes
-const int eepromInputOffset = 172; //? bytes (depends on the card)
-const int eepromOutputOffset = 300; //? bytes (depends on the card)
-
-
-void initializeEEPROM()
-{
-  //read in eeprom values
-  byte firstTime = EEPROM.read(0);
-  if(firstTime!=EEPROM_ID)
-  {//the only time this won't be 1 is the first time the program is run after a reset or firmware update
-    //clear the EEPROM and initialize with default values
-    for(int i=1;i<1024;i++) EEPROM.write(i,0);
-    EEPROMBackupTunings();
-    EEPROMBackupDash();
-    EEPROMBackupATune();
-    EEPROMBackupInputParams(eepromInputOffset);
-    EEPROMBackupOutputParams(eepromOutputOffset);
-    EEPROMBackupProfile();
-    EEPROM.write(0,EEPROM_ID); //so that first time will never be true again (future firmware updates notwithstanding)
-  }
-  else
-  {
-    EEPROMRestoreTunings();
-    EEPROMRestoreDash();
-    EEPROMRestoreATune();
-    EEPROMRestoreInputParams(eepromInputOffset);
-    EEPROMRestoreOutputParams(eepromOutputOffset);
-    EEPROMRestoreProfile();    
-  }
-}  
-
-
-
-void EEPROMreset()
-{
-  EEPROM.write(0,0);
-}
-
-
-void EEPROMBackupTunings()
-{
-  EEPROM.write(eepromTuningOffset,ctrlDirection);
-  EEPROM_writeAnything(eepromTuningOffset+1,kp);
-  EEPROM_writeAnything(eepromTuningOffset+5,ki);
-  EEPROM_writeAnything(eepromTuningOffset+9,kd);
-}
-
-void EEPROMRestoreTunings()
-{
-  ctrlDirection = EEPROM.read(eepromTuningOffset);
-  EEPROM_readAnything(eepromTuningOffset+1,kp);
-  EEPROM_readAnything(eepromTuningOffset+5,ki);
-  EEPROM_readAnything(eepromTuningOffset+9,kd);
-}
-
-void EEPROMBackupDash()
-{
-  EEPROM.write(eepromDashOffset, (byte)myPID.GetMode());
-  EEPROM_writeAnything(eepromDashOffset+1,setpoint);
-  EEPROM_writeAnything(eepromDashOffset+5,output);
-}
-
-void EEPROMRestoreDash()
-{
-  modeIndex = EEPROM.read(eepromDashOffset);
-  EEPROM_readAnything(eepromDashOffset+1,setpoint);
-  EEPROM_readAnything(eepromDashOffset+5,output);
-}
-
-void EEPROMBackupATune()
-{
-  EEPROM_writeAnything(eepromATuneOffset,aTuneStep);
-  EEPROM_writeAnything(eepromATuneOffset+4,aTuneNoise);
-  EEPROM_writeAnything(eepromATuneOffset+8,aTuneLookBack);
-}
-
-void EEPROMRestoreATune()
-{
-  EEPROM_readAnything(eepromATuneOffset,aTuneStep);
-  EEPROM_readAnything(eepromATuneOffset+4,aTuneNoise);
-  EEPROM_readAnything(eepromATuneOffset+8,aTuneLookBack);
-}
-
-void EEPROMBackupProfile()
-{
-  EEPROM_writeAnything(eepromProfileOffset, profname);
-  EEPROM_writeAnything(eepromProfileOffset + 8, proftypes);
-  EEPROM_writeAnything(eepromProfileOffset + 24, profvals);
-  EEPROM_writeAnything(eepromProfileOffset + 85, proftimes); //there might be a slight issue here (/1000?)
-}
-
-void EEPROMRestoreProfile()
-{
-  EEPROM_readAnything(eepromProfileOffset, profname);
-  EEPROM_readAnything(eepromProfileOffset + 8, proftypes);
-  EEPROM_readAnything(eepromProfileOffset + 24, profvals);
-  EEPROM_readAnything(eepromProfileOffset + 85, proftimes); //there might be a slight issue here (/1000?)
-}
-
-/********************************************
- * Serial Communication functions / helpers
- ********************************************/
-
-boolean ackDash = false, ackTune = false;
-union {                // This Data structure lets
-  byte asBytes[32];    // us take the byte array
-  float asFloat[8];    // sent from processing and
-}                      // easily convert it to a
-foo;                   // float array
-
-// getting float values from processing into the arduino
-// was no small task.  the way this program does it is
-// as follows:
-//  * a float takes up 4 bytes.  in processing, convert
-//    the array of floats we want to send, into an array
-//    of bytes.
-//  * send the bytes to the arduino
-//  * use a data structure known as a union to convert
-//    the array of bytes back into an array of floats
-void SerialReceive()
-{
-
-  // read the bytes sent from Processing
-  byte index=0;
-  byte identifier=0;
-  byte b1=255,b2=255;
-  boolean boolhelp=false;
-
-  while(Serial.available())
-  {
-    byte val = Serial.read();
-    if(index==0){ 
-      identifier = val;
-      Serial.println(int(val));
-    }
-    else 
-    {
-      switch(identifier)
-      {
-      case 0: //information request 
-        if(index==1) b1=val; //which info type
-        else if(index==2)boolhelp = (val==1); //on or off
-        break;
-      case 1: //dasboard
-      case 2: //tunings
-      case 3: //autotune
-        if(index==1) b1 = val;
-        else if(index<14)foo.asBytes[index-2] = val; 
-        break;
-      case 4: //EEPROM reset
-        if(index==1) b1 = val; 
-        break;
-      case 5: //input configuration
-        if (index==1)InputSerialReceiveStart();
-        InputSerialReceiveDuring(val, index);
-        break;
-      case 6: //output configuration
-        if (index==1)OutputSerialReceiveStart();
-        OutputSerialReceiveDuring(val, index);
-        break;
-      case 7:  //receiving profile
-        if(index==1) b1=val;
-        else if(b1>=nProfSteps) profname[index-2] = char(val); 
-        else if(index==2) proftypes[b1] = val;
-        else foo.asBytes[index-3] = val;
-
-        break;
-      case 8: //profile command
-        if(index==1) b2=val;
-        break;
-      default:
-        break;
-      }
-    }
-    index++;
-  }
-
-  //we've received the information, time to act
-  switch(identifier)
-  {
-  case 0: //information request
-    switch(b1)
-    {
-    case 0:
-      sendInfo = true; 
-      sendInputConfig=true;
-      sendOutputConfig=true;
-      break;
-    case 1: 
-      sendDash = boolhelp;
-      break;
-    case 2: 
-      sendTune = boolhelp;
-      break;
-    case 3: 
-      sendInputConfig = boolhelp;
-      break;
-    case 4: 
-      sendOutputConfig = boolhelp;
-      break;
-    default: 
-      break;
-    }
-    break;
-  case 1: //dashboard
-    if(index==14  && b1<2)
-    {
-      setpoint=double(foo.asFloat[0]);
-      //Input=double(foo.asFloat[1]);       // * the user has the ability to send the 
-      //   value of "Input"  in most cases (as 
-      //   in this one) this is not needed.
-      if(b1==0)                       // * only change the output if we are in 
-      {                                     //   manual mode.  otherwise we'll get an
-        output=double(foo.asFloat[2]);      //   output blip, then the controller will 
-      }                                     //   overwrite.
-
-      if(b1==0) myPID.SetMode(MANUAL);// * set the controller mode
-      else myPID.SetMode(AUTOMATIC);             //
-      EEPROMBackupDash();
-      ackDash=true;
-    }
-    break;
-  case 2: //Tune
-    if(index==14 && (b1<=1))
-    {
-      // * read in and set the controller tunings
-      kp = double(foo.asFloat[0]);           //
-      ki = double(foo.asFloat[1]);           //
-      kd = double(foo.asFloat[2]);           //
-      ctrlDirection = b1;
-      myPID.SetTunings(kp, ki, kd);            //    
-      if(b1==0) myPID.SetControllerDirection(DIRECT);// * set the controller Direction
-      else myPID.SetControllerDirection(REVERSE);          //
-      EEPROMBackupTunings();
-      ackTune = true;
-    }
-    break;
-  case 3: //ATune
-    if(index==14 && (b1<=1))
-    {
-
-      aTuneStep = foo.asFloat[0];
-      aTuneNoise = foo.asFloat[1];    
-      aTuneLookBack = (unsigned int)foo.asFloat[2];
-      if((!tuning && b1==1)||(tuning && b1==0))
-      { //toggle autotune state
-        changeAutoTune();
-      }
-      EEPROMBackupATune();
-      ackTune = true;   
-    }
-    break;
-  case 4: //EEPROM reset
-    if(index==2 && b1<2) EEPROM.write(0,0); //eeprom will re-write on next restart
-    break;
-  case 5: //input configuration
-    InputSerialReceiveAfter(eepromInputOffset);
-    sendInputConfig=true;
-    break;
-  case 6: //ouput configuration
-    OutputSerialReceiveAfter(eepromOutputOffset);
-    sendOutputConfig=true;
-    break;
-  case 7: //receiving profile
-
-    if((index==11 || (b1>=nProfSteps && index==9) ))
-    {
-      if(!receivingProfile && b1!=0)
-      { //there was a timeout issue.  reset this transfer
-        receivingProfile=false;
-        Serial.println("ProfError");
-        EEPROMRestoreProfile();
-      }
-      else if(receivingProfile || b1==0)
-      {
-        if(runningProfile)
-        { //stop the current profile execution
-          StopProfile();
-        }
-          
-        if(b1==0)
-        {
-          receivingProfile = true;
-          profReceiveStart = millis();
-        }
-
-        if(b1>=nProfSteps)
-        { //getting the name is the last step
-          receivingProfile=false; //last profile step
-          Serial.print("ProfDone ");
-          Serial.println(profname);
-          EEPROMBackupProfile();
-          Serial.println("Archived");
-        }
-        else
-        {
-          profvals[b1] = foo.asFloat[0];
-          proftimes[b1] = (unsigned long)(foo.asFloat[1] * 1000);
-          Serial.print("ProfAck ");
-          Serial.print(b1);           
-          Serial.print(" ");
-          Serial.print(proftypes[b1]);           
-          Serial.print(" ");
-          Serial.print(profvals[b1]);           
-          Serial.print(" ");
-          Serial.println(proftimes[b1]);           
-        }
-      }
-    }
-    break;
-  case 8:
-    if(index==2 && b2<2)
-    {
-      if(b2==1) StartProfile();
-      else StopProfile();
-
-    }
-    break;
-  default: 
-    break;
-  }
-}
-
-
-// unlike our tiny microprocessor, the processing ap
-// has no problem converting strings into floats, so
-// we can just send strings.  much easier than getting
-// floats from processing to here no?
-void SerialSend()
-{
-  if(sendInfo)
-  {//just send out the stock identifier
-    Serial.print("\nosPID v1.50");
-    InputSerialID();
-    OutputSerialID();
-    Serial.println("");
-    sendInfo = false; //only need to send this info once per request
-  }
-  if(sendDash)
-  {
-    Serial.print("DASH ");
-    Serial.print(setpoint); 
-    Serial.print(" ");
-    if(isnan(input)) Serial.print("Error");
-    else Serial.print(input); 
-    Serial.print(" ");
-    Serial.print(output); 
-    Serial.print(" ");
-    Serial.print(myPID.GetMode());
-    Serial.print(" ");
-    Serial.println(ackDash?1:0);
-    if(ackDash)ackDash=false;
-  }
-  if(sendTune)
-  {
-    Serial.print("TUNE ");
-    Serial.print(myPID.GetKp()); 
-    Serial.print(" ");
-    Serial.print(myPID.GetKi()); 
-    Serial.print(" ");
-    Serial.print(myPID.GetKd()); 
-    Serial.print(" ");
-    Serial.print(myPID.GetDirection()); 
-    Serial.print(" ");
-    Serial.print(tuning?1:0);
-    Serial.print(" ");
-    Serial.print(aTuneStep); 
-    Serial.print(" ");
-    Serial.print(aTuneNoise); 
-    Serial.print(" ");
-    Serial.print(aTuneLookBack); 
-    Serial.print(" ");
-    Serial.println(ackTune?1:0);
-    if(ackTune)ackTune=false;
-  }
-  if(sendInputConfig)
-  {
-    Serial.print("IPT ");
-    InputSerialSend();
-    sendInputConfig=false;
-  }
-  if(sendOutputConfig)
-  {
-    Serial.print("OPT ");
-    OutputSerialSend();
-    sendOutputConfig=false;
-  }
-  if(runningProfile)
-  {
-    Serial.print("PROF ");
-    Serial.print(int(curProfStep));
-    Serial.print(" ");
-    Serial.print(int(curType));
-    Serial.print(" ");
-switch(curType)
-{
-  case 1: //ramp
-    Serial.println((helperTime-now)); //time remaining
-     
-  break;
-  case 2: //wait
-    Serial.print(abs(input-setpoint));
-    Serial.print(" ");
-    Serial.println(curVal==0? -1 : float(now-helperTime));
-  break;  
-  case 3: //step
-    Serial.println(curTime-(now-helperTime));
-  break;
-  default: 
-  break;
-  
-}
-
-  }
-  
-}
-
-
-
-
-
-
-
 
 
