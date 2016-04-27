@@ -36,7 +36,7 @@ unsigned long now, lcdTime, buttonTime,ioTime, serialTime;
 boolean sendInfo=true, sendDash=true, sendTune=true, sendInputConfig=true, sendOutputConfig=true;
 
 bool editing=false;
-
+bool inputOk = true;
 bool tuning = false;
 
 double setpoint=250,input=250,output=50, pidInput=250;
@@ -116,7 +116,7 @@ void setup()
   lcd.setCursor(0,0);
   lcd.print(F(" osPID   "));
   lcd.setCursor(0,1);
-  lcd.print(F(" v1.60   "));
+  lcd.print(F(" v1.70   "));
   delay(1000);
 
   initializeEEPROM();
@@ -178,7 +178,8 @@ void loop()
     pidInput = input;
 #else
     input =  ReadInputFromCard();
-    if(!isnan(input))pidInput = input;
+    inputOk = !isnan(input);
+    if(inputOk)pidInput = input;
 
 #endif /*USE_SIMULATION*/
   }
@@ -208,7 +209,7 @@ void loop()
   {
     if(runningProfile) ProfileRunTime();
     //allow the pid to compute if necessary
-    myPID.Compute();
+    if(inputOk) myPID.Compute();
   }
 
 
@@ -221,7 +222,8 @@ void loop()
 #ifdef USE_SIMULATION
     theta[29] = output;
 #else
-    //send to output card
+    if(!inputOk) output = 0;  // Ensure output is zero when input is invalid
+    // Send to output card
     WriteToOutputCard(output);
 #endif /*USE_SIMULATION*/  
 
@@ -1230,7 +1232,7 @@ void SerialSend()
 {
   if(sendInfo)
   {//just send out the stock identifier
-    Serial.print("\nosPID v1.50");
+    Serial.print("\nosPID v1.60");
     InputSerialID();
     OutputSerialID();
     Serial.println("");

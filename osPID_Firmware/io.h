@@ -142,7 +142,18 @@ double readThermistorTemp(int voltage)
 double ReadInputFromCard()
 {
   if(inputType == 0) return thermocouple.readCelsius();
-  else if(inputType == 1) return readThermistorTemp(analogRead(thermistorPin));
+  else if(inputType == 1)
+  {
+    int adcReading = analogRead(thermistorPin);
+    if ((adcReading == 0) || (adcReading == 1023))
+    {
+      return NAN;
+    }
+    else
+    {
+      return readThermistorTemp(adcReading);
+    }
+  }
 }
 #endif /*TEMP_INPUT_V110*/
 
@@ -243,7 +254,19 @@ double ReadInputFromCard()
    if (val==FAULT_OPEN|| val==FAULT_SHORT_GND|| val==FAULT_SHORT_VCC)val = NAN;
    return val;
  }
-  else if(inputType == 1) return readThermistorTemp(analogRead(thermistorPin));
+  else if(inputType == 1)
+  {
+    int adcReading = analogRead(thermistorPin);
+    // If either thermistor or reference resistor is not connected
+    if ((adcReading == 0) || (adcReading == 1023))
+    {
+      return NAN;
+    }
+    else
+    {
+      return readThermistorTemp(adcReading);
+    }
+  }
 }
 #endif /*TEMP_INPUT_V120*/
 
