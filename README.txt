@@ -1,15 +1,18 @@
 /********************************************************
- * osPID Firmware,  Version 1.6
+ * osPID Firmware,  Version 1.7
  * by Brett Beauregard & Rocket Scream
  * License: GPLv3 & BSD License (For autotune)
- * August 2012
+ * 27 April 2016
  ********************************************************/
 
  NOTE:  THIS FIRMWARE IS CONFIGURED FOR DIGITAL OUTPUT CARD 
 		V1.5 & TEMPERATURE INPUT CARD V1.2.  IF YOU ARE USING 
 		A DIFFERENT I/O CONFIGURATION BE SURE TO UN-COMMENT THE 
 		APPROPRIATE	#DEFINE STATEMENTS IN IO.H.
- 
+
+Updates for version 1.7
+-output is disabled if input is in error state for both thermistor and thermocouple
+
 Updates for version 1.6
 -added support for v1.5 of the Temperature Input card (MAX31855 Thermocouple chip)
  
