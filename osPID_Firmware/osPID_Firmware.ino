@@ -1232,7 +1232,7 @@ void SerialSend()
 {
   if(sendInfo)
   {//just send out the stock identifier
-    Serial.print("\nosPID v1.60");
+    Serial.print("\nosPID v1.70");
     InputSerialID();
     OutputSerialID();
     Serial.println("");
